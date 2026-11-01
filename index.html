@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.4.1";
+const APP_VER="1.4.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -252,13 +252,13 @@ const DEFAULT_CFG = {
   perfilMl:{corrediza:28000,proyectante:30000,fija:18000,puerta:45000,division:35000,pasamanos:40000},
   accesorios:{s744:0,s8025:0,corrediza:35000,proyectante:45000,fija:0,puerta:120000,division:180000,pasamanos:25000},
   series:{
-    s744:{perfiles:[
+    s744:{rod:{nylon:6000,abb:12000},perfiles:[
       {nombre:"Cabezal",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},{nombre:"Sillar",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},
       {nombre:"Jamba",precio:65000,base:"H",c2:2,c3:2,c4:2,cobro:"metro"},{nombre:"Enganche",precio:72000,base:"HN",c2:2,c3:2,c4:2,cobro:"metro"},
       {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6,cobro:"metro"},{nombre:"Superior",precio:52000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},
       {nombre:"Inferior",precio:70000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},{nombre:"Adaptador",precio:30000,base:"H",c2:0,c3:0,c4:1,cobro:"metro"}],
       vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}},
-    s8025:{perfiles:[
+    s8025:{rod:{nylon:6000,abb:12000},perfiles:[
       {nombre:"Cabezal",precio:95000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},{nombre:"Sillar",precio:85000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},
       {nombre:"Jamba",precio:95000,base:"H",c2:2,c3:2,c4:2,cobro:"min3"},{nombre:"Enganche",precio:115000,base:"HN",c2:2,c3:2,c4:2,cobro:"min3"},
       {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6,cobro:"min3"},{nombre:"Zócalo superior",precio:100000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},
@@ -293,7 +293,9 @@ function clone(o){return JSON.parse(JSON.stringify(o))}
 /* Ajusta configuraciones guardadas antes de las reglas nuevas de 744/8025 */
 function migrarCfg(c){if((c.rev||0)<3){for(const sc of Object.values(c.series||{}))for(const p of sc.perfiles||[]){
     if(/superior|inferior/i.test(p.nombre)&&(p.base==="AN"||p.base==="A2")){p.base="AN";p.c2=2;p.c3=3;p.c4=4}
-    if(/adaptador/i.test(p.nombre)&&p.base==="ANF"){p.base="H";p.c2=0;p.c3=0;p.c4=1}}c.rev=3}return c}
+    if(/adaptador/i.test(p.nombre)&&p.base==="ANF"){p.base="H";p.c2=0;p.c3=0;p.c4=1}}c.rev=3}
+  if((c.rev||0)<4){for(const sc of Object.values(c.series||{}))sc.rod={...(c.rodamientos||{nylon:0,abb:0})};c.rev=4}
+  return c}
 function mergeCfg(base,over){const o=clone(base);for(const k in over){if(over[k]&&typeof over[k]==="object"&&!Array.isArray(over[k])&&o[k]&&typeof o[k]==="object"&&!Array.isArray(o[k]))o[k]=mergeCfg(o[k],over[k]);else o[k]=over[k]}return o}
 
 /* ============ Utilidades ============ */
@@ -449,6 +451,8 @@ function cobroPerfil(modo,m,tira){
 const redV=mm=>{const r=(S.cfg.redondeoVidrio||0)*10;return r?Math.ceil(mm/r-1e-9)*r:mm};
 /* Instalación predeterminada de cada tipo de sistema */
 function instDe(tipo){const t=S.cfg.instalacionTipo||{};return t[tipo]!=null&&t[tipo]!==""?+t[tipo]:(+S.cfg.instalacion||0)}
+/* Precio del rodamiento según la serie (744 y 8025 usan rodamientos distintos) */
+function precioRod(tipo,rod){const k=rod==="abb"?"abb":"nylon",r=S.cfg.series[tipo]?.rod;return +(r&&r[k]!=null?r[k]:S.cfg.rodamientos[k])||0}
 function calcCot(items,opts){opts=opts||{};
   const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[],vpz={};const marmoMedia=opts.marmoMedia!==false;
   items.forEach((it,i)=>{
@@ -470,7 +474,7 @@ function calcCot(items,opts){opts=opts||{};
     lin[i].vid=m2*(vidrioDe(it.vidrio).m2||0)*q;lin[i].m2=m2*q;
     if(opts.vidrioLamina){const vv=vidrioDe(it.vidrio),key=vv.id||it.vidrio;for(const v of dp.vidrios)for(let k=0;k<v.cant*q;k++)(vpz[key]=vpz[key]||[]).push({i,w:v.ancho,h:v.alto,costo:redV(v.ancho)*redV(v.alto)/1e6*(+vv.m2||0)})}
     let acc=(cfg.accesorios[it.tipo]||0);
-    if(ser){for(const [n,c] of dp.acc){if(n.startsWith("Rodamientos"))acc+=c*(cfg.rodamientos[it.rod==="abb"?"abb":"nylon"]||0);if(n.startsWith("Empaque"))acc+=c*(cfg.empaqueMl||0)}}
+    if(ser){for(const [n,c] of dp.acc){if(n.startsWith("Rodamientos"))acc+=c*precioRod(it.tipo,it.rod);if(n.startsWith("Empaque"))acc+=c*(cfg.empaqueMl||0)}}
     if(pta){for(const [n,c,k] of dp.acc)if(k)acc+=c*precioAccPta(k)}
     lin[i].acc=acc*q;
     lin[i].inst=(it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo))*q;
@@ -764,7 +768,7 @@ function itemSheetHtml(){
   <div class="field"><label>Tipo</label><div class="seg">${Object.entries(TIPOS).filter(([k,t])=>!t.oculto||k===it.tipo).map(([k,t])=>`<button data-act="it-tipo" data-v="${k}" aria-pressed="${it.tipo===k}">${t.corto}</button>`).join("")}</div></div>
   ${ser?`<div class="field"><label>Naves</label><div class="seg">${[2,3,4].map(k=>`<button data-act="it-naves" data-v="${k}" aria-pressed="${n===k}">${k} naves</button>`).join("")}</div></div>
   <div class="field"><label>Distribución</label><div class="seg">${dists.map(([k,t])=>`<button data-act="it-dist" data-v="${k}" aria-pressed="${(dists.length===1)||(it.dist==="FC"?"FI":it.dist)===k}">${t}</button>`).join("")}</div></div>
-  <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(S.cfg.rodamientos[k])}</button>`).join("")}</div></div>`:""}
+  <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(precioRod(it.tipo,k))}</button>`).join("")}</div></div>`:""}
   ${TIPOS[it.tipo]?.puerta?ptaOpciones(it):""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
   <div class="fgrid">
@@ -974,6 +978,10 @@ function vAjustes(){
      <td>${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}</td></tr>`).join("")}
    </tbody></table></div>
    <span class="small muted">2N, 3N y 4N: cuántas piezas lleva cada ventana según sus naves. "Ancho nave fija" se multiplica por las naves fijas.</span>
+   <h3>Rodamientos ${TIPOS[k].corto}</h3><div class="fgrid">
+    <div class="field"><label for="rn-${k}">Nylon $/unidad</label><input id="rn-${k}" inputmode="numeric" data-cfg="series.${k}.rod.nylon" value="${sc.rod?.nylon??0}"></div>
+    <div class="field"><label for="ra-${k}">ABB $/unidad</label><input id="ra-${k}" inputmode="numeric" data-cfg="series.${k}.rod.abb" value="${sc.rod?.abb??0}"></div></div>
+   <span class="small muted">Cada nave corrediza lleva 2 rodamientos.</span>
    <h3>Vidrio (descuentos en cm)</h3>
    <div class="tbl-wrap"><table><thead><tr><th>Naves</th><th class="n">Desc. ancho total</th><th class="n">Desc. alto corrediza</th><th class="n">Desc. alto fija</th></tr></thead><tbody>
    ${["2","3","4"].map(n=>`<tr><td>${n} naves</td>${["dA","hC","hF"].map(f=>`<td class="n"><input aria-label="${f} ${n} naves" inputmode="decimal" data-cfg="series.${k}.vid.${n}.${f}" value="${String(sc.vid[n][f]).replace(".",",")}" class="cin" style="width:70px;text-align:right"></td>`).join("")}</tr>`).join("")}
@@ -996,8 +1004,6 @@ function vAjustes(){
     <div class="field"><label>Tira cielorraso: útil × largo (cm)</label><div class="row"><input aria-label="Ancho útil cielorraso" inputmode="numeric" data-cfg="puertas.cielo.ancho" value="${c.puertas.cielo.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Largo tira cielorraso" inputmode="numeric" data-cfg="puertas.cielo.largo" value="${c.puertas.cielo.largo}" class="cin" style="width:70px;text-align:right"></div></div></div>
    <span class="small muted">El marmolizado se cobra por lámina entera, o media lámina cuando lo que sobra cabe en la mitad. El cielorraso se cobra por tira entera.</span></div>
   <div class="panel"><h2>Accesorios y vidrio</h2><div class="fgrid">
-   <div class="field"><label for="r-ny">Rodamiento nylon $/unidad</label><input id="r-ny" inputmode="numeric" data-cfg="rodamientos.nylon" value="${c.rodamientos.nylon}"></div>
-   <div class="field"><label for="r-abb">Rodamiento ABB $/unidad</label><input id="r-abb" inputmode="numeric" data-cfg="rodamientos.abb" value="${c.rodamientos.abb}"></div>
    <div class="field"><label for="emp">Empaque $/metro</label><input id="emp" inputmode="numeric" data-cfg="empaqueMl" value="${c.empaqueMl}"><span class="hint">Se calcula con el perímetro de todos los vidrios.</span></div>
    <div class="field"><label for="rv">Redondeo de vidrio (cm)</label><input id="rv" inputmode="numeric" data-cfg="redondeoVidrio" value="${c.redondeoVidrio}"><span class="hint">Cada medida se cobra al siguiente múltiplo.</span></div></div></div>
   <div class="panel"><h2>Otros tipos</h2>
