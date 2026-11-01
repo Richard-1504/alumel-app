@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.4.0";
+const APP_VER="1.4.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -426,11 +426,11 @@ function despiece(it){
 }
 /* Distribución de naves: F = fija, C = corrediza */
 function layout(it){const n=it.naves||2,d=it.dist;
-  if(n===2)return d==="FC"?["F","C"]:["C","C"];
+  if(n===2)return d==="FD"?["C","F"]:d==="CC"?["C","C"]:["F","C"];
   if(n===3)return d==="FD"?["C","C","F"]:["F","C","C"];
   return ["F","C","C","F"];}
 function distNombre(it){const n=it.naves||2,d=it.dist;
-  if(n===2)return d==="FC"?"fija + corrediza":"2 corredizas";if(n===3)return d==="FD"?"fija a la derecha":"fija a la izquierda";return "F-C-C-F"}
+  if(n===2)return d==="CC"?"2 corredizas":d==="FD"?"fija a la derecha":"fija a la izquierda";if(n===3)return d==="FD"?"fija a la derecha":"fija a la izquierda";return "F-C-C-F"}
 /* Regla de cobro de perfil por referencia (consumo acumulado de toda la cotización) */
 /* Formas de cobrar cada referencia de perfil. Las tiras completas se cobran como tira;
    lo que sobra se cobra por metro (redondeado al metro siguiente) a precio de tira ÷ 5,
@@ -751,7 +751,7 @@ function vCotizar(){
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
 function itemSheet(i){
-  const base={tipo:"s744",naves:2,dist:"CC",rod:"nylon",tab1:"f06",nave:"t87",tab15:"t166",orient:"H",mediaLam:true,instalacion:instDe("s744"),hojas:2,ancho:1500,alto:1200,cant:1,vidrio:S.cfg.vidrios[0]?.id||"",color:S.cfg.colores[0]?.nombre||"",ubicacion:"",precioManual:0,conPerfil:false};
+  const base={tipo:"s744",naves:2,dist:"FI",rod:"nylon",tab1:"f06",nave:"t87",tab15:"t166",orient:"H",mediaLam:true,instalacion:instDe("s744"),hojas:2,ancho:1500,alto:1200,cant:1,vidrio:S.cfg.vidrios[0]?.id||"",color:S.cfg.colores[0]?.nombre||"",ubicacion:"",precioManual:0,conPerfil:false};
   const it=i!=null?{...S.draft.items[i]}:base;
   S.itemTmp=it;S.itemIdx=i;
   openSheet(()=>itemSheetHtml());
@@ -759,11 +759,11 @@ function itemSheet(i){
 function itemSheetHtml(){
   const it=S.itemTmp,ser=TIPOS[it.tipo]?.serie,n=it.naves||2;
   const conHojas=it.tipo==="corrediza";
-  const dists=n===2?[["CC","2 corredizas"],["FC","Fija + corrediza"]]:n===3?[["FI","Fija izquierda"],["FD","Fija derecha"]]:[["FCCF","Fija · Corr · Corr · Fija"]];
+  const dists=n===2?[["FI","Fija izquierda"],["FD","Fija derecha"],["CC","Ambas corredizas"]]:n===3?[["FI","Fija izquierda"],["FD","Fija derecha"]]:[["FCCF","Fija · Corr · Corr · Fija"]];
   return `<div class="sheet-h"><h2>${S.itemIdx!=null?"Editar ítem":"Agregar ítem"}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
   <div class="field"><label>Tipo</label><div class="seg">${Object.entries(TIPOS).filter(([k,t])=>!t.oculto||k===it.tipo).map(([k,t])=>`<button data-act="it-tipo" data-v="${k}" aria-pressed="${it.tipo===k}">${t.corto}</button>`).join("")}</div></div>
   ${ser?`<div class="field"><label>Naves</label><div class="seg">${[2,3,4].map(k=>`<button data-act="it-naves" data-v="${k}" aria-pressed="${n===k}">${k} naves</button>`).join("")}</div></div>
-  <div class="field"><label>Distribución</label><div class="seg">${dists.map(([k,t])=>`<button data-act="it-dist" data-v="${k}" aria-pressed="${(dists.length===1)||it.dist===k}">${t}</button>`).join("")}</div></div>
+  <div class="field"><label>Distribución</label><div class="seg">${dists.map(([k,t])=>`<button data-act="it-dist" data-v="${k}" aria-pressed="${(dists.length===1)||(it.dist==="FC"?"FI":it.dist)===k}">${t}</button>`).join("")}</div></div>
   <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(S.cfg.rodamientos[k])}</button>`).join("")}</div></div>`:""}
   ${TIPOS[it.tipo]?.puerta?ptaOpciones(it):""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
@@ -1102,7 +1102,7 @@ document.addEventListener("click",async ev=>{
     case"borrar-obra":confirmar("Se borra la obra y su cotización. Las cuentas de cobro quedan.","Eliminar obra",async()=>{await borrar("obras",id);go("obras")});break;
     case"nuevo-item":itemSheet(null);break;
     case"editar-item":itemSheet(+b.dataset.i);break;
-    case"it-tipo":{const t=b.dataset.v;S.itemTmp.tipo=t;S.itemTmp.instalacion=instDe(t);if(TIPOS[t].serie&&!S.itemTmp.naves){S.itemTmp.naves=2;S.itemTmp.dist="CC";S.itemTmp.rod="nylon"}if(t==="pasamanos"){S.itemTmp.alto=850;const tv=S.cfg.vidrios.find(v=>/templ/i.test(v.nombre));if(tv)S.itemTmp.vidrio=tv.id}
+    case"it-tipo":{const t=b.dataset.v;S.itemTmp.tipo=t;S.itemTmp.instalacion=instDe(t);if(TIPOS[t].serie&&!S.itemTmp.naves){S.itemTmp.naves=2;S.itemTmp.dist="FI";S.itemTmp.rod="nylon"}if(t==="pasamanos"){S.itemTmp.alto=850;const tv=S.cfg.vidrios.find(v=>/templ/i.test(v.nombre));if(tv)S.itemTmp.vidrio=tv.id}
       if(t==="division"){S.itemTmp.hojas=2;S.itemTmp.alto=S.itemTmp.alto<1700?1900:S.itemTmp.alto;const tv=S.cfg.vidrios.find(v=>/templ/i.test(v.nombre));if(tv)S.itemTmp.vidrio=tv.id}
       if(TIPOS[t].puerta){const d=S.itemTmp;d.tab1=d.tab1||"f06";d.nave=d.nave||"t87";d.tab15=d.tab15||"t166";d.orient=d.orient||"H";if(d.mediaLam==null)d.mediaLam=true;
         if(d.alto<1800)d.alto=2100;if(d.ancho>1300)d.ancho=900}
@@ -1110,7 +1110,7 @@ document.addEventListener("click",async ev=>{
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
-    case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"CC":n===3?"FI":"FCCF";refreshSheet();break}
+    case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"FI":n===3?"FI":"FCCF";refreshSheet();break}
     case"it-dist":S.itemTmp.dist=b.dataset.v;refreshSheet();break;
     case"it-rod":S.itemTmp.rod=b.dataset.v;refreshSheet();break;
     case"guardar-item":{const it=S.itemTmp;if(!(it.ancho>0&&it.alto>0)){toast("Escribe ancho y alto");return}
