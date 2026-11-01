@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.3.0";
+const APP_VER="1.3.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -252,13 +252,13 @@ const DEFAULT_CFG = {
   perfilMl:{corrediza:28000,proyectante:30000,fija:18000,puerta:45000,division:35000,pasamanos:40000},
   accesorios:{s744:0,s8025:0,corrediza:35000,proyectante:45000,fija:0,puerta:120000,division:180000,pasamanos:25000},
   series:{
-    s744:{traslapeNave:30,altoNave:40,perfiles:[
+    s744:{perfiles:[
       {nombre:"Cabezal",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},{nombre:"Sillar",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},
       {nombre:"Jamba",precio:65000,base:"H",c2:2,c3:2,c4:2,cobro:"metro"},{nombre:"Enganche",precio:72000,base:"HN",c2:2,c3:2,c4:2,cobro:"metro"},
       {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6,cobro:"metro"},{nombre:"Superior",precio:52000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},
       {nombre:"Inferior",precio:70000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},{nombre:"Adaptador",precio:30000,base:"ANF",c2:1,c3:1,c4:1,cobro:"metro"}],
       vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}},
-    s8025:{traslapeNave:30,altoNave:40,perfiles:[
+    s8025:{perfiles:[
       {nombre:"Cabezal",precio:95000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},{nombre:"Sillar",precio:85000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},
       {nombre:"Jamba",precio:95000,base:"H",c2:2,c3:2,c4:2,cobro:"min3"},{nombre:"Enganche",precio:115000,base:"HN",c2:2,c3:2,c4:2,cobro:"min3"},
       {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6,cobro:"min3"},{nombre:"Zócalo superior",precio:100000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},
@@ -391,7 +391,7 @@ function despiece(it){
   switch(it.tipo){
     case"p1":case"p15":despiecePuerta(it,P,acc,T);break;
     case"s744":case"s8025":{const sc=S.cfg.series[it.tipo],n=it.naves||2,lay=layout(it),fijas=lay.filter(x=>x==="F").length,corr=n-fijas;
-      const AN=(A+(sc.traslapeNave||0)*(n-1))/n,HN=H-(sc.altoNave||0);
+      const AN=A/n,HN=H;
       for(const p of sc.perfiles){const c=+p["c"+n]||0;if(!c)continue;let L=A,q=c;
         if(p.base==="H")L=H;else if(p.base==="AN")L=AN;else if(p.base==="HN")L=HN;else if(p.base==="ANF"){L=AN;q=c*fijas}
         per(p.nombre,L,q)}
