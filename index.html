@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.6.0";
+const APP_VER="1.7.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -972,6 +972,12 @@ function vAjustes(){
   return `<button class="linkish" data-act="go" data-v="obras">← Volver</button>
   <div class="head"><div><div class="eyebrow">Configuración compartida</div><h1>Ajustes</h1></div></div>
   <div class="note info">Los cambios se guardan solos mientras escribes. <b id="cfg-estado"></b>${S.offline?"<br>Ojo: la base de datos en la nube no está conectada, así que estos ajustes quedan solo en este equipo y en este navegador.":""}</div>
+  <div class="panel"><h2>Firma</h2>
+   ${e.firma?`<div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;justify-content:center"><img src="${e.firma}" alt="Tu firma" style="max-height:90px;max-width:100%"></div>
+    <span class="small muted">Sale en cotizaciones, cuentas de cobro, recibos de abono y estados de cuenta.</span>`:`<span class="small muted">Aún no hay firma. Dibújala con el dedo o sube una foto de tu firma hecha en papel blanco.</span>`}
+   <div class="fgrid"><button class="btn" data-act="firma-dibujar">${e.firma?"Dibujar otra":"Dibujar firma"}</button>
+    <label class="btn" for="firma-file" style="cursor:pointer">Subir foto<input id="firma-file" type="file" accept="image/*" hidden></label>
+    ${e.firma?`<button class="btn danger full" data-act="firma-quitar">Quitar firma</button>`:""}</div></div>
   <div class="panel"><h2>Empresa</h2><div class="fgrid">
    <div class="field full"><label for="e-nom">Nombre comercial</label><input id="e-nom" data-cfg="empresa.nombre" value="${esc(e.nombre)}"></div>
    <div class="field full"><label for="e-prop">Propietario (quien cobra)</label><input id="e-prop" data-cfg="empresa.propietario" value="${esc(e.propietario)}"></div>
@@ -1069,6 +1075,27 @@ async function revisarVersion(){if(!navigator.onLine||$("#upd"))return;try{const
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")revisarVersion()});
 window.addEventListener("load",()=>{const v=$("#ver");if(v)v.textContent=APP_VER;setTimeout(revisarVersion,3000)});
 
+/* ============ Firma ============ */
+/* Recorta lo blanco alrededor, vuelve transparente el fondo claro y la deja en tinta oscura */
+function procesarFirma(src){const W=src.width,H=src.height,cx=src.getContext("2d"),d=cx.getImageData(0,0,W,H),p=d.data;let x0=W,y0=H,x1=-1,y1=-1;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const k=(y*W+x)*4,lum=(p[k]*0.3+p[k+1]*0.59+p[k+2]*0.11),a=p[k+3];
+    if(a<10||lum>165){p[k+3]=0}else{p[k]=16;p[k+1]=35;p[k+2]=58;p[k+3]=Math.min(255,a*(1-lum/255)*2.2+60);if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  if(x1<0)return null;cx.putImageData(d,0,0);const m=6;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(W-1,x1+m);y1=Math.min(H-1,y1+m);
+  const w=x1-x0+1,h=y1-y0+1,sc=Math.min(1,600/w),out=document.createElement("canvas");out.width=Math.round(w*sc);out.height=Math.max(1,Math.round(h*sc));
+  out.getContext("2d").drawImage(src,x0,y0,w,h,0,0,out.width,out.height);return {url:out.toDataURL("image/png"),ratio:out.width/out.height}}
+function guardarFirma(r){if(!r){toast("No se encontró la firma en la imagen");return false}const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));c.empresa.firma=r.url;c.empresa.firmaRatio=r.ratio;
+  S.cfgTimer=1;guardarCfgYa();toast("Firma guardada");return true}
+function firmaSheet(){openSheet(()=>`<div class="sheet-h"><h2>Dibuja tu firma</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+  <span class="small muted">Firma con el dedo dentro del recuadro. Gira el teléfono si necesitas más espacio.</span>
+  <canvas id="firma-pad" style="width:100%;height:200px;background:#fff;border:1.5px dashed var(--line);border-radius:8px;touch-action:none"></canvas>
+  <div class="row"><button class="btn grow" data-act="firma-limpiar">Borrar</button><button class="btn pri grow" data-act="firma-ok">Guardar firma</button></div>`);
+  const cv=$("#firma-pad"),r=cv.getBoundingClientRect(),dpr=Math.max(2,window.devicePixelRatio||1);cv.width=r.width*dpr;cv.height=r.height*dpr;
+  const g=cv.getContext("2d");g.scale(dpr,dpr);g.lineWidth=2.6;g.lineCap="round";g.lineJoin="round";g.strokeStyle="#10233a";S.firmaTrazo=false;let dn=false,lx=0,ly=0;
+  const pos=e=>{const b=cv.getBoundingClientRect();return [e.clientX-b.left,e.clientY-b.top]};
+  cv.addEventListener("pointerdown",e=>{dn=true;try{cv.setPointerCapture(e.pointerId)}catch(er){}[lx,ly]=pos(e);g.beginPath();g.arc(lx,ly,1.2,0,7);g.fillStyle="#10233a";g.fill();S.firmaTrazo=true});
+  cv.addEventListener("pointermove",e=>{if(!dn)return;const [x,y]=pos(e);g.beginPath();g.moveTo(lx,ly);g.lineTo(x,y);g.stroke();lx=x;ly=y});
+  const up=()=>{dn=false};cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up)}
+
 /* ============ Sheet ============ */
 let sheetFn=null;
 function openSheet(fn){sheetFn=fn;$("#sheet-root").innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${fn()}</div></div>`;document.body.style.overflow="hidden"}
@@ -1112,9 +1139,12 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
   y+=3;if(y>215){doc.addPage();y=20}doc.setFontSize(10);
   [["Materiales (perfilería)",R.perfiles],["Vidrio",R.vidrio],["Tableros PVC",R.tableros||0],["Accesorios",R.accesorios],["Instalación",R.instalacion],["Precio manual",R.manual],[S.cfg.margen?"Margen y redondeo":"Redondeo",Math.abs(R.ajuste)>=1?R.ajuste:0]].filter(r=>r[1]).forEach(([t,v])=>{doc.text(t,124,y);doc.text(money(v),200,y,{align:"right"});y+=5.5});
   y+=4;doc.setFillColor(42,54,66);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(24,33,43);
-  y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5)}
+  y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5);y+=doc.splitTextToSize(o.notas,180).length*4+8}
+  if(S.cfg.empresa.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
   guardarArchivo("Cotizacion_COT-"+pad(o.numero||0)+".pdf",doc)}
-function pdfFirma(doc,y){const e=S.cfg.empresa;doc.setDrawColor(24,33,43);doc.line(16,y,90,y);doc.setFontSize(10);doc.setFont("helvetica","normal");doc.text(e.propietario||e.nombre,16,y+5);if(e.cc)doc.text("C.C. "+e.cc,16,y+10)}
+function pdfFirma(doc,y){const e=S.cfg.empresa;
+  if(e.firma){try{const r=+e.firmaRatio||3;let w=60,h=w/r;if(h>22){h=22;w=h*r}doc.addImage(e.firma,"PNG",18,y-h-1,w,h)}catch(er){}}
+  doc.setDrawColor(24,33,43);doc.line(16,y,90,y);doc.setFontSize(10);doc.setFont("helvetica","normal");doc.text(e.propietario||e.nombre,16,y+5);if(e.cc)doc.text("C.C. "+e.cc,16,y+10)}
 function pdfRecibo(o,i){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const a=o.abonos[i],cl=cliente(o.clienteId),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"RECIBO DE ABONO","No. RC-"+pad(a.rc));
   const ord=pagosOrdenados(o),pos=ord.findIndex(p=>p.src==="obra"&&p.i===i),antes=ord.slice(0,pos).reduce((s,p)=>s+(+p.valor||0),0),saldo=tot-antes-(+a.valor||0);
@@ -1144,6 +1174,7 @@ function pdfEstadoCuenta(o){if(!o)return;if(!window.jspdf){toast("No cargó el g
   y+=4;doc.setFontSize(10);doc.text("Total abonado",124,y);doc.text(money(sum),200,y,{align:"right"});y+=8;
   doc.setFillColor(42,54,66);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(sal<=0?"PAGADA":"SALDO",124,y+1.5);doc.text(money(Math.max(0,sal)),200,y+1.5,{align:"right"});doc.setTextColor(24,33,43);
   y+=16;doc.setFont("helvetica","normal");doc.setFontSize(9);if(e.banco&&sal>0){doc.text("Pagos a: "+e.banco,16,y);y+=5}
+  if(e.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
   guardarArchivo("Estado_de_cuenta_COT-"+pad(o.numero||0)+".pdf",doc)}
 function pdfCobro(c){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const doc=pdfBase(),cl=cliente(c.clienteId),e=S.cfg.empresa;pdfHeader(doc,"CUENTA DE COBRO","No. "+pad(c.numero));
@@ -1153,7 +1184,7 @@ function pdfCobro(c){if(!window.jspdf){toast("No cargó el generador de PDF. Rev
   doc.setFont("helvetica","bold");doc.text("LA SUMA DE:",16,y);y+=6;doc.setFont("helvetica","normal");const l=doc.splitTextToSize(letras(+c.valor||0)+" PESOS M/CTE ("+money(c.valor)+")",182);doc.text(l,16,y);y+=l.length*5+9;
   doc.setFont("helvetica","bold");doc.text("POR CONCEPTO DE:",16,y);y+=6;doc.setFont("helvetica","normal");const cc=doc.splitTextToSize(c.concepto||"",182);doc.text(cc,16,y);y+=cc.length*5+10;
   doc.setFontSize(9);if(e.nota){doc.text(e.nota,16,y);y+=5}if(e.banco){doc.text("Favor consignar a: "+e.banco,16,y);y+=5}
-  y=Math.max(y+30,215);doc.setDrawColor(24,33,43);doc.line(16,y,90,y);doc.setFontSize(10);doc.text(e.propietario||e.nombre,16,y+5);if(e.cc)doc.text("C.C. "+e.cc,16,y+10);
+  pdfFirma(doc,Math.max(y+30,215));
   guardarArchivo("Cuenta_de_cobro_"+pad(c.numero)+".pdf",doc)}
 
 /* ============ Eventos ============ */
@@ -1259,6 +1290,10 @@ document.addEventListener("click",async ev=>{
     case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});autoGuardarCfg();render();break;
     case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
+    case"firma-dibujar":firmaSheet();break;
+    case"firma-limpiar":{const cv=$("#firma-pad");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);S.firmaTrazo=false;break}
+    case"firma-ok":{if(!S.firmaTrazo){toast("Primero dibuja tu firma");return}if(guardarFirma(procesarFirma($("#firma-pad"))))closeSheet();break}
+    case"firma-quitar":confirmar("Se quita la firma de los documentos.","Quitar firma",async()=>{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));delete c.empresa.firma;delete c.empresa.firmaRatio;S.cfgTimer=1;await guardarCfgYa()});break;
     case"guardar-cfg":{clearTimeout(S.cfgTimer);S.cfgTimer=null;const c=clone(S.cfgEdit);c.preciosEjemplo=false;try{await guardarCfg(c);S.cfgEdit=null;toast("Ajustes guardados");render()}catch(e){}break}
   }
 });
@@ -1277,6 +1312,8 @@ document.addEventListener("input",ev=>{
   if(t.dataset.buscar!==undefined){S.buscar=t.value;const pos=t.selectionStart;render();const nb=$("#buscar");nb.focus();try{nb.setSelectionRange(pos,pos)}catch(e){}}
 });
 document.addEventListener("change",ev=>{const t=ev.target;
+  if(t.id==="firma-file"&&t.files[0]){const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,1400/im.width),cv=document.createElement("canvas");
+      cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);if(guardarFirma(procesarFirma(cv)))render()};im.src=fr.result};fr.readAsDataURL(t.files[0]);t.value=""}
   if(t.id==="imp-file"&&t.files[0]){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.app!=="alumel")throw 0;
     confirmar("Se agregarán o reemplazarán "+(d.clientes||[]).length+" clientes, "+(d.obras||[]).length+" obras y "+(d.cobros||[]).length+" cuentas de cobro del respaldo.","Importar",async()=>{
       if(d.cfg)await guardarCfg(migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg)));for(const col of COLS)for(const x of (d[col]||[]))await guardar(col,x.id||uid(),x);toast("Respaldo importado")})}catch(e){toast("Ese archivo no es un respaldo de Alumel")}};r.readAsText(t.files[0]);t.value=""}
