@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.4.4";
+const APP_VER="1.5.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -637,13 +637,20 @@ function render(){
 const pill=(txt,cls)=>`<span class="pill ${cls}">${esc(txt)}</span>`;
 const estadoPill=k=>{const e=estadoDe(k);return pill(e[1],e[2])};
 function saldoCobro(c){const ab=(c.abonos||[]).reduce((s,a)=>s+(+a.valor||0),0);return {ab,saldo:(+c.valor||0)-ab}}
+/* Pagos de una obra: abonos registrados en la obra + abonos de sus cuentas de cobro */
+function pagosObra(o){const tot=totalObra(o),abO=(o.abonos||[]).reduce((s,a)=>s+(+a.valor||0),0),
+  abC=S.cobros.filter(c=>c.obraId===o.id&&!c.anulada).reduce((s,c)=>s+saldoCobro(c).ab,0),pagado=abO+abC;return {tot,abO,abC,pagado,debe:Math.max(0,tot-pagado)}}
+/* Lo que debe un cliente: saldo de sus obras aprobadas + cuentas de cobro que no están ligadas a una obra */
+function deudaCliente(id){return S.obras.filter(o=>o.clienteId===id&&!["cotizacion","anulada"].includes(o.estado)).reduce((s,o)=>s+pagosObra(o).debe,0)+
+  S.cobros.filter(x=>x.clienteId===id&&!x.anulada&&!obra(x.obraId)).reduce((s,x)=>s+Math.max(0,saldoCobro(x).saldo),0)}
+const SIGUIENTE={aprobada:["produccion","Pasar a producción"],produccion:["instalada","Marcar como instalada"],instalada:["entregada","Marcar como entregada"]};
 function cobroPill(c){if(c.anulada)return pill("Anulada","st-anu");const {ab,saldo}=saldoCobro(c);if(saldo<=0)return pill("Pagada","st-pag");if(ab>0)return pill("Abonada","st-par");return pill("Pendiente","st-pen")}
 function emptyBox(t,s,btn){return `<div class="empty"><b>${t}</b><span>${s}</span>${btn||""}</div>`}
 
 /* --- Obras --- */
 function vObras(){
   const act=S.obras.filter(o=>!["entregada","anulada"].includes(o.estado));
-  const porCobrar=S.cobros.filter(c=>!c.anulada).reduce((s,c)=>s+Math.max(0,saldoCobro(c).saldo),0);
+  const porCobrar=S.obras.filter(o=>!["cotizacion","anulada"].includes(o.estado)).reduce((s,o)=>s+pagosObra(o).debe,0);
   const cot=S.obras.filter(o=>o.estado==="cotizacion");
   const f=S.filtroObras;
   let list=S.obras.filter(o=>f==="todas"?true:f==="activas"?!["entregada","anulada","cotizacion"].includes(o.estado):o.estado===f);
@@ -659,26 +666,34 @@ function vObras(){
   </div>
   <div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>
   ${list.length?`<div class="list">${list.map(o=>{const c=cliente(o.clienteId);return `
-    <button class="li" data-act="ver-obra" data-id="${o.id}">
-      <div class="grow"><div class="eyebrow">COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><div class="t">${esc(o.nombre||"Sin nombre")}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(o.items||[]).length} ítem(s)</div></div>
-      <div class="r"><span class="num" style="font-weight:600">${money(totalObra(o))}</span>${estadoPill(o.estado)}</div>
-    </button>`}).join("")}</div>`
+    <div class="li" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}">
+      <div class="grow"><div class="eyebrow">COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><div class="t">${esc(o.nombre||"Sin nombre")}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(o.items||[]).length} ítem(s)</div>
+        ${o.estado==="cotizacion"?`<button class="btn sm pri" style="margin-top:8px" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button>`:""}</div>
+      <div class="r"><span class="num" style="font-weight:600">${money(totalObra(o))}</span>${estadoPill(o.estado)}${!["cotizacion","anulada"].includes(o.estado)?(()=>{const pg=pagosObra(o);return pg.debe>0?`<span class="small num" style="color:var(--bad);font-weight:600">Debe ${money(pg.debe)}</span>`:`<span class="small" style="color:var(--ok);font-weight:600">Pagada</span>`})():""}</div>
+    </div>`}).join("")}</div>`
   :emptyBox(S.obras.length?"Nada en este filtro":"Aún no hay obras",S.obras.length?"Cambia el filtro para ver otras obras.":"Crea tu primera cotización: agregas ventanas, puertas o vidrios con sus medidas y el sistema calcula precio y cortes.",`<button class="btn pri" data-act="nueva-cot">Crear cotización</button>`)}`;
 }
 function vObra(){
   const o=obra(S.param);if(!o)return emptyBox("Obra no encontrada","Puede que la hayan borrado.",`<button class="btn" data-act="go" data-v="obras">Volver</button>`);
   const c=cliente(o.clienteId),calc=calcDe(o),tot=calc.resumen.total;
-  const cobros=S.cobros.filter(x=>x.obraId===o.id&&!x.anulada),cobrado=cobros.reduce((s,x)=>s+(+x.valor||0),0),abonado=cobros.reduce((s,x)=>s+saldoCobro(x).ab,0);
+  const pg=pagosObra(o),sig=SIGUIENTE[o.estado],abonos=(o.abonos||[]).map((a,i)=>({...a,i})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   return `
   <button class="linkish" data-act="go" data-v="obras">← Obras</button>
   <div class="head"><div class="grow"><div class="eyebrow">Cotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><h1>${esc(o.nombre||"Sin nombre")}</h1></div>${estadoPill(o.estado)}</div>
-  <div class="panel"><div class="eyebrow">Estado de la obra</div>
-    <div class="chips">${ESTADOS.map(e=>`<button class="chip" data-act="estado-obra" data-id="${o.id}" data-v="${e[0]}" aria-pressed="${o.estado===e[0]}">${e[1]}</button>`).join("")}</div></div>
+  <div class="panel"><div class="row sp"><div class="eyebrow">Estado</div>${estadoPill(o.estado)}</div>
+    ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala. Pasa a "En curso" y puedes registrar el anticipo.</span>`
+     :sig?`<button class="btn dark block" data-act="estado-obra" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
+    ${o.fechaAprobada?`<span class="small muted">Aprobada el ${fechaCorta(o.fechaAprobada)}</span>`:""}
+    <details><summary class="small" style="cursor:pointer;font-weight:600">Cambiar estado manualmente</summary>
+      <div class="chips" style="margin-top:8px">${ESTADOS.map(e=>`<button class="chip" data-act="estado-obra" data-id="${o.id}" data-v="${e[0]}" data-confirma="1" aria-pressed="${o.estado===e[0]}">${e[1]}</button>`).join("")}</div></details></div>
   <div class="cols2">
     <div class="panel"><div class="eyebrow">Cliente</div>
       ${c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}</div>
-    <div class="panel"><div class="eyebrow">Cobros de esta obra</div>
-      <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Cobrado</dt><dd class="num">${money(cobrado)}</dd><dt>Abonado</dt><dd class="num">${money(abonado)}</dd><dt>Falta cobrar</dt><dd class="num" style="font-weight:700">${money(Math.max(0,tot-cobrado))}</dd></dl></div>
+    <div class="panel"><div class="row sp"><div class="eyebrow">Pagos del cliente</div>${o.estado!=="cotizacion"&&o.estado!=="anulada"?(pg.debe>0?pill("Debe","st-pen"):pill("Pagada","st-pag")):""}</div>
+      <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Abonado</dt><dd class="num">${money(pg.pagado)}</dd><dt>Debe</dt><dd class="num" style="font-weight:700;color:${pg.debe>0?"var(--bad)":"var(--ok)"}">${money(pg.debe)}</dd></dl>
+      ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Nota</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}</td><td>${esc(a.nota||"")}</td><td class="n">${money(a.valor)}</td><td class="n"><button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
+      ${pg.abC?`<span class="small muted">Incluye ${money(pg.abC)} abonados en cuentas de cobro de esta obra.</span>`:""}
+      ${o.estado==="cotizacion"?`<span class="small muted">Los abonos se registran cuando la cotización esté aprobada.</span>`:`<button class="btn pri" data-act="abono-obra" data-id="${o.id}">+ Registrar abono</button>`}</div>
   </div>
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
     ${tablaItems(o.items||[],calc)}
@@ -912,14 +927,14 @@ function vClientes(){
   const list=S.clientes.filter(c=>!q||(c.nombre||"").toLowerCase().includes(q)||(c.telefono||"").includes(q)).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   return `<div class="head"><div><div class="eyebrow">${S.clientes.length} registrados</div><h1>Clientes</h1></div><button class="btn pri" data-act="nuevo-cliente">+ Cliente</button></div>
   <div class="field"><label for="buscar">Buscar</label><input id="buscar" data-buscar value="${esc(S.buscar)}" placeholder="Nombre o teléfono"></div>
-  ${list.length?`<div class="list">${list.map(c=>{const deuda=S.cobros.filter(x=>x.clienteId===c.id&&!x.anulada).reduce((s,x)=>s+Math.max(0,saldoCobro(x).saldo),0);const n=S.obras.filter(o=>o.clienteId===c.id).length;
+  ${list.length?`<div class="list">${list.map(c=>{const deuda=deudaCliente(c.id);const n=S.obras.filter(o=>o.clienteId===c.id).length;
    return `<button class="li" data-act="ver-cliente" data-id="${c.id}"><div class="grow"><div class="t">${esc(c.nombre)}</div><div class="small muted">${esc(c.telefono||"Sin teléfono")} · ${n} obra(s)</div></div><div class="r">${deuda>0?`<span class="num small" style="color:var(--bad);font-weight:600">Debe ${money(deuda)}</span>`:`<span class="small muted">Al día</span>`}</div></button>`}).join("")}</div>`
   :emptyBox(S.clientes.length?"Sin resultados":"Aún no hay clientes",S.clientes.length?"Prueba con otro nombre.":"Registra a tus clientes con teléfono y NIT o cédula para usarlos en cotizaciones y cuentas de cobro.",`<button class="btn pri" data-act="nuevo-cliente">Agregar cliente</button>`)}`;
 }
 function vCliente(){
   const c=cliente(S.param);if(!c)return emptyBox("Cliente no encontrado","",`<button class="btn" data-act="go" data-v="clientes">Volver</button>`);
   const obras=S.obras.filter(o=>o.clienteId===c.id),cobros=S.cobros.filter(x=>x.clienteId===c.id);
-  const deuda=cobros.filter(x=>!x.anulada).reduce((s,x)=>s+Math.max(0,saldoCobro(x).saldo),0);
+  const deuda=deudaCliente(c.id);
   return `<button class="linkish" data-act="go" data-v="clientes">← Clientes</button>
   <div class="head"><div class="grow"><div class="eyebrow">Cliente</div><h1>${esc(c.nombre)}</h1></div><button class="btn sm" data-act="editar-cliente" data-id="${c.id}">Editar</button></div>
   <div class="panel"><dl class="kv">${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)} <button class="btn sm" data-act="copiar" data-v="${esc(c.telefono)}">Copiar</button></dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${c.direccion?`<dt>Dirección</dt><dd>${esc(c.direccion)}</dd>`:""}${c.notas?`<dt>Notas</dt><dd>${esc(c.notas)}</dd>`:""}<dt>Saldo</dt><dd class="num"><b>${money(deuda)}</b></dd></dl></div>
@@ -1117,7 +1132,25 @@ document.addEventListener("click",async ev=>{
     case"editar-obra":S.draft=clone(obra(id));go("cotizar");break;
     case"descartar":S.draft=nuevoDraft();render();break;
     case"cortes-obra":S.cortesObra=id;go("cortes");break;
-    case"estado-obra":{const o=obra(id);if(o&&o.estado!==b.dataset.v){try{await guardar("obras",id,{...o,estado:b.dataset.v});toast("Estado: "+estadoDe(b.dataset.v)[1])}catch(e){}render()}break}
+    case"aprobar-obra":{const o=obra(id);if(!o)break;const t=totalObra(o);S.abonoObraId=id;openSheet(()=>`<div class="sheet-h"><h2>Aprobar cotización</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+      <p style="margin:0">COT-${pad(o.numero||0)} · ${esc(o.nombre||"")} · <b>${money(t)}</b></p>
+      <div class="fgrid"><div class="field"><label for="ap-valor">Anticipo recibido ($)</label><input id="ap-valor" inputmode="numeric" placeholder="0"><span class="hint">Opcional. Ej: 50 % = ${money(t/2)}</span></div>
+      <div class="field"><label for="ap-fecha">Fecha</label><input id="ap-fecha" type="date" value="${hoy()}"></div>
+      <div class="field full"><label for="ap-nota">Nota del pago</label><input id="ap-nota" placeholder="Ej: Anticipo en efectivo"></div></div>
+      <button class="btn pri block" data-act="confirmar-aprobar">✓ Aprobar cotización</button>`);break}
+    case"confirmar-aprobar":{const o=obra(S.abonoObraId);if(!o)break;const v=Math.round(num($("#ap-valor").value)),f=$("#ap-fecha").value||hoy();
+      const ab=[...(o.abonos||[])];if(v>0)ab.push({valor:v,fecha:f,nota:$("#ap-nota").value.trim()||"Anticipo"});
+      try{await guardar("obras",o.id,{...o,estado:"aprobada",fechaAprobada:f,abonos:ab});toast("Cotización aprobada");sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";go("obra",o.id)}catch(e){}break}
+    case"abono-obra":{const o=obra(id);if(!o)break;S.abonoObraId=id;const pg=pagosObra(o);openSheet(()=>`<div class="sheet-h"><h2>Registrar abono</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+      <p style="margin:0">${esc(o.nombre||"")} · debe <b>${money(pg.debe)}</b></p>
+      <div class="fgrid"><div class="field"><label for="ao-valor">Valor ($)</label><input id="ao-valor" inputmode="numeric" value="${pg.debe||""}"></div><div class="field"><label for="ao-fecha">Fecha</label><input id="ao-fecha" type="date" value="${hoy()}"></div>
+      <div class="field full"><label for="ao-nota">Nota</label><input id="ao-nota" placeholder="Ej: Transferencia, efectivo"></div></div>
+      <button class="btn pri block" data-act="guardar-abono-obra">Guardar abono</button>`);break}
+    case"guardar-abono-obra":{const o=obra(S.abonoObraId);const v=Math.round(num($("#ao-valor").value));if(!v){toast("Escribe el valor");return}
+      try{await guardar("obras",o.id,{...o,abonos:[...(o.abonos||[]),{valor:v,fecha:$("#ao-fecha").value||hoy(),nota:$("#ao-nota").value.trim()}]});toast("Abono registrado");closeSheet()}catch(e){}break}
+    case"borrar-abono-obra":{const o=obra(id),i=+b.dataset.i;confirmar("Se borra el abono de "+money(o.abonos[i].valor)+".","Borrar abono",async()=>{const ab=[...o.abonos];ab.splice(i,1);await guardar("obras",id,{...o,abonos:ab})});break}
+    case"estado-obra":{const o=obra(id);if(o&&o.estado!==b.dataset.v&&b.dataset.confirma&&!b.dataset.ok){const bb=b;confirmar("La obra pasará a \""+estadoDe(b.dataset.v)[1]+"\".","Cambiar estado",async()=>{await guardar("obras",id,{...o,estado:bb.dataset.v});toast("Estado: "+estadoDe(bb.dataset.v)[1])});break}
+      if(o&&o.estado!==b.dataset.v){try{await guardar("obras",id,{...o,estado:b.dataset.v});toast("Estado: "+estadoDe(b.dataset.v)[1])}catch(e){}render()}break}
     case"borrar-obra":confirmar("Se borra la obra y su cotización. Las cuentas de cobro quedan.","Eliminar obra",async()=>{await borrar("obras",id);go("obras")});break;
     case"nuevo-item":itemSheet(null);break;
     case"editar-item":itemSheet(+b.dataset.i);break;
