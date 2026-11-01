@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.8.2";
+const APP_VER="1.8.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1130,7 +1130,11 @@ async function entregarArchivo(nombre,blob){
 }
 async function guardarArchivo(nombre,doc){entregarArchivo(nombre,new Blob([doc.output("arraybuffer")],{type:"application/pdf"}))}
 async function compartirTexto(txt){if(navigator.share){try{await navigator.share({text:txt});return}catch(e){if(e.name==="AbortError")return}}copiar(txt)}
-function pdfBase(){const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"letter"});return doc}
+/* El PDF usa fuentes básicas: cambia los símbolos que no soportan (″, ′, comillas tipográficas, etc.) */
+function pdfLimpio(t){if(Array.isArray(t))return t.map(pdfLimpio);if(typeof t!=="string")return t;
+  return t.replace(/[″“”]/g,'"').replace(/[′‘’]/g,"'").replace(/[–—]/g,"-").replace(/…/g,"...").replace(/✓/g,"").replace(/\u00a0/g," ").replace(/[^\x00-\xff]/g,"")}
+function pdfBase(){const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"letter"});
+  const tx=doc.text.bind(doc),sp=doc.splitTextToSize.bind(doc);doc.text=(t,...a)=>tx(pdfLimpio(t),...a);doc.splitTextToSize=(t,...a)=>sp(pdfLimpio(t),...a);return doc}
 function pdfHeader(doc,titulo,sub){const e=S.cfg.empresa;
   const info=[e.propietario?(e.propietario+(e.cc?" · C.C. "+e.cc:"")):"",[e.ciudad,e.telefono].filter(Boolean).join(" · ")].filter(Boolean);
   if(S.logoDoc){try{doc.addImage(S.logoDoc,"JPEG",13,4,40,24);
@@ -1147,7 +1151,7 @@ async function cargarLogoDoc(){try{const r=await fetch("logo-doc.jpg");if(!r.ok)
 cargarLogoDoc();
 function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const doc=pdfBase(),c=clienteDe(o),calc=calcDe(o),R=calc.resumen;pdfHeader(doc,"COTIZACIÓN","COT-"+pad(o.numero||0)+" · "+fechaCorta(o.fecha));
-  let y=40;doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text("Cliente:",16,y);doc.setFont("helvetica","normal");doc.text((c?.nombre||"")+(c?.nit?"  ·  "+c.nit:""),36,y);y+=6;
+  let y=40;doc.setFontSize(10);if(c?.nombre){doc.setFont("helvetica","bold");doc.text("Cliente:",16,y);doc.setFont("helvetica","normal");doc.text(c.nombre+(c.nit?"  ·  "+c.nit:""),36,y);y+=6}
   doc.setFont("helvetica","bold");doc.text("Obra:",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize((o.nombre||"")+(o.direccion?" · "+o.direccion:""),160),36,y);y+=10;
   const cols=[16,26,110,140,155,178];doc.setFillColor(236,230,223);doc.rect(14,y-5,188,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(9);
   ["#","Descripción","Medida (cm)","Cant","Valor unit.","Total"].forEach((h,i)=>doc.text(h,i>=3?(i===3?150:i===4?173:200):cols[i],y,{align:i>=3?"right":"left"}));y+=8;doc.setFont("helvetica","normal");
@@ -1156,7 +1160,6 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
     doc.text(String(i+1),16,y);doc.text(desc,26,y);doc.text(cm(it.ancho)+" × "+cm(it.alto),110,y);doc.text(String(it.cant),150,y,{align:"right"});doc.text(money(calc.lineas[i]?.unit),173,y,{align:"right"});doc.text(money(calc.lineas[i]?.total),200,y,{align:"right"});
     y+=desc.length*4+3;doc.setDrawColor(203,211,219);doc.line(14,y-2,202,y-2);});
   y+=3;if(y>215){doc.addPage();y=20}doc.setFontSize(10);
-  [["Materiales (perfilería)",R.perfiles],["Vidrio",R.vidrio],["Tableros PVC",R.tableros||0],["Accesorios",R.accesorios],["Instalación",R.instalacion],["Precio manual",R.manual],[S.cfg.margen?"Margen y redondeo":"Redondeo",Math.abs(R.ajuste)>=1?R.ajuste:0]].filter(r=>r[1]).forEach(([t,v])=>{doc.text(t,124,y);doc.text(money(v),200,y,{align:"right"});y+=5.5});
   y+=4;doc.setFillColor(40,34,30);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(31,26,23);
   y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5);y+=doc.splitTextToSize(o.notas,180).length*4+8}
   if(S.cfg.empresa.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
