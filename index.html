@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.8.1";
+const APP_VER="1.8.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1120,7 +1120,6 @@ async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("C
 function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   return `*${e.nombre}*\nCotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
   (o.items||[]).map((it,i)=>`${i+1}. ${describeItem(it)} ${cm(it.ancho)} × ${cm(it.alto)} cm · ${detalleItem(it)} × ${it.cant} = ${money(calcDe(o).lineas[i]?.total)}`).join("\n")+
-  (()=>{const R=calcDe(o).resumen;return `\n\nMateriales: ${money(R.perfiles)}\nVidrio: ${money(R.vidrio)}`+(R.tableros?`\nTableros PVC: ${money(R.tableros)}`:"")+`\nAccesorios: ${money(R.accesorios)}\nInstalación: ${money(R.instalacion)}`+(R.manual?`\nPrecio manual: ${money(R.manual)}`:"")+(Math.abs(R.ajuste)>=1?`\n${S.cfg.margen?"Margen y redondeo":"Redondeo"}: ${money(R.ajuste)}`:"")})()+
   `\n\n*TOTAL: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
   return `CUENTA DE COBRO No. ${pad(c.numero)}\n${e.ciudad?e.ciudad+", ":""}${fechaLarga(c.fecha)}\n\n${cl?cl.nombre+(cl.nit?"\nNIT/C.C. "+cl.nit:""):""}\n\nDEBE A:\n${e.propietario||e.nombre}${e.cc?"\nC.C. "+e.cc:""}\n\nLA SUMA DE: ${letras(+c.valor||0)} PESOS M/CTE (${money(c.valor)})\n\nPOR CONCEPTO DE: ${c.concepto}\n\n${e.nota||""}${e.banco?"\nPago a: "+e.banco:""}`}
