@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.3.3";
+const APP_VER="1.4.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -450,7 +450,7 @@ const redV=mm=>{const r=(S.cfg.redondeoVidrio||0)*10;return r?Math.ceil(mm/r-1e-
 /* Instalación predeterminada de cada tipo de sistema */
 function instDe(tipo){const t=S.cfg.instalacionTipo||{};return t[tipo]!=null&&t[tipo]!==""?+t[tipo]:(+S.cfg.instalacion||0)}
 function calcCot(items,opts){opts=opts||{};
-  const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[],vpz={};let marmoMedia=true;
+  const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[],vpz={};const marmoMedia=opts.marmoMedia!==false;
   items.forEach((it,i)=>{
     const q=it.cant||1;if(it.precioManual>0){lin[i].manual=true;return}
     const dp=despiece({...it,cant:1}),color=cfg.colores.find(c=>c.nombre===it.color)||cfg.colores[0]||{factor:1},f=+color.factor||1,ser=TIPOS[it.tipo]?.serie,pta=TIPOS[it.tipo]?.puerta;
@@ -460,7 +460,7 @@ function calcCot(items,opts){opts=opts||{};
         const key="PTA|"+p.ref+"|"+(it.color||""),tira=(+cfg.puertas.perfiles[p.ref]||0)*f;
         const pl=pools[key]=pools[key]||{tipo:"Puertas",modo:cfg.puertas.cobro?.[p.ref]||"metro",serie:"Puertas",perfil:p.ref,color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
-      for(const t of dp.tab){marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q});if(it.mediaLam===false)marmoMedia=false}}
+      for(const t of dp.tab)marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
     else if(ser){const sc=cfg.series[it.tipo];
       for(const p of dp.perfiles){const key=it.tipo+"|"+p.nombre+"|"+(it.color||"");const ref=sc.perfiles.find(x=>x.nombre===p.nombre);
         const pl=pools[key]=pools[key]||{tipo:it.tipo,modo:ref?.cobro||modoPorDefecto(it.tipo),serie:TIPOS[it.tipo].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
@@ -479,12 +479,12 @@ function calcCot(items,opts){opts=opts||{};
     for(const [i,m] of pl.partes)lin[i].perf+=pl.m?valor*m/pl.m:0;return {...pl,cobrado:cb.txt,valor,partes:undefined}});
   /* Vidrio por láminas: en cada lámina se cobra lo menor entre el valor por m² de lo que sale de ella y el valor de la lámina */
   const vidLam=[];
-  if(opts.vidrioLamina){const Lv=cfg.laminaVidrio||{ancho:330,alto:214};
+  if(opts.vidrioLamina){const Lg=cfg.laminaVidrio||{ancho:330,alto:214};
     for(const [vid,pz] of Object.entries(vpz)){const vv=vidrioDe(vid),lam=+vv.lam||0;pz.forEach(p=>lin[p.i].vid=0);
-      const sh=packRects(pz,Lv.ancho*10,Lv.alto*10);let nLam=0,valor=0;
+      const la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,sh=packRects(pz,la*10,lh*10);let nLam=0,valor=0;
       for(const s2 of sh){const sum=s2.items.reduce((a,p)=>a+p.costo,0),porLam=lam>0&&!s2.items.some(p=>p.over)&&lam<sum,cobra=porLam?lam:sum;
         if(porLam)nLam++;s2.items.forEach(p=>lin[p.i].vid+=sum?cobra*p.costo/sum:0);valor+=cobra}
-      vidLam.push({nombre:vv.nombre,piezas:pz.length,laminas:sh.length,comoLamina:nLam,sinPrecio:!(lam>0),valor})}}
+      vidLam.push({nombre:vv.nombre,medida:la+" × "+lh+" cm",piezas:pz.length,laminas:sh.length,comoLamina:nLam,sinPrecio:!(lam>0),valor})}}
   /* Tableros de PVC de puertas: se suman en todo el pedido */
   const tableros=[];
   if(cielo.length){const c=cfg.puertas.cielo,list=[];cielo.forEach(p=>{for(let k=0;k<p.cant;k++)list.push(p.largo)});
@@ -553,7 +553,8 @@ function sketch(it){
   else if(it.tipo==="pasamanos"){inner=`<rect x="${x}" y="${y}" width="${w}" height="${h}" ${glass} ${s} stroke-width="2"/>`+[[8,8],[w-8,8],[8,h-8],[w-8,h-8]].map(([a,b])=>`<circle cx="${x+a}" cy="${y+b}" r="3" fill="none" ${s}/>`).join("")}
   else{inner=`<rect x="${x+5}" y="${y+5}" width="${w-10}" height="${h-10}" ${glass} ${s} stroke-width="2"/>`}
   const frame=it.tipo==="pasamanos"?"":`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" ${s} stroke-width="3"/>`;
-  return `<svg viewBox="0 0 260 ${h+44}" width="260" style="color:var(--fg)">${frame}${inner}
+  const nq=it.cant||1;
+  return `<svg viewBox="0 0 260 ${h+(nq>1?62:44)}" width="260" style="color:var(--fg)">${frame}${inner}${nq>1?`<text x="130" y="${y+h+40}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" font-weight="600" fill="currentColor">Cantidad: ${nq}</text>`:""}
   <text x="${x+w/2}" y="${y+h+18}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="var(--muted)">${cm(it.ancho||0)} cm</text>
   <text x="${x+w+6}" y="${y+h/2}" font-family="IBM Plex Mono,monospace" font-size="11" fill="var(--muted)" transform="rotate(90 ${x+w+6} ${y+h/2})" text-anchor="middle">${cm(it.alto||0)} cm</text></svg>`;
 }
@@ -707,9 +708,9 @@ function resumenHtml(calc,total){
     <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Referencia</th><th class="n">Consumo</th><th class="n">Cobrado</th><th class="n">Valor</th></tr></thead><tbody>
     ${mats.map(m=>`<tr><td>${esc(m.serie)} · ${esc(m.perfil)}${m.color?`<div class="small muted">${esc(m.color)} · ${money(m.tira)}/tira</div>`:""}</td><td class="n mono">${m.m.toFixed(2).replace(".",",")} m</td><td class="n mono">${esc(typeof m.cobrado==="number"?m.cobrado.toFixed(2).replace(".",",")+" m":m.cobrado)}${m.modo?`<div class="small muted">${esc(modoTxt(m.modo))}</div>`:""}</td><td class="n">${money(m.valor)}</td></tr>`).join("")}
     </tbody></table></div><div class="small muted" style="margin-top:6px">${MODOS_AYUDA} La forma de cada perfil se cambia en Ajustes.</div></details>`:""}
-   ${(calc.vidLam||[]).length?`<details open><summary class="small" style="cursor:pointer;font-weight:600">Vidrio por láminas (${S.cfg.laminaVidrio.ancho} × ${S.cfg.laminaVidrio.alto} cm)</summary>
+   ${(calc.vidLam||[]).length?`<details open><summary class="small" style="cursor:pointer;font-weight:600">Vidrio por láminas</summary>
     <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Vidrio</th><th class="n">Láminas</th><th class="n">Valor</th></tr></thead><tbody>
-    ${calc.vidLam.map(v=>`<tr><td>${esc(v.nombre)}<div class="small muted">${v.piezas} vidrios${v.sinPrecio?" · sin precio de lámina, todo por m²":""}</div></td><td class="n">${v.laminas}<div class="small muted">${v.comoLamina} a precio de lámina · ${v.laminas-v.comoLamina} por m²</div></td><td class="n">${money(v.valor)}</td></tr>`).join("")}
+    ${calc.vidLam.map(v=>`<tr><td>${esc(v.nombre)}<div class="small muted">${v.piezas} vidrios · lámina ${esc(v.medida||"")}${v.sinPrecio?" · sin precio de lámina, todo por m²":""}</div></td><td class="n">${v.laminas}<div class="small muted">${v.comoLamina} a precio de lámina · ${v.laminas-v.comoLamina} por m²</div></td><td class="n">${money(v.valor)}</td></tr>`).join("")}
     </tbody></table></div></details>`:""}
    ${(calc.tableros||[]).length?`<details><summary class="small" style="cursor:pointer;font-weight:600">Tableros PVC de puertas</summary>
     <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Material</th><th class="n">Se cobra</th><th class="n">Valor</th></tr></thead><tbody>
@@ -740,6 +741,9 @@ function vCotizar(){
   </div>
   <div class="panel"><div class="row sp"><h2>Ítems</h2><button class="btn pri sm" data-act="nuevo-item">+ Agregar</button></div>
     ${d.items.some(it=>!TIPOS[it.tipo]?.puerta&&!(it.precioManual>0))?`<label class="row small" style="gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" data-draft-chk="vidrioLamina" ${d.vidrioLamina?"checked":""} style="width:20px;height:20px"> Cobrar vidrio por láminas (obras grandes)</label>`:""}
+    ${d.items.some(it=>TIPOS[it.tipo]?.puerta&&tableroPta(it).mat==="marmo"&&!(it.precioManual>0))?(()=>{const mt=(calc.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),ms=S.cfg.puertas.marmo;
+      return `<div class="field"><label>PVC marmolizado${mt?" · "+esc(mt.detalle):""}</label><div class="seg"><button data-act="marmo-media" data-v="1" aria-pressed="${d.marmoMedia!==false}">Media lámina cuando alcance</button><button data-act="marmo-media" data-v="0" aria-pressed="${d.marmoMedia===false}">Solo láminas enteras</button></div>
+      <span class="hint">Media lámina = ${ms.ancho} × ${ms.alto/2} cm. Se cobra: ${mt?esc(mt.cobrado)+" · "+money(mt.valor):"—"}</span></div>`})():""}
     ${d.items.length?tablaItems(d.items,calc,true):emptyBox("Sin ítems","Agrega ventanas, puertas, divisiones o vidrios con sus medidas.",`<button class="btn pri" data-act="nuevo-item">+ Agregar ítem</button>`)}
   </div>
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
@@ -783,7 +787,7 @@ function ptaOpciones(it){
   let h=it.tipo==="p1"?seg("Tablero","tab1",[["f06","F06"],["marmo","PVC marmolizado"],["cielo","PVC cielorraso"]],"f06")
     :seg("Nave","nave",[["t87","T87 · 1½″ × 1½″"],["t244","T244 · 1½″ × 3″"]],"t87")+seg("Tablero","tab15",[["t166","T166 entamborado"],["f06","F06"]],"t166");
   const m=S.cfg.puertas.marmo;
-  if(tableroPta(it).mat==="marmo")h+=`<div class="field"><label><input type="checkbox" data-it="mediaLam" ${it.mediaLam!==false?"checked":""} style="min-height:auto;width:auto"> Cobrar media lámina (${cm(m.ancho*10)} × ${cm(m.alto*5)} cm) cuando alcance</label></div>`;
+  if(tableroPta(it).mat==="marmo")h+=`<span class="small muted">Si cobras media lámina o lámina entera de marmolizado lo decides en la cotización, porque se suman los tableros de todas las puertas.</span>`;
   else h+=seg("Piezas del tablero","orient",[["H","Horizontales"],["V","Verticales"]],"H");
   return h}
 function ptaInfo(it,c){
@@ -802,6 +806,7 @@ function ptaInfo(it,c){
 function calcHtml(it){
   const c=calcCot([{...it,precioManual:0}]),L=c.lineas[0]||{},dp=despiece({...it,cant:1}),q=it.cant||1,pta=TIPOS[it.tipo]?.puerta;
   return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
+  ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
   <div class="small muted num">Perfilería ${money(L.perf/q)} · ${pta?`Tablero PVC ${money(L.tab/q)}`:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)}`} · Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
   ${pta?ptaInfo(it,c):""}
   ${TIPOS[it.tipo]?.serie||pta?`<div class="small muted">Este valor aplica la regla de tiras solo a ${pta?"esta puerta":"esta ventana"}. En la cotización completa los perfiles se suman por referencia y el total puede bajar.</div>`:""}
@@ -934,7 +939,7 @@ const selModo=(path,val,lbl)=>`<select aria-label="Forma de cobro ${esc(lbl)}" d
 function vAjustes(){
   const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const e=c.empresa;
   c.instalacionTipo=c.instalacionTipo||{};for(const k of Object.keys(TIPOS))if(c.instalacionTipo[k]==null||c.instalacionTipo[k]==="")c.instalacionTipo[k]=instDe(k);
-  c.vidrios.forEach(v=>{if(v.lam==null)v.lam=0});
+  c.vidrios.forEach(v=>{if(v.lam==null)v.lam=0;if(v.lamA==null)v.lamA=+c.laminaVidrio?.ancho||330;if(v.lamH==null)v.lamH=+c.laminaVidrio?.alto||214});
   if(!(+c.puertas.acc.chapa>0))c.puertas.acc.chapa=precioAccPta("chapa");
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
   return `<button class="linkish" data-act="go" data-v="obras">← Volver</button>
@@ -951,14 +956,14 @@ function vAjustes(){
    <div class="field"><label for="e-cobro">Siguiente No. de cuenta de cobro</label><input id="e-cobro" inputmode="numeric" data-cfg="cobroInicio" value="${c.cobroInicio}"><span class="hint">Si ya llevas una numeración, pon aquí el número que sigue.</span></div>
   </div></div>
   <div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
-   <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina entera</th><th></th></tr></thead><tbody>
+   <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina entera</th><th class="n">Lámina (cm)</th><th></th></tr></thead><tbody>
    ${c.vidrios.map((v,i)=>`<tr><td><input class="cin" aria-label="Nombre vidrio" data-cfg="vidrios.${i}.nombre" value="${esc(v.nombre)}" style="width:100%;min-width:130px"></td>
     <td class="n"><input class="cin" aria-label="Precio m² ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.m2" value="${v.m2}" style="width:100px;text-align:right"></td>
     <td class="n"><input class="cin" aria-label="Precio lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.lam" value="${v.lam}" style="width:100px;text-align:right"></td>
+    <td class="n" style="white-space:nowrap"><input class="cin" aria-label="Ancho lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.lamA" value="${v.lamA}" style="width:62px;text-align:right"> × <input class="cin" aria-label="Alto lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.lamH" value="${v.lamH}" style="width:62px;text-align:right"></td>
     <td class="n"><button class="btn sm danger" data-act="del-vidrio" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}
    </tbody></table></div>
-   <div class="field"><label>Medida de la lámina de vidrio (cm)</label><div class="row"><input aria-label="Ancho lámina vidrio" inputmode="numeric" data-cfg="laminaVidrio.ancho" value="${c.laminaVidrio.ancho}" class="cin" style="width:80px;text-align:right">×<input aria-label="Alto lámina vidrio" inputmode="numeric" data-cfg="laminaVidrio.alto" value="${c.laminaVidrio.alto}" class="cin" style="width:80px;text-align:right"></div>
-   <span class="hint">Cuando en una cotización activas "Cobrar vidrio por láminas", se acomodan los vidrios en láminas. Si lo que sale de una lámina cobrado por m² supera el valor de la lámina, se cobra la lámina; si no, se cobra por m².</span></div></div>
+   <div class="field"><span class="hint">Cada vidrio tiene su medida de lámina (ancho × alto en cm). Cuando en una cotización activas "Cobrar vidrio por láminas", se acomodan los vidrios en láminas. Si lo que sale de una lámina cobrado por m² supera el valor de la lámina, se cobra la lámina; si no, se cobra por m².</span></div></div>
   ${Object.entries(c.series).map(([k,sc])=>`<div class="panel"><h2>${TIPOS[k].nombre}</h2>
    <span class="small muted">${MODOS_AYUDA}</span>
    <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th><th>Cobro</th></tr></thead><tbody>
@@ -1102,6 +1107,7 @@ document.addEventListener("click",async ev=>{
       if(TIPOS[t].puerta){const d=S.itemTmp;d.tab1=d.tab1||"f06";d.nave=d.nave||"t87";d.tab15=d.tab15||"t166";d.orient=d.orient||"H";if(d.mediaLam==null)d.mediaLam=true;
         if(d.alto<1800)d.alto=2100;if(d.ancho>1300)d.ancho=900}
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
+    case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
     case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"CC":n===3?"FI":"FCCF";refreshSheet();break}
@@ -1151,7 +1157,7 @@ document.addEventListener("click",async ev=>{
     case"copiar":copiar(b.dataset.v);break;
     case"copiar-vidrios":{const sel=b.dataset.v;const items=sel==="__draft"?S.draft.items:(obra(sel)?.items||[]);const r=sumarDespiece(items);const o=obra(sel);
       copiar(`Pedido de vidrio — ${S.cfg.empresa.nombre}${o?"\nObra: "+o.nombre:""}\n\n`+r.vid.map(v=>`${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} cm · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n"));break}
-    case"add-vidrio":S.cfgEdit.vidrios.push({id:uid(),nombre:"Nuevo vidrio",m2:0,lam:0});render();break;
+    case"add-vidrio":S.cfgEdit.vidrios.push({id:uid(),nombre:"Nuevo vidrio",m2:0,lam:0,lamA:330,lamH:214});render();break;
     case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);render()}break;
     case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});render();break;
     case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);render()}break;

@@ -1,5 +1,5 @@
 // Alumel: guarda la app y sus librerías para que abra sin internet.
-const VERSION = "alumel-1.3.3";
+const VERSION = "alumel-1.4.0";
 const LOCAL = ["./", "index.html", "firebase-config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png"];
 const CDN = [
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
