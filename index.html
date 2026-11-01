@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.4.2";
+const APP_VER="1.4.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -948,7 +948,7 @@ function vAjustes(){
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
   return `<button class="linkish" data-act="go" data-v="obras">← Volver</button>
   <div class="head"><div><div class="eyebrow">Configuración compartida</div><h1>Ajustes</h1></div></div>
-  <div class="note info">Estos datos los usan todos los que abren la app. Guarda abajo cuando termines.</div>
+  <div class="note info">Los cambios se guardan solos mientras escribes. <b id="cfg-estado"></b>${S.offline?"<br>Ojo: la base de datos en la nube no está conectada, así que estos ajustes quedan solo en este equipo y en este navegador.":""}</div>
   <div class="panel"><h2>Empresa</h2><div class="fgrid">
    <div class="field full"><label for="e-nom">Nombre comercial</label><input id="e-nom" data-cfg="empresa.nombre" value="${esc(e.nombre)}"></div>
    <div class="field full"><label for="e-prop">Propietario (quien cobra)</label><input id="e-prop" data-cfg="empresa.propietario" value="${esc(e.propietario)}"></div>
@@ -1032,6 +1032,12 @@ function vAjustes(){
    <span class="small muted">Los usuarios del taller se crean en la consola de Firebase. Versión ${APP_VER}.</span></div>`;
 }
 
+/* Guardado automático de Ajustes */
+function autoGuardarCfg(){clearTimeout(S.cfgTimer);const el=$("#cfg-estado");if(el)el.textContent="Guardando…";S.cfgTimer=setTimeout(guardarCfgYa,600)}
+async function guardarCfgYa(){if(!S.cfgTimer)return;clearTimeout(S.cfgTimer);S.cfgTimer=null;if(!S.cfgEdit||S.readonly)return;
+  const c=clone(S.cfgEdit);c.preciosEjemplo=false;try{await guardarCfg(c);const el=$("#cfg-estado");if(el)el.textContent="✓ Guardado"}catch(e){}}
+window.addEventListener("pagehide",()=>{guardarCfgYa()});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")guardarCfgYa()});
+
 /* ============ Sheet ============ */
 let sheetFn=null;
 function openSheet(fn){sheetFn=fn;$("#sheet-root").innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${fn()}</div></div>`;document.body.style.overflow="hidden"}
@@ -1093,7 +1099,7 @@ document.addEventListener("click",async ev=>{
   const b=ev.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;
   if(a==="scrim"){if(ev.target===b)closeSheet();return}
   switch(a){
-    case"go":S.cfgEdit=null;go(b.dataset.v);break;
+    case"go":await guardarCfgYa();S.cfgEdit=null;go(b.dataset.v);break;
     case"filtro-obras":S.filtroObras=b.dataset.v;render();break;
     case"filtro-cobros":S.filtroCobros=b.dataset.v;render();break;
     case"ver-obra":go("obra",id);break;
@@ -1163,11 +1169,11 @@ document.addEventListener("click",async ev=>{
     case"copiar":copiar(b.dataset.v);break;
     case"copiar-vidrios":{const sel=b.dataset.v;const items=sel==="__draft"?S.draft.items:(obra(sel)?.items||[]);const r=sumarDespiece(items);const o=obra(sel);
       copiar(`Pedido de vidrio — ${S.cfg.empresa.nombre}${o?"\nObra: "+o.nombre:""}\n\n`+r.vid.map(v=>`${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} cm · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n"));break}
-    case"add-vidrio":S.cfgEdit.vidrios.push({id:uid(),nombre:"Nuevo vidrio",m2:0,lam:0,lamA:330,lamH:214});render();break;
-    case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);render()}break;
-    case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});render();break;
-    case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);render()}break;
-    case"guardar-cfg":{const c=clone(S.cfgEdit);c.preciosEjemplo=false;try{await guardarCfg(c);S.cfgEdit=null;toast("Ajustes guardados");render()}catch(e){}break}
+    case"add-vidrio":S.cfgEdit.vidrios.push({id:uid(),nombre:"Nuevo vidrio",m2:0,lam:0,lamA:330,lamH:214});autoGuardarCfg();render();break;
+    case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
+    case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});autoGuardarCfg();render();break;
+    case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
+    case"guardar-cfg":{clearTimeout(S.cfgTimer);S.cfgTimer=null;const c=clone(S.cfgEdit);c.preciosEjemplo=false;try{await guardarCfg(c);S.cfgEdit=null;toast("Ajustes guardados");render()}catch(e){}break}
   }
 });
 document.addEventListener("input",ev=>{
@@ -1180,7 +1186,7 @@ document.addEventListener("input",ev=>{
     const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);
     const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
   if(t.dataset.cfg&&S.cfgEdit){const path=t.dataset.cfg.split(".");let o=S.cfgEdit;for(let i=0;i<path.length-1;i++)o=o[path[i]];const k=path[path.length-1];
-    o[k]=(typeof o[k]==="number")?num(t.value):t.value;return}
+    o[k]=(typeof o[k]==="number")?num(t.value):t.value;autoGuardarCfg();return}
   if(t.id==="cb-valor"){const h=$("#cb-letras");if(h){const v=Math.round(num(t.value));h.textContent=v?letras(v)+" PESOS M/CTE":""}return}
   if(t.dataset.buscar!==undefined){S.buscar=t.value;const pos=t.selectionStart;render();const nb=$("#buscar");nb.focus();try{nb.setSelectionRange(pos,pos)}catch(e){}}
 });
