@@ -1,0 +1,67 @@
+ALUMEL SISTEMA — VERSIÓN INDEPENDIENTE
+=======================================
+
+Esta carpeta es la app completa. No necesita Claude.
+- Funciona sin internet una vez instalada.
+- Se sincroniza entre celulares cuando hay señal.
+- Los datos quedan en una base de datos gratuita de Google (Firebase) a tu nombre.
+
+Archivos:
+  index.html          La app
+  firebase-config.js  Aquí pegas los datos de tu Firebase (paso 4)
+  firestore.rules     Quién puede entrar (paso 3)
+  sw.js               Hace que funcione sin internet (subir VERSION en cada cambio)
+  manifest.webmanifest + íconos   Nombre e ícono al instalarla
+
+Sin el paso 1 al 4 la app igual funciona, pero solo en cada equipo, sin sincronizar.
+
+
+1. CREAR EL PROYECTO EN FIREBASE (una sola vez, desde el computador)
+   - Entra a https://console.firebase.google.com con tu cuenta de Google.
+   - "Crear un proyecto" (o "Agregar proyecto"). Nombre: alumel. Google Analytics: no es necesario.
+
+2. USUARIOS (correo y clave)
+   - Menú Compilación (Build) → Authentication → Comenzar.
+   - Pestaña "Método de acceso": habilita "Correo electrónico/contraseña".
+   - Pestaña "Usuarios" → "Agregar usuario": crea el tuyo y uno por cada trabajador.
+   - En Configuración de Authentication, si aparece la opción de permitir que la gente
+     cree cuentas por su cuenta (sign-up), desactívala.
+
+3. BASE DE DATOS
+   - Compilación → Firestore Database → Crear base de datos → modo producción.
+     Ubicación: la más cercana que ofrezca (por ejemplo southamerica-east1).
+   - Pestaña "Reglas": borra lo que haya y pega el contenido de firestore.rules.
+     Cambia la lista de correos por los tuyos y los de tus trabajadores. Publicar.
+   - Cada vez que agregues un trabajador: créalo en el paso 2 y agrega su correo aquí.
+
+4. CONECTAR LA APP
+   - Engranaje (Configuración del proyecto) → General → "Tus apps" → ícono web </>.
+   - Nombre: Alumel. No marques Hosting. Registrar.
+   - Copia los valores de firebaseConfig (apiKey, authDomain, projectId, etc.)
+     y pégalos en firebase-config.js en lugar de PEGAR_AQUI y las comillas vacías.
+
+5. DIRECCIÓN DE LA APP
+   - La app se publica sola con GitHub Pages en:
+     https://richard-1504.github.io/alumel-app/
+   - Cuando conectes Firebase: Authentication → Configuración → Dominios autorizados →
+     Agregar dominio → richard-1504.github.io
+
+6. INSTALAR
+   - iPhone: abre la dirección en Safari → botón Compartir → "Agregar a inicio".
+   - Android: en Chrome, menú ⋮ → "Instalar app".
+   - Computador: en Chrome o Edge, botón "Instalar" en la barra de direcciones.
+   - La primera vez necesita internet; después abre sin señal.
+
+7. ACTUALIZACIONES
+   - Cada cambio que se sube a este repositorio se publica solo en uno o dos minutos.
+   - Los equipos reciben la versión nueva al abrir la app con internet
+     (a veces hace falta cerrarla y abrirla otra vez).
+
+8. RESPALDO
+   - En Ajustes → "Exportar respaldo" guarda un archivo con todos los datos.
+     Hazlo de vez en cuando y guárdalo en tu correo o en Drive.
+
+Notas:
+- El plan gratuito de Firebase alcanza de sobra para un taller pequeño.
+- Si alguien pierde el celular: en Firebase → Authentication → Usuarios, deshabilita o
+  borra su usuario y quítalo de las reglas.
