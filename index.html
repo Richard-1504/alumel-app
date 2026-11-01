@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.9.0";
+const APP_VER="1.10.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -277,7 +277,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, instalacionTipo:{division:200000}, division:{templadoM2:90000,accesorios:130000,paso:5,traslape:1}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
+  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, instalacionTipo:{division:200000}, division:{templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
   desc:{
@@ -399,8 +399,17 @@ function despiecePuerta(it,P,acc,T){
 
 /* División recta en vidrio templado: dos vidrios en múltiplos de 5 cm que se traslapan al menos 1 cm;
    anchos lo más parejos posible y el más ancho es el móvil */
-function vidriosDivision(A){const dv=S.cfg.division||{},paso=(+dv.paso||5)*10,tr=(+dv.traslape||1)*10;
-  const T=Math.ceil((A+tr)/paso-1e-9)*paso,fijo=Math.floor(T/2/paso+1e-9)*paso;return {fijo,movil:T-fijo,traslape:T-A}}
+function vidriosDivision(it){const dv=S.cfg.division||{},A=it.ancho||0,H=it.alto||0,tr=(+dv.traslape||1)*10,paso=(+dv.paso||5)*10;
+  const cat=(dv.vidrios||[]).filter(v=>+v.ancho>0&&Math.abs(+v.alto*10-H)<1),hayCat=(dv.vidrios||[]).length>0;
+  if(it.divModo!=="especial"&&cat.length){const st={};for(const v of cat){const w=Math.round(+v.ancho*10);st[w]=(st[w]||0)+(+v.stock||0)}
+    const ws=Object.keys(st).map(Number);let best=null;
+    for(const f of ws)for(const m of ws){if(m<f||f+m<A+tr)continue;const disp=f===m?st[f]>=2:(st[f]>=1&&st[m]>=1),k=[disp?0:1,f+m,m-f];
+      if(!best||k[0]<best.k[0]||(k[0]===best.k[0]&&(k[1]<best.k[1]||(k[1]===best.k[1]&&k[2]<best.k[2]))))best={f,m,disp,k}}
+    if(best)return {fijo:best.f,movil:best.m,traslape:best.f+best.m-A,modo:"estandar",disponible:best.disp,stockF:st[best.f],stockM:st[best.m]}}
+  const T=Math.ceil((A+tr)/paso-1e-9)*paso,fijo=Math.floor(T/2/paso+1e-9)*paso;
+  const esp=it.divModo==="especial"||cat.length>0||hayCat;
+  return {fijo,movil:T-fijo,traslape:T-A,modo:esp?"especial":"estandar",sinCatalogo:!hayCat,auto:it.divModo!=="especial"&&esp}}
+const precioDivM2=r=>r.modo==="especial"?(+S.cfg.division.especialM2||0):(+S.cfg.division.templadoM2||0);
 function despiece(it){
   const d=S.cfg.desc, A=it.ancho, H=it.alto, P=[], V=[], acc=[], T=[];
   const per=(n,l,c)=>{if(l>0&&c>0)P.push({nombre:n,largo:Math.round(l),cant:c})};
@@ -428,7 +437,7 @@ function despiece(it){
     case"puerta":{const k=d.puerta,ah=A-k.hojaA,hh=H-k.hojaH;
       per("Cabezal marco",A,1);per("Jamba",H,2);per("Hoja horizontal",ah,3);per("Hoja vertical",hh,2);
       const va=ah-k.vid,vh=(hh-k.vid)/2;vid(va,vh,2,"2 paños");acc.push(["Bisagras",3],["Cerradura",1],["Manija",1]);break}
-    case"division":{const r=vidriosDivision(A);
+    case"division":{const r=vidriosDivision(it);
       vid(r.fijo,H,1,"fijo · templado");vid(r.movil,H,1,"móvil · templado");acc.push(["Kit accesorios división",1]);break}
     case"pasamanos":{const k=d.pasamanos;vid(A,H,1,"templado · perforaciones Ø"+k.diam+" a "+k.borde+" mm del borde");
       if(it.conPerfil)per("Pasamanos superior",A,1);acc.push(["Botones / pinzas",4]);break}
@@ -483,7 +492,7 @@ function calcCot(items,opts){opts=opts||{};
     const m2=dp.vidrios.reduce((s,v)=>s+redV(v.ancho)*redV(v.alto)*v.cant,0)/1e6;
     lin[i].vid=m2*(vidrioDe(it.vidrio).m2||0)*q;lin[i].m2=m2*q;
     const dvs=it.tipo==="division";
-    if(dvs){const m2r=dp.vidrios.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6;lin[i].vid=m2r*(+cfg.division.templadoM2||0)*q;lin[i].m2=m2r*q}
+    if(dvs){const m2r=dp.vidrios.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6;lin[i].vid=m2r*precioDivM2(vidriosDivision(it))*q;lin[i].m2=m2r*q}
     if(opts.vidrioLamina&&!dvs){const vv=vidrioDe(it.vidrio),key=vv.id||it.vidrio;for(const v of dp.vidrios)for(let k=0;k<v.cant*q;k++)(vpz[key]=vpz[key]||[]).push({i,w:v.ancho,h:v.alto,costo:redV(v.ancho)*redV(v.alto)/1e6*(+vv.m2||0)})}
     let acc=dvs?(+cfg.division.accesorios||0):(cfg.accesorios[it.tipo]||0);
     if(ser){for(const [n,c] of dp.acc){if(n.startsWith("Rodamientos"))acc+=c*precioRod(it.tipo,it.rod);if(n.startsWith("Empaque"))acc+=c*(cfg.empaqueMl||0)}}
@@ -523,7 +532,7 @@ function calcDe(o){return o.calc&&o.calc.lineas&&o.calc.lineas.length===(o.items
 function totalObra(o){return calcDe(o).resumen.total}
 function tableroTxt(it){const tb=tableroPta(it);return TAB_NOM[tb.mat]+(tb.mat==="marmo"?"":it.orient==="V"?" vertical":" horizontal")}
 function detalleItem(it){if(TIPOS[it.tipo]?.puerta)return it.color||"";
-  if(it.tipo==="division"){const r=vidriosDivision(it.ancho||0);return "Vidrio templado · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
+  if(it.tipo==="division"){const r=vidriosDivision(it);return "Vidrio templado"+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
 function describeItem(it){const t=TIPOS[it.tipo];
   if(t?.puerta)return t.corto+(it.tipo==="p15"?" · nave "+(it.nave==="t244"?"T244":"T87"):"")+" · tablero "+tableroTxt(it);
   if(t?.serie)return t.corto+" · "+(it.naves||2)+" naves ("+distNombre(it)+")";
@@ -557,7 +566,7 @@ function sketch(it){
   const n=it.tipo==="corrediza"||it.tipo==="division"?(it.hojas||2):1;
   if(TIPOS[it.tipo]?.serie){const lay=layout(it),k=lay.length,hw=w/k;lay.forEach((t,i)=>{const cx=x+i*hw;
       inner+=`<rect x="${cx+4}" y="${y+4}" width="${hw-8}" height="${h-8}" ${t==="C"?glass:'fill="var(--surface)"'} ${s} stroke-width="2"/><text x="${cx+hw/2}" y="${y+h/2+5}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" font-weight="500" fill="currentColor">${t}</text>`})}
-  else if(it.tipo==="division"){const r=vidriosDivision(it.ancho||0),T=r.fijo+r.movil,sc=w/(it.ancho||1),fw=r.fijo*sc,mw=r.movil*sc,tf='font-family="IBM Plex Mono,monospace" font-size="11" fill="currentColor" text-anchor="middle"';
+  else if(it.tipo==="division"){const r=vidriosDivision(it),T=r.fijo+r.movil,sc=w/(it.ancho||1),fw=r.fijo*sc,mw=r.movil*sc,tf='font-family="IBM Plex Mono,monospace" font-size="11" fill="currentColor" text-anchor="middle"';
     inner=`<rect x="${x+2}" y="${y+2}" width="${fw-4}" height="${h-4}" ${glass} ${s} stroke-width="1.5"/><text x="${x+fw/2}" y="${y+h/2}" ${tf}>Fijo</text><text x="${x+fw/2}" y="${y+h/2+14}" ${tf}>${cm(r.fijo)}</text>
     <rect x="${x+w-mw+2}" y="${y+6}" width="${mw-4}" height="${h-10}" ${glass} ${s} stroke-width="1.5" stroke-dasharray="5 3" fill-opacity=".8"/><text x="${x+w-mw/2}" y="${y+h/2+30}" ${tf}>Móvil</text><text x="${x+w-mw/2}" y="${y+h/2+44}" ${tf}>${cm(r.movil)}</text>
     <path d="M${x+w/2-14} ${y+20}h28m-6-5 6 5-6 5" fill="none" ${s} stroke-width="1.5"/>`}
@@ -763,6 +772,12 @@ function resumenHtml(calc,total){
 
 /* --- Cotizar --- */
 function nuevoDraft(){return {id:null,clienteId:"",nombre:"",direccion:"",estado:"cotizacion",fecha:hoy(),notas:"",items:[]}}
+/* Vidrios estándar de divisiones que usa una obra: {"60x190":2,...} */
+function vidriosInvObra(o){const m={};for(const it of o.items||[]){if(it.tipo!=="division"||it.precioManual>0)continue;const r=vidriosDivision(it);
+  if(r.modo!=="estandar"||r.sinCatalogo)continue;for(const w of [r.fijo,r.movil]){const k=cm(w)+"x"+cm(it.alto);m[k]=(m[k]||0)+(it.cant||1)}}return m}
+async function moverInventario(mapa,signo){const c=clone(S.cfg);const L=c.division.vidrios||[];
+  for(const [k,n] of Object.entries(mapa)){const [a,h]=k.split("x").map(x=>num(x));const v=L.find(v=>Math.abs(+v.ancho-a)<0.01&&Math.abs(+v.alto-h)<0.01);if(v)v.stock=Math.max(0,(+v.stock||0)+signo*n)}
+  await guardarCfg(c);if(S.cfgEdit)S.cfgEdit=null}
 function cliHint(d){return d.clienteId&&cliente(d.clienteId)?"✓ Cliente guardado en Clientes":d.clienteNombre?"Solo para esta cotización. Toca \"+ Guardar\" si lo quieres en Clientes.":"Puedes dejarlo vacío."}
 function vCotizar(){
   const d=S.draft;const calc=calcCot(d.items,d);
@@ -810,6 +825,7 @@ function itemSheetHtml(){
   <div class="field"><label>Distribución</label><div class="seg">${dists.map(([k,t])=>`<button data-act="it-dist" data-v="${k}" aria-pressed="${(dists.length===1)||(it.dist==="FC"?"FI":it.dist)===k}">${t}</button>`).join("")}</div></div>
   <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(precioRod(it.tipo,k))}</button>`).join("")}</div></div>`:""}
   ${TIPOS[it.tipo]?.puerta?ptaOpciones(it):""}
+  ${it.tipo==="division"?`<div class="field"><label>Vidrios</label><div class="seg"><button data-act="it-set" data-k="divModo" data-v="estandar" aria-pressed="${it.divModo!=="especial"}">Estándar (inventario)</button><button data-act="it-set" data-k="divModo" data-v="especial" aria-pressed="${it.divModo==="especial"}">Mandar a hacer · ${money(S.cfg.division.especialM2)}/m²</button></div></div>`:""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
   <div class="fgrid">
     <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
@@ -847,13 +863,19 @@ function ptaInfo(it,c){
     ...(tb.mat==="marmo"&&!(+pc.marmo.precio>0)?["Lámina marmolizado"]:[]),...(tb.mat==="cielo"&&!(+pc.cielo.precio>0)?["Tira cielorraso"]:[])])];
   if(falt.length)h+=`<div class="note">Sin precio en Ajustes → Puertas: ${esc(falt.join(", "))}.</div>`;
   return h}
+function divInfo(it){const r=vidriosDivision(it),st=n=>n==null?"":` <span style="color:${n>0?"var(--ok)":"var(--bad)"}">(${n>0?n+" en stock":"sin stock"})</span>`;
+  let h=`<div class="small">Vidrios ${r.modo==="especial"?"a la medida":"estándar"}: fijo ${cm(r.fijo)} × ${cm(it.alto)}${st(r.stockF)} · móvil ${cm(r.movil)} × ${cm(it.alto)}${st(r.stockM)} · traslape ${cm(r.traslape)} cm · ${money(precioDivM2(r))}/m²</div>`;
+  if(r.modo==="estandar"&&r.disponible===false)h+=`<div class="note">No hay stock suficiente de esas medidas. Puedes cotizarla igual y pedir los vidrios, o cambiar a "Mandar a hacer".</div>`;
+  if(r.auto)h+=`<div class="note">Ninguna medida estándar de ${cm(it.alto)} cm de alto sirve para este ancho, así que se cotiza para mandar a hacer.</div>`;
+  if(r.sinCatalogo)h+=`<div class="small muted">Aún no hay medidas en el inventario; se usan vidrios de ${S.cfg.division.paso} en ${S.cfg.division.paso} cm. Agrégalas en Ajustes.</div>`;
+  return h}
 function calcHtml(it){
   const c=calcCot([{...it,precioManual:0}]),L=c.lineas[0]||{},dp=despiece({...it,cant:1}),q=it.cant||1,pta=TIPOS[it.tipo]?.puerta;
   return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
   ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
   <div class="small muted num">Perfilería ${money(L.perf/q)} · ${pta?`Tablero PVC ${money(L.tab/q)}`:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)}`} · Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
   ${pta?ptaInfo(it,c):""}
-  ${it.tipo==="division"&&it.ancho>0?(()=>{const r=vidriosDivision(it.ancho);return `<div class="small">Vidrios templados: fijo ${cm(r.fijo)} × ${cm(it.alto)} · móvil ${cm(r.movil)} × ${cm(it.alto)} cm · traslape ${cm(r.traslape)} cm</div>`})():""}
+  ${it.tipo==="division"&&it.ancho>0?divInfo(it):""}
   ${TIPOS[it.tipo]?.serie||pta?`<div class="small muted">Este valor aplica la regla de tiras solo a ${pta?"esta puerta":"esta ventana"}. En la cotización completa los perfiles se suman por referencia y el total puede bajar.</div>`:""}
   <details><summary class="small" style="cursor:pointer;font-weight:600">Ver cortes y vidrios de este ítem</summary>
    <div class="small mono" style="margin-top:8px">${dp.perfiles.map(x=>`${esc(x.nombre)}: ${x.cant} × ${cm(x.largo)} cm`).join("<br>")}${dp.vidrios.map(v=>`<br>Vidrio ${esc(v.nota)}: ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} cm (cobra ${cm(redV(v.ancho))} × ${cm(redV(v.alto))})`).join("")}${dp.acc.map(([n,c])=>`<br>${esc(n)}: ${String(c).replace(".",",")}`).join("")}</div></details>`;
@@ -991,6 +1013,7 @@ const selModo=(path,val,lbl)=>`<select aria-label="Forma de cobro ${esc(lbl)}" d
 function vAjustes(){
   const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const e=c.empresa;
   c.instalacionTipo=c.instalacionTipo||{};for(const k of Object.keys(TIPOS))if(c.instalacionTipo[k]==null||c.instalacionTipo[k]==="")c.instalacionTipo[k]=instDe(k);
+  c.division.vidrios=c.division.vidrios||[];
   c.vidrios.forEach(v=>{if(v.lam==null)v.lam=0;if(v.lamA==null)v.lamA=+c.laminaVidrio?.ancho||330;if(v.lamH==null)v.lamH=+c.laminaVidrio?.alto||214});
   if(!(+c.puertas.acc.chapa>0))c.puertas.acc.chapa=precioAccPta("chapa");
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
@@ -1073,7 +1096,16 @@ function vAjustes(){
    <div class="field"><label for="dv-acc">Accesorios $/división</label><input id="dv-acc" inputmode="numeric" data-cfg="division.accesorios" value="${c.division.accesorios}"></div>
    <div class="field"><label for="dv-paso">Medidas del vidrio de cada (cm)</label><input id="dv-paso" inputmode="numeric" data-cfg="division.paso" value="${c.division.paso}"></div>
    <div class="field"><label for="dv-tr">Traslape mínimo (cm)</label><input id="dv-tr" inputmode="decimal" data-cfg="division.traslape" value="${c.division.traslape}"></div></div>
-   <span class="small muted">La mano de obra está en "Instalación y ganancia". El m² se cobra con la medida real de cada vidrio.</span></div>
+   <div class="field"><label for="dv-esp">Vidrio mandado a hacer $/m²</label><input id="dv-esp" inputmode="numeric" data-cfg="division.especialM2" value="${c.division.especialM2}"></div>
+   <span class="small muted">La mano de obra está en "Instalación y ganancia". El m² se cobra con la medida real de cada vidrio.</span>
+   <div class="row sp"><h3>Inventario de vidrios templados</h3><button class="btn sm" data-act="add-vtemp">+ Medida</button></div>
+   ${c.division.vidrios.length?`<div class="tbl-wrap"><table><thead><tr><th class="n">Ancho (cm)</th><th class="n">Alto (cm)</th><th class="n">En stock</th><th></th></tr></thead><tbody>
+   ${c.division.vidrios.map((v,i)=>`<tr><td class="n"><input class="cin" aria-label="Ancho" inputmode="decimal" data-cfg="division.vidrios.${i}.ancho" value="${v.ancho}" style="width:70px;text-align:right"></td>
+    <td class="n"><input class="cin" aria-label="Alto" inputmode="decimal" data-cfg="division.vidrios.${i}.alto" value="${v.alto}" style="width:70px;text-align:right"></td>
+    <td class="n"><input class="cin" aria-label="Stock" inputmode="numeric" data-cfg="division.vidrios.${i}.stock" value="${v.stock}" style="width:60px;text-align:right"></td>
+    <td class="n"><button class="btn sm danger" data-act="del-vtemp" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>`
+    :`<span class="small muted">Agrega las medidas estándar que manejas (ancho × alto) y cuántas tienes. Mientras la lista esté vacía, se usan vidrios de ${c.division.paso} en ${c.division.paso} cm.</span>`}
+   <span class="small muted">Al aprobar una cotización se descuentan del stock los vidrios estándar que usa; si la anulas, se devuelven.</span></div>
   <div class="panel"><h2>Instalación y ganancia</h2><div class="fgrid">
    <div class="full"><div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Instalación $/unidad</th></tr></thead><tbody>
    ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto).map(([k,t])=>`<tr><td>${esc(t.corto)}</td><td class="n"><input aria-label="Instalación ${esc(t.corto)}" inputmode="numeric" data-cfg="instalacionTipo.${k}" value="${c.instalacionTipo[k]}" class="cin" style="width:110px;text-align:right"></td></tr>`).join("")}
@@ -1250,10 +1282,12 @@ document.addEventListener("click",async ev=>{
       <div class="field"><label for="ap-fecha">Fecha</label><input id="ap-fecha" type="date" value="${hoy()}"></div>
       <div class="field"><label for="ap-forma">Forma de pago</label>${formaSel("ap-forma")}</div>
       <div class="field"><label for="ap-nota">Nota</label><input id="ap-nota" value="Anticipo"></div></div>
+      ${(()=>{const m=vidriosInvObra(o),k=Object.keys(m);return k.length?`<label class="row small" style="gap:8px;font-weight:600"><input type="checkbox" id="ap-inv" checked style="width:20px;height:20px"> Descontar del inventario: ${k.map(x=>m[x]+" de "+x.replace("x"," × ")).join(", ")}</label>`:""})()}
       <button class="btn pri block" data-act="confirmar-aprobar">✓ Aprobar cotización</button>`);break}
     case"confirmar-aprobar":{const o=obra(S.abonoObraId);if(!o)break;const v=Math.round(num($("#ap-valor").value)),f=$("#ap-fecha").value||hoy();
       const ab=[...(o.abonos||[])];if(v>0)ab.push({valor:v,fecha:f,forma:$("#ap-forma").value,nota:$("#ap-nota").value.trim()});
-      try{await guardar("obras",o.id,{...o,estado:"aprobada",fechaAprobada:f,abonos:ab});toast("Cotización aprobada");sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";go("obra",o.id)}catch(e){}break}
+      const inv=$("#ap-inv")?.checked?vidriosInvObra(o):null;if(inv)await moverInventario(inv,-1);
+      try{await guardar("obras",o.id,{...o,estado:"aprobada",fechaAprobada:f,abonos:ab,...(inv?{invDesc:inv}:{})});toast("Cotización aprobada");sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";go("obra",o.id)}catch(e){}break}
     case"abono-obra":{const o=obra(id);if(!o)break;S.abonoObraId=id;const pg=pagosObra(o);openSheet(()=>`<div class="sheet-h"><h2>Registrar abono</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
       <p style="margin:0">${esc(o.nombre||"")} · debe <b>${money(pg.debe)}</b></p>
       <div class="fgrid"><div class="field"><label for="ao-valor">Valor ($)</label><input id="ao-valor" inputmode="numeric" value="${pg.debe||""}"></div><div class="field"><label for="ao-fecha">Fecha</label><input id="ao-fecha" type="date" value="${hoy()}"></div>
@@ -1267,7 +1301,8 @@ document.addEventListener("click",async ev=>{
       pdfRecibo(obra(id),i);break}
     case"estado-cuenta":pdfEstadoCuenta(obra(id));break;
     case"borrar-abono-obra":{const o=obra(id),i=+b.dataset.i;confirmar("Se borra el abono de "+money(o.abonos[i].valor)+".","Borrar abono",async()=>{const ab=[...o.abonos];ab.splice(i,1);await guardar("obras",id,{...o,abonos:ab})});break}
-    case"estado-obra":{const o=obra(id);if(o&&o.estado!==b.dataset.v&&b.dataset.confirma&&!b.dataset.ok){const bb=b;confirmar("La obra pasará a \""+estadoDe(b.dataset.v)[1]+"\".","Cambiar estado",async()=>{await guardar("obras",id,{...o,estado:bb.dataset.v});toast("Estado: "+estadoDe(bb.dataset.v)[1])});break}
+    case"estado-obra":{const o=obra(id);if(o&&o.estado!==b.dataset.v&&b.dataset.confirma&&!b.dataset.ok){const bb=b;confirmar("La obra pasará a \""+estadoDe(b.dataset.v)[1]+"\"."+(bb.dataset.v==="anulada"&&o.invDesc?" Los vidrios descontados vuelven al inventario.":""),"Cambiar estado",async()=>{const nv=bb.dataset.v;let extra={};
+        if(nv==="anulada"&&o.invDesc){await moverInventario(o.invDesc,1);extra={invDesc:null}}await guardar("obras",id,{...o,estado:nv,...extra});toast("Estado: "+estadoDe(bb.dataset.v)[1])});break}
       if(o&&o.estado!==b.dataset.v){try{await guardar("obras",id,{...o,estado:b.dataset.v});toast("Estado: "+estadoDe(b.dataset.v)[1])}catch(e){}render()}break}
     case"borrar-obra":confirmar("Se borra la obra y su cotización. Las cuentas de cobro quedan.","Eliminar obra",async()=>{await borrar("obras",id);go("obras")});break;
     case"nuevo-item":itemSheet(null);break;
@@ -1334,6 +1369,8 @@ document.addEventListener("click",async ev=>{
     case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});autoGuardarCfg();render();break;
     case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
+    case"add-vtemp":{const L=S.cfgEdit.division.vidrios,u=L[L.length-1];L.push({ancho:u?+u.ancho+5:60,alto:u?+u.alto:190,stock:0});autoGuardarCfg();render();break}
+    case"del-vtemp":S.cfgEdit.division.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
     case"firma-dibujar":firmaSheet();break;
     case"firma-limpiar":{const cv=$("#firma-pad");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);S.firmaTrazo=false;break}
     case"firma-ok":{if(!S.firmaTrazo){toast("Primero dibuja tu firma");return}if(guardarFirma(procesarFirma($("#firma-pad"))))closeSheet();break}
