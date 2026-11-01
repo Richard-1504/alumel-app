@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.8.0";
+const APP_VER="1.8.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -315,6 +315,8 @@ const pad = n=>String(n).padStart(4,"0");
 const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const cliente = id=>S.clientes.find(c=>c.id===id);
 const obra = id=>S.obras.find(o=>o.id===id);
+/* Cliente de una obra: el guardado en Clientes o, si no, el nombre escrito solo para esa cotización */
+const clienteDe = o=>cliente(o?.clienteId)||(o?.clienteNombre?{nombre:o.clienteNombre,suelto:true}:null);
 const estadoDe = k=>ESTADOS.find(e=>e[0]===k)||ESTADOS[0];
 const vidrioDe = id=>S.cfg.vidrios.find(v=>v.id===id)||S.cfg.vidrios[0]||{nombre:"Vidrio",m2:0};
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
@@ -669,7 +671,7 @@ function vObras(){
     <div class="stat"><div class="eyebrow">Por cobrar</div><div class="v">${money(porCobrar)}</div></div>
   </div>
   <div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>
-  ${list.length?`<div class="list">${list.map(o=>{const c=cliente(o.clienteId);return `
+  ${list.length?`<div class="list">${list.map(o=>{const c=clienteDe(o);return `
     <div class="li" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}">
       <div class="grow"><div class="eyebrow">COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><div class="t">${esc(o.nombre||"Sin nombre")}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(o.items||[]).length} ítem(s)</div>
         ${o.estado==="cotizacion"?`<button class="btn sm pri" style="margin-top:8px" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button>`:""}</div>
@@ -679,7 +681,7 @@ function vObras(){
 }
 function vObra(){
   const o=obra(S.param);if(!o)return emptyBox("Obra no encontrada","Puede que la hayan borrado.",`<button class="btn" data-act="go" data-v="obras">Volver</button>`);
-  const c=cliente(o.clienteId),calc=calcDe(o),tot=calc.resumen.total;
+  const c=clienteDe(o),calc=calcDe(o),tot=calc.resumen.total;
   const pg=pagosObra(o),sig=SIGUIENTE[o.estado],abonos=(o.abonos||[]).map((a,i)=>({...a,i})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   return `
   <button class="linkish" data-act="go" data-v="obras">← Obras</button>
@@ -692,7 +694,10 @@ function vObra(){
       <div class="chips" style="margin-top:8px">${ESTADOS.map(e=>`<button class="chip" data-act="estado-obra" data-id="${o.id}" data-v="${e[0]}" data-confirma="1" aria-pressed="${o.estado===e[0]}">${e[1]}</button>`).join("")}</div></details></div>
   <div class="cols2">
     <div class="panel"><div class="eyebrow">Cliente</div>
-      ${c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}</div>
+      ${c?.suelto?`<dl class="kv"><dt>Nombre</dt><dd>${esc(c.nombre)}</dd>${o.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion)}</dd>`:""}</dl>
+        <span class="small muted">Escrito solo para esta cotización.</span><button class="btn sm" data-act="cliente-de-obra" data-id="${o.id}">Guardar en Clientes</button>`:""}
+    <div class="panel"><div class="eyebrow">Cliente</div>
+      ${c?.suelto?"":c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}</div>
     <div class="panel"><div class="row sp"><div class="eyebrow">Pagos del cliente</div>${o.estado!=="cotizacion"&&o.estado!=="anulada"?(pg.debe>0?pill("Debe","st-pen"):pill("Pagada","st-pag")):""}</div>
       <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Abonado</dt><dd class="num">${money(pg.pagado)}</dd><dt>Debe</dt><dd class="num" style="font-weight:700;color:${pg.debe>0?"var(--bad)":"var(--ok)"}">${money(pg.debe)}</dd></dl>
       ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Pago</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}${a.rc?`<div class="small muted">RC-${pad(a.rc)}</div>`:""}</td><td>${esc([a.forma,a.nota].filter(Boolean).join(" · "))}</td><td class="n">${money(a.valor)}</td><td class="n" style="white-space:nowrap"><button class="btn sm" data-act="recibo-abono" data-id="${o.id}" data-i="${a.i}">Recibo</button> <button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
@@ -746,6 +751,7 @@ function resumenHtml(calc,total){
 
 /* --- Cotizar --- */
 function nuevoDraft(){return {id:null,clienteId:"",nombre:"",direccion:"",estado:"cotizacion",fecha:hoy(),notas:"",items:[]}}
+function cliHint(d){return d.clienteId&&cliente(d.clienteId)?"✓ Cliente guardado en Clientes":d.clienteNombre?"Solo para esta cotización. Toca \"+ Guardar\" si lo quieres en Clientes.":"Puedes dejarlo vacío."}
 function vCotizar(){
   const d=S.draft;const calc=calcCot(d.items,d);
   const clientes=[...S.clientes].sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
@@ -756,8 +762,10 @@ function vCotizar(){
   <div class="panel">
     <div class="fgrid">
       <div class="field full"><label for="d-cliente">Cliente</label>
-        <div class="row"><select id="d-cliente" class="grow" data-draft="clienteId"><option value="">— Elegir cliente —</option>${clientes.map(c=>`<option value="${c.id}" ${c.id===d.clienteId?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select>
-        <button class="btn sm" data-act="nuevo-cliente" data-from="cotizar">+ Nuevo</button></div></div>
+        <div class="row"><input id="d-cliente" class="grow" list="dl-clientes" data-draft-cli="1" autocomplete="off" value="${esc(cliente(d.clienteId)?.nombre||d.clienteNombre||"")}" placeholder="Escribe el nombre o apodo, o elige uno guardado">
+        <button class="btn sm" data-act="nuevo-cliente" data-from="cotizar">+ Guardar</button></div>
+        <datalist id="dl-clientes">${clientes.map(c=>`<option value="${esc(c.nombre)}"></option>`).join("")}</datalist>
+        <span class="hint" id="d-cli-hint">${cliHint(d)}</span></div>
       <div class="field full"><label for="d-nombre">Nombre de la obra</label><input id="d-nombre" data-draft="nombre" value="${esc(d.nombre)}" placeholder="Ej: Casa Pérez · ventanas segundo piso"></div>
       <div class="field"><label for="d-dir">Dirección</label><input id="d-dir" data-draft="direccion" value="${esc(d.direccion)}"></div>
       <div class="field"><label for="d-fecha">Fecha</label><input id="d-fecha" type="date" data-draft="fecha" value="${esc(d.fecha)}"></div>
@@ -954,8 +962,8 @@ function vCliente(){
   <h2>Cuentas de cobro</h2>${cobros.length?`<div class="list">${cobros.map(x=>`<button class="li" data-act="ver-cobro" data-id="${x.id}"><div class="grow"><div class="t">No. ${pad(x.numero)}</div><div class="small muted">${fechaCorta(x.fecha)}</div></div><div class="r"><span class="num">${money(x.valor)}</span>${cobroPill(x)}</div></button>`).join("")}</div>`:`<span class="muted small">Sin cuentas de cobro.</span>`}
   <div class="row"><button class="btn pri" data-act="nueva-cot-cliente" data-id="${c.id}">Cotizar para este cliente</button><button class="btn danger" data-act="borrar-cliente" data-id="${c.id}">Eliminar</button></div>`;
 }
-function clienteSheet(id,from){
-  const c=id?cliente(id):{nombre:"",telefono:"",nit:"",direccion:"",notas:""};S.clienteFrom=from;S.clienteId=id||null;
+function clienteSheet(id,from,pref){
+  const c=id?cliente(id):{nombre:pref||"",telefono:"",nit:"",direccion:"",notas:""};S.clienteFrom=from;S.clienteId=id||null;
   openSheet(()=>`<div class="sheet-h"><h2>${id?"Editar":"Nuevo"} cliente</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
   <div class="fgrid"><div class="field full"><label for="cl-nombre">Nombre o razón social</label><input id="cl-nombre" value="${esc(c.nombre)}"></div>
    <div class="field"><label for="cl-tel">Teléfono</label><input id="cl-tel" inputmode="tel" value="${esc(c.telefono)}"></div>
@@ -1109,7 +1117,7 @@ function confirmar(msg,okTxt,fn){S.confirmFn=fn;openSheet(()=>`<div class="sheet
 
 /* ============ Texto y PDF ============ */
 async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("Copiado")}catch(e){openSheet(()=>`<div class="sheet-h"><h2>Copia este texto</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div><textarea id="copy-area" style="width:100%;min-height:260px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);font-size:14px">${esc(txt)}</textarea>`);setTimeout(()=>{const t=$("#copy-area");t&&t.select()},50)}}
-function textoCot(o){const c=cliente(o.clienteId),e=S.cfg.empresa;
+function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   return `*${e.nombre}*\nCotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
   (o.items||[]).map((it,i)=>`${i+1}. ${describeItem(it)} ${cm(it.ancho)} × ${cm(it.alto)} cm · ${detalleItem(it)} × ${it.cant} = ${money(calcDe(o).lineas[i]?.total)}`).join("\n")+
   (()=>{const R=calcDe(o).resumen;return `\n\nMateriales: ${money(R.perfiles)}\nVidrio: ${money(R.vidrio)}`+(R.tableros?`\nTableros PVC: ${money(R.tableros)}`:"")+`\nAccesorios: ${money(R.accesorios)}\nInstalación: ${money(R.instalacion)}`+(R.manual?`\nPrecio manual: ${money(R.manual)}`:"")+(Math.abs(R.ajuste)>=1?`\n${S.cfg.margen?"Margen y redondeo":"Redondeo"}: ${money(R.ajuste)}`:"")})()+
@@ -1139,7 +1147,7 @@ function pdfHeader(doc,titulo,sub){const e=S.cfg.empresa;
 async function cargarLogoDoc(){try{const r=await fetch("logo-doc.jpg");if(!r.ok)return;const b=await r.blob();S.logoDoc=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){}}
 cargarLogoDoc();
 function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
-  const doc=pdfBase(),c=cliente(o.clienteId),calc=calcDe(o),R=calc.resumen;pdfHeader(doc,"COTIZACIÓN","COT-"+pad(o.numero||0)+" · "+fechaCorta(o.fecha));
+  const doc=pdfBase(),c=clienteDe(o),calc=calcDe(o),R=calc.resumen;pdfHeader(doc,"COTIZACIÓN","COT-"+pad(o.numero||0)+" · "+fechaCorta(o.fecha));
   let y=40;doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text("Cliente:",16,y);doc.setFont("helvetica","normal");doc.text((c?.nombre||"")+(c?.nit?"  ·  "+c.nit:""),36,y);y+=6;
   doc.setFont("helvetica","bold");doc.text("Obra:",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize((o.nombre||"")+(o.direccion?" · "+o.direccion:""),160),36,y);y+=10;
   const cols=[16,26,110,140,155,178];doc.setFillColor(236,230,223);doc.rect(14,y-5,188,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(9);
@@ -1158,7 +1166,7 @@ function pdfFirma(doc,y){const e=S.cfg.empresa;
   if(e.firma){try{const r=+e.firmaRatio||3;let w=60,h=w/r;if(h>22){h=22;w=h*r}doc.addImage(e.firma,"PNG",18,y-h-1,w,h)}catch(er){}}
   doc.setDrawColor(24,33,43);doc.line(16,y,90,y);doc.setFontSize(10);doc.setFont("helvetica","normal");doc.text(e.propietario||e.nombre,16,y+5);if(e.cc)doc.text("C.C. "+e.cc,16,y+10)}
 function pdfRecibo(o,i){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
-  const a=o.abonos[i],cl=cliente(o.clienteId),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"RECIBO DE ABONO","No. RC-"+pad(a.rc));
+  const a=o.abonos[i],cl=clienteDe(o),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"RECIBO DE ABONO","No. RC-"+pad(a.rc));
   const ord=pagosOrdenados(o),pos=ord.findIndex(p=>p.src==="obra"&&p.i===i),antes=ord.slice(0,pos).reduce((s,p)=>s+(+p.valor||0),0),saldo=tot-antes-(+a.valor||0);
   let y=44;doc.setFontSize(11);doc.text((e.ciudad?e.ciudad+", ":"")+fechaLarga(a.fecha),16,y);y+=14;
   const campo=(t,v)=>{doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(t,16,y);y+=6;doc.setFont("helvetica","normal");const l=doc.splitTextToSize(v,182);doc.text(l,16,y);y+=l.length*5+7};
@@ -1175,7 +1183,7 @@ function pdfRecibo(o,i){if(!window.jspdf){toast("No cargó el generador de PDF. 
   pdfFirma(doc,Math.max(y+28,215));
   guardarArchivo("Recibo_RC-"+pad(a.rc)+".pdf",doc)}
 function pdfEstadoCuenta(o){if(!o)return;if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
-  const cl=cliente(o.clienteId),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"ESTADO DE CUENTA",fechaCorta(hoy()));
+  const cl=clienteDe(o),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"ESTADO DE CUENTA",fechaCorta(hoy()));
   let y=42;doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text("Cliente:",16,y);doc.setFont("helvetica","normal");doc.text((cl?.nombre||"")+(cl?.nit?"  ·  "+cl.nit:""),36,y);y+=6;
   doc.setFont("helvetica","bold");doc.text("Obra:",16,y);doc.setFont("helvetica","normal");const ob=doc.splitTextToSize("COT-"+pad(o.numero||0)+" · "+(o.nombre||"")+(o.direccion?" · "+o.direccion:""),160);doc.text(ob,36,y);y+=ob.length*5+3;
   doc.setFont("helvetica","bold");doc.text("Valor de la obra:",16,y);doc.text(money(tot),200,y,{align:"right"});y+=10;
@@ -1263,11 +1271,13 @@ document.addEventListener("click",async ev=>{
       const id2=d.id||uid();const prev=d.id?obra(d.id):null;
       const numero=prev?.numero||Math.max(0,...S.obras.map(o=>o.numero||0))+1;
       const calc=calcCot(d.items,d);try{await guardar("obras",id2,{...d,id:undefined,numero,calc,total:calc.resumen.total});toast("Cotización guardada");S.draft=nuevoDraft();go("obra",id2)}catch(e){}break}
-    case"nuevo-cliente":clienteSheet(null,b.dataset.from);break;
+    case"nuevo-cliente":clienteSheet(null,b.dataset.from,b.dataset.from==="cotizar"?S.draft?.clienteNombre:"");break;
+    case"cliente-de-obra":{const o=obra(id);S.clienteObra=id;clienteSheet(null,"obra",o?.clienteNombre||"");break}
     case"editar-cliente":clienteSheet(id);break;
     case"guardar-cliente":{const nombre=$("#cl-nombre").value.trim();if(!nombre){toast("Escribe el nombre");return}
       const id2=S.clienteId||uid();const data={nombre,telefono:$("#cl-tel").value.trim(),nit:$("#cl-nit").value.trim(),direccion:$("#cl-dir").value.trim(),notas:$("#cl-notas").value.trim()};
-      try{await guardar("clientes",id2,data);toast("Cliente guardado");if(S.clienteFrom==="cotizar"&&S.draft){S.draft.clienteId=id2;if(!S.draft.direccion)S.draft.direccion=data.direccion}closeSheet()}catch(e){}break}
+      try{await guardar("clientes",id2,data);toast("Cliente guardado");if(S.clienteFrom==="cotizar"&&S.draft){S.draft.clienteId=id2;S.draft.clienteNombre="";if(!S.draft.direccion)S.draft.direccion=data.direccion}
+      if(S.clienteFrom==="obra"){const o=obra(S.clienteObra);if(o)await guardar("obras",o.id,{...o,clienteId:id2,clienteNombre:""})}closeSheet()}catch(e){}break}
     case"borrar-cliente":confirmar("Se borra el cliente. Sus obras y cuentas quedan sin cliente asignado.","Eliminar cliente",async()=>{await borrar("clientes",id);go("clientes")});break;
     case"nuevo-cobro":cobroSheet(null,b.dataset.obra);break;
     case"editar-cobro":cobroSheet(id);break;
@@ -1312,6 +1322,9 @@ document.addEventListener("click",async ev=>{
 document.addEventListener("input",ev=>{
   const t=ev.target;
   if(t.dataset.draftChk&&S.draft){S.draft[t.dataset.draftChk]=t.checked;render();return}
+  if(t.dataset.draftCli&&S.draft){const v=t.value.trim(),c=S.clientes.find(x=>(x.nombre||"").trim().toLowerCase()===v.toLowerCase());
+    if(c){S.draft.clienteId=c.id;S.draft.clienteNombre="";if(!S.draft.direccion&&c.direccion){S.draft.direccion=c.direccion;const di=$("#d-dir");if(di)di.value=c.direccion}}else{S.draft.clienteId="";S.draft.clienteNombre=v}
+    const h=$("#d-cli-hint");if(h)h.textContent=cliHint(S.draft);return}
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
     if(k==="ancho"||k==="alto")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion")v=Math.round(num(v));
