@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.5.0";
+const APP_VER="1.6.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -275,7 +275,7 @@ const DEFAULT_CFG = {
   },
   rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, instalacionTipo:{}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
-  barra:6000, sierra:4, cobroInicio:1,
+  barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
   desc:{
     corrediza:{traslape:30,hojaA:15,hojaH:40,vidA:50,vidH:65},
     proyectante:{hoja:30,vid:60},
@@ -691,7 +691,8 @@ function vObra(){
       ${c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}</div>
     <div class="panel"><div class="row sp"><div class="eyebrow">Pagos del cliente</div>${o.estado!=="cotizacion"&&o.estado!=="anulada"?(pg.debe>0?pill("Debe","st-pen"):pill("Pagada","st-pag")):""}</div>
       <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Abonado</dt><dd class="num">${money(pg.pagado)}</dd><dt>Debe</dt><dd class="num" style="font-weight:700;color:${pg.debe>0?"var(--bad)":"var(--ok)"}">${money(pg.debe)}</dd></dl>
-      ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Nota</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}</td><td>${esc(a.nota||"")}</td><td class="n">${money(a.valor)}</td><td class="n"><button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
+      ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Pago</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}${a.rc?`<div class="small muted">RC-${pad(a.rc)}</div>`:""}</td><td>${esc([a.forma,a.nota].filter(Boolean).join(" · "))}</td><td class="n">${money(a.valor)}</td><td class="n" style="white-space:nowrap"><button class="btn sm" data-act="recibo-abono" data-id="${o.id}" data-i="${a.i}">Recibo</button> <button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
+      ${pg.pagado>0?`<button class="btn" data-act="estado-cuenta" data-id="${o.id}">Estado de cuenta (PDF)</button>`:""}
       ${pg.abC?`<span class="small muted">Incluye ${money(pg.abC)} abonados en cuentas de cobro de esta obra.</span>`:""}
       ${o.estado==="cotizacion"?`<span class="small muted">Los abonos se registran cuando la cotización esté aprobada.</span>`:`<button class="btn pri" data-act="abono-obra" data-id="${o.id}">+ Registrar abono</button>`}</div>
   </div>
@@ -882,6 +883,13 @@ function vCobros(){
    <div class="r"><span class="num" style="font-weight:600">${money(c.valor)}</span>${s.saldo>0&&s.ab>0&&!c.anulada?`<span class="small muted num">Debe ${money(s.saldo)}</span>`:""}${cobroPill(c)}</div></button>`}).join("")}</div>`
   :emptyBox(S.cobros.length?"Nada en este filtro":"Sin cuentas de cobro",S.cobros.length?"Cambia el filtro.":"Crea una cuenta de cobro desde una obra o desde aquí. Se numeran solas en orden y salen en PDF.",`<button class="btn pri" data-act="nuevo-cobro">Crear cuenta de cobro</button>`)}`;
 }
+function siguienteRecibo(){return Math.max(+S.cfg.reciboInicio||1,...S.obras.flatMap(o=>(o.abonos||[]).map(a=>(+a.rc||0)+1)))}
+const FORMAS=["Efectivo","Transferencia","Nequi","Daviplata","Consignación","Otro"];
+const formaSel=id=>`<select id="${id}">${FORMAS.map(f=>`<option>${f}</option>`).join("")}</select>`;
+/* Todos los pagos de una obra en orden de fecha: abonos de la obra y de sus cuentas de cobro */
+function pagosOrdenados(o){const L=(o.abonos||[]).map((a,i)=>({...a,i,src:"obra"}));
+  for(const c of S.cobros.filter(c=>c.obraId===o.id&&!c.anulada))for(const a of (c.abonos||[]))L.push({...a,src:"cobro",nota:(a.nota?a.nota+" · ":"")+"cuenta de cobro No. "+pad(c.numero)});
+  return L.map((a,k)=>({...a,k})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")||a.k-b.k)}
 function siguienteCobro(){return Math.max(S.cfg.cobroInicio||1,...S.cobros.map(c=>(+c.numero||0)+1))}
 function vCobro(){
   const c=S.cobros.find(x=>x.id===S.param);if(!c)return emptyBox("Cuenta no encontrada","",`<button class="btn" data-act="go" data-v="cobros">Volver</button>`);
@@ -973,6 +981,7 @@ function vAjustes(){
    <div class="field full"><label for="e-banco">Cuenta para pagos</label><input id="e-banco" data-cfg="empresa.banco" value="${esc(e.banco)}" placeholder="Ej: Ahorros Bancolombia No. ..."></div>
    <div class="field full"><label for="e-nota">Nota en cuentas de cobro</label><input id="e-nota" data-cfg="empresa.nota" value="${esc(e.nota)}"></div>
    <div class="field"><label for="e-cobro">Siguiente No. de cuenta de cobro</label><input id="e-cobro" inputmode="numeric" data-cfg="cobroInicio" value="${c.cobroInicio}"><span class="hint">Si ya llevas una numeración, pon aquí el número que sigue.</span></div>
+   <div class="field"><label for="e-rc">Siguiente No. de recibo de abono</label><input id="e-rc" inputmode="numeric" data-cfg="reciboInicio" value="${c.reciboInicio}"><span class="hint">Los recibos se numeran RC-0001, RC-0002…</span></div>
   </div></div>
   <div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
    <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina entera</th><th class="n">Lámina (cm)</th><th></th></tr></thead><tbody>
@@ -1105,6 +1114,37 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
   y+=4;doc.setFillColor(42,54,66);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(24,33,43);
   y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5)}
   guardarArchivo("Cotizacion_COT-"+pad(o.numero||0)+".pdf",doc)}
+function pdfFirma(doc,y){const e=S.cfg.empresa;doc.setDrawColor(24,33,43);doc.line(16,y,90,y);doc.setFontSize(10);doc.setFont("helvetica","normal");doc.text(e.propietario||e.nombre,16,y+5);if(e.cc)doc.text("C.C. "+e.cc,16,y+10)}
+function pdfRecibo(o,i){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
+  const a=o.abonos[i],cl=cliente(o.clienteId),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"RECIBO DE ABONO","No. RC-"+pad(a.rc));
+  const ord=pagosOrdenados(o),pos=ord.findIndex(p=>p.src==="obra"&&p.i===i),antes=ord.slice(0,pos).reduce((s,p)=>s+(+p.valor||0),0),saldo=tot-antes-(+a.valor||0);
+  let y=44;doc.setFontSize(11);doc.text((e.ciudad?e.ciudad+", ":"")+fechaLarga(a.fecha),16,y);y+=14;
+  const campo=(t,v)=>{doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(t,16,y);y+=6;doc.setFont("helvetica","normal");const l=doc.splitTextToSize(v,182);doc.text(l,16,y);y+=l.length*5+7};
+  campo("RECIBÍ DE:",(cl?.nombre||"Cliente")+(cl?.nit?"   NIT / C.C. "+cl.nit:""));
+  campo("LA SUMA DE:",letras(+a.valor||0)+" PESOS M/CTE ("+money(a.valor)+")");
+  campo("POR CONCEPTO DE:","Abono a la cotización COT-"+pad(o.numero||0)+(o.nombre?" · "+o.nombre:"")+(o.direccion?" · "+o.direccion:""));
+  campo("FORMA DE PAGO:",[a.forma,a.nota].filter(Boolean).join(" · ")||"—");
+  y+=2;doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("ESTADO DE LA CUENTA",16,y);y+=3;
+  const filas=[["Valor total de la obra",tot],["Abonos anteriores",antes],["Este abono",+a.valor||0],["Saldo pendiente",Math.max(0,saldo)]];
+  filas.forEach(([t,v],k)=>{const last=k===filas.length-1;if(last){doc.setFillColor(42,54,66);doc.rect(16,y,110,8,"F");doc.setTextColor(255);doc.setFont("helvetica","bold")}else{doc.setDrawColor(203,211,219);doc.line(16,y+8,126,y+8);doc.setFont("helvetica","normal")}
+    doc.text(t,19,y+5.5);doc.text(money(v),123,y+5.5,{align:"right"});doc.setTextColor(24,33,43);y+=8});
+  if(saldo<=0){y+=6;doc.setFont("helvetica","bold");doc.setTextColor(35,122,59);doc.text("OBRA PAGADA EN SU TOTALIDAD",16,y);doc.setTextColor(24,33,43)}
+  y+=10;doc.setFont("helvetica","normal");doc.setFontSize(9);if(e.nota){doc.text(e.nota,16,y);y+=5}
+  pdfFirma(doc,Math.max(y+28,215));
+  guardarArchivo("Recibo_RC-"+pad(a.rc)+".pdf",doc)}
+function pdfEstadoCuenta(o){if(!o)return;if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
+  const cl=cliente(o.clienteId),e=S.cfg.empresa,tot=totalObra(o),doc=pdfBase();pdfHeader(doc,"ESTADO DE CUENTA",fechaCorta(hoy()));
+  let y=42;doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text("Cliente:",16,y);doc.setFont("helvetica","normal");doc.text((cl?.nombre||"")+(cl?.nit?"  ·  "+cl.nit:""),36,y);y+=6;
+  doc.setFont("helvetica","bold");doc.text("Obra:",16,y);doc.setFont("helvetica","normal");const ob=doc.splitTextToSize("COT-"+pad(o.numero||0)+" · "+(o.nombre||"")+(o.direccion?" · "+o.direccion:""),160);doc.text(ob,36,y);y+=ob.length*5+3;
+  doc.setFont("helvetica","bold");doc.text("Valor de la obra:",16,y);doc.text(money(tot),200,y,{align:"right"});y+=10;
+  doc.setFillColor(227,232,237);doc.rect(14,y-5,188,8,"F");doc.setFontSize(9);["Fecha","Recibo","Forma de pago / nota","Abono","Saldo"].forEach((h,k)=>doc.text(h,[16,40,64,170,200][k],y,{align:k>=3?"right":"left"}));y+=8;doc.setFont("helvetica","normal");
+  let sal=tot,sum=0;for(const p of pagosOrdenados(o)){sal-=+p.valor||0;sum+=+p.valor||0;if(y>250){doc.addPage();y=20}
+    const d=doc.splitTextToSize([p.forma,p.nota].filter(Boolean).join(" · ")||"—",80);doc.text(fechaCorta(p.fecha),16,y);doc.text(p.rc?"RC-"+pad(p.rc):"",40,y);doc.text(d,64,y);doc.text(money(p.valor),170,y,{align:"right"});doc.text(money(Math.max(0,sal)),200,y,{align:"right"});
+    y+=d.length*4+3;doc.setDrawColor(203,211,219);doc.line(14,y-2,202,y-2)}
+  y+=4;doc.setFontSize(10);doc.text("Total abonado",124,y);doc.text(money(sum),200,y,{align:"right"});y+=8;
+  doc.setFillColor(42,54,66);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(sal<=0?"PAGADA":"SALDO",124,y+1.5);doc.text(money(Math.max(0,sal)),200,y+1.5,{align:"right"});doc.setTextColor(24,33,43);
+  y+=16;doc.setFont("helvetica","normal");doc.setFontSize(9);if(e.banco&&sal>0){doc.text("Pagos a: "+e.banco,16,y);y+=5}
+  guardarArchivo("Estado_de_cuenta_COT-"+pad(o.numero||0)+".pdf",doc)}
 function pdfCobro(c){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const doc=pdfBase(),cl=cliente(c.clienteId),e=S.cfg.empresa;pdfHeader(doc,"CUENTA DE COBRO","No. "+pad(c.numero));
   let y=44;doc.setFontSize(11);doc.text((e.ciudad?e.ciudad+", ":"")+fechaLarga(c.fecha),16,y);y+=14;
@@ -1136,18 +1176,24 @@ document.addEventListener("click",async ev=>{
       <p style="margin:0">COT-${pad(o.numero||0)} · ${esc(o.nombre||"")} · <b>${money(t)}</b></p>
       <div class="fgrid"><div class="field"><label for="ap-valor">Anticipo recibido ($)</label><input id="ap-valor" inputmode="numeric" placeholder="0"><span class="hint">Opcional. Ej: 50 % = ${money(t/2)}</span></div>
       <div class="field"><label for="ap-fecha">Fecha</label><input id="ap-fecha" type="date" value="${hoy()}"></div>
-      <div class="field full"><label for="ap-nota">Nota del pago</label><input id="ap-nota" placeholder="Ej: Anticipo en efectivo"></div></div>
+      <div class="field"><label for="ap-forma">Forma de pago</label>${formaSel("ap-forma")}</div>
+      <div class="field"><label for="ap-nota">Nota</label><input id="ap-nota" value="Anticipo"></div></div>
       <button class="btn pri block" data-act="confirmar-aprobar">✓ Aprobar cotización</button>`);break}
     case"confirmar-aprobar":{const o=obra(S.abonoObraId);if(!o)break;const v=Math.round(num($("#ap-valor").value)),f=$("#ap-fecha").value||hoy();
-      const ab=[...(o.abonos||[])];if(v>0)ab.push({valor:v,fecha:f,nota:$("#ap-nota").value.trim()||"Anticipo"});
+      const ab=[...(o.abonos||[])];if(v>0)ab.push({valor:v,fecha:f,forma:$("#ap-forma").value,nota:$("#ap-nota").value.trim()});
       try{await guardar("obras",o.id,{...o,estado:"aprobada",fechaAprobada:f,abonos:ab});toast("Cotización aprobada");sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";go("obra",o.id)}catch(e){}break}
     case"abono-obra":{const o=obra(id);if(!o)break;S.abonoObraId=id;const pg=pagosObra(o);openSheet(()=>`<div class="sheet-h"><h2>Registrar abono</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
       <p style="margin:0">${esc(o.nombre||"")} · debe <b>${money(pg.debe)}</b></p>
       <div class="fgrid"><div class="field"><label for="ao-valor">Valor ($)</label><input id="ao-valor" inputmode="numeric" value="${pg.debe||""}"></div><div class="field"><label for="ao-fecha">Fecha</label><input id="ao-fecha" type="date" value="${hoy()}"></div>
-      <div class="field full"><label for="ao-nota">Nota</label><input id="ao-nota" placeholder="Ej: Transferencia, efectivo"></div></div>
+      <div class="field"><label for="ao-forma">Forma de pago</label>${formaSel("ao-forma")}</div>
+      <div class="field"><label for="ao-nota">Nota</label><input id="ao-nota" placeholder="Ej: Segundo abono"></div></div>
       <button class="btn pri block" data-act="guardar-abono-obra">Guardar abono</button>`);break}
     case"guardar-abono-obra":{const o=obra(S.abonoObraId);const v=Math.round(num($("#ao-valor").value));if(!v){toast("Escribe el valor");return}
-      try{await guardar("obras",o.id,{...o,abonos:[...(o.abonos||[]),{valor:v,fecha:$("#ao-fecha").value||hoy(),nota:$("#ao-nota").value.trim()}]});toast("Abono registrado");closeSheet()}catch(e){}break}
+      try{await guardar("obras",o.id,{...o,abonos:[...(o.abonos||[]),{valor:v,fecha:$("#ao-fecha").value||hoy(),forma:$("#ao-forma").value,nota:$("#ao-nota").value.trim()}]});toast("Abono registrado");closeSheet()}catch(e){}break}
+    case"recibo-abono":{const o=obra(id),i=+b.dataset.i;if(!o||!o.abonos?.[i])break;
+      if(!o.abonos[i].rc){const ab=[...o.abonos];ab[i]={...ab[i],rc:siguienteRecibo()};try{await guardar("obras",o.id,{...o,abonos:ab});render()}catch(e){break}}
+      pdfRecibo(obra(id),i);break}
+    case"estado-cuenta":pdfEstadoCuenta(obra(id));break;
     case"borrar-abono-obra":{const o=obra(id),i=+b.dataset.i;confirmar("Se borra el abono de "+money(o.abonos[i].valor)+".","Borrar abono",async()=>{const ab=[...o.abonos];ab.splice(i,1);await guardar("obras",id,{...o,abonos:ab})});break}
     case"estado-obra":{const o=obra(id);if(o&&o.estado!==b.dataset.v&&b.dataset.confirma&&!b.dataset.ok){const bb=b;confirmar("La obra pasará a \""+estadoDe(b.dataset.v)[1]+"\".","Cambiar estado",async()=>{await guardar("obras",id,{...o,estado:bb.dataset.v});toast("Estado: "+estadoDe(bb.dataset.v)[1])});break}
       if(o&&o.estado!==b.dataset.v){try{await guardar("obras",id,{...o,estado:b.dataset.v});toast("Estado: "+estadoDe(b.dataset.v)[1])}catch(e){}render()}break}
