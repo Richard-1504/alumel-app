@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.3.1";
+const APP_VER="1.3.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -255,14 +255,14 @@ const DEFAULT_CFG = {
     s744:{perfiles:[
       {nombre:"Cabezal",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},{nombre:"Sillar",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},
       {nombre:"Jamba",precio:65000,base:"H",c2:2,c3:2,c4:2,cobro:"metro"},{nombre:"Enganche",precio:72000,base:"HN",c2:2,c3:2,c4:2,cobro:"metro"},
-      {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6,cobro:"metro"},{nombre:"Superior",precio:52000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},
-      {nombre:"Inferior",precio:70000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},{nombre:"Adaptador",precio:30000,base:"ANF",c2:1,c3:1,c4:1,cobro:"metro"}],
+      {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6,cobro:"metro"},{nombre:"Superior",precio:52000,base:"A2",c2:2,c3:2,c4:2,cobro:"metro"},
+      {nombre:"Inferior",precio:70000,base:"A2",c2:2,c3:2,c4:2,cobro:"metro"},{nombre:"Adaptador",precio:30000,base:"H",c2:0,c3:0,c4:1,cobro:"metro"}],
       vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}},
     s8025:{perfiles:[
       {nombre:"Cabezal",precio:95000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},{nombre:"Sillar",precio:85000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},
       {nombre:"Jamba",precio:95000,base:"H",c2:2,c3:2,c4:2,cobro:"min3"},{nombre:"Enganche",precio:115000,base:"HN",c2:2,c3:2,c4:2,cobro:"min3"},
-      {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6,cobro:"min3"},{nombre:"Zócalo superior",precio:100000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},
-      {nombre:"Zócalo inferior",precio:120000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},{nombre:"Adaptador",precio:40000,base:"ANF",c2:1,c3:1,c4:1,cobro:"min3"}],
+      {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6,cobro:"min3"},{nombre:"Zócalo superior",precio:100000,base:"A2",c2:2,c3:2,c4:2,cobro:"min3"},
+      {nombre:"Zócalo inferior",precio:120000,base:"A2",c2:2,c3:2,c4:2,cobro:"min3"},{nombre:"Adaptador",precio:40000,base:"H",c2:0,c3:0,c4:1,cobro:"min3"}],
       vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}}
   },
   puertas:{
@@ -290,6 +290,10 @@ const DEFAULT_CFG = {
 const S = {cfg:clone(DEFAULT_CFG), cfgExists:false, clientes:[], obras:[], cobros:[], loaded:{}, view:"obras", param:null,
   filtroObras:"activas", filtroCobros:"pendientes", buscar:"", draft:null, cortesObra:"", db:null, dl:null, offline:false, readonly:false};
 function clone(o){return JSON.parse(JSON.stringify(o))}
+/* Ajusta configuraciones guardadas antes de las reglas nuevas de 744/8025 */
+function migrarCfg(c){if((c.rev||0)<2){for(const sc of Object.values(c.series||{}))for(const p of sc.perfiles||[]){
+    if(/superior|inferior/i.test(p.nombre)&&p.base==="AN"){p.base="A2";p.c2=2;p.c3=2;p.c4=2}
+    if(/adaptador/i.test(p.nombre)&&p.base==="ANF"){p.base="H";p.c2=0;p.c3=0;p.c4=1}}c.rev=2}return c}
 function mergeCfg(base,over){const o=clone(base);for(const k in over){if(over[k]&&typeof over[k]==="object"&&!Array.isArray(over[k])&&o[k]&&typeof o[k]==="object"&&!Array.isArray(o[k]))o[k]=mergeCfg(o[k],over[k]);else o[k]=over[k]}return o}
 
 /* ============ Utilidades ============ */
@@ -393,7 +397,7 @@ function despiece(it){
     case"s744":case"s8025":{const sc=S.cfg.series[it.tipo],n=it.naves||2,lay=layout(it),fijas=lay.filter(x=>x==="F").length,corr=n-fijas;
       const AN=A/n,HN=H;
       for(const p of sc.perfiles){const c=+p["c"+n]||0;if(!c)continue;let L=A,q=c;
-        if(p.base==="H")L=H;else if(p.base==="AN")L=AN;else if(p.base==="HN")L=HN;else if(p.base==="ANF"){L=AN;q=c*fijas}
+        if(p.base==="H")L=H;else if(p.base==="A2")L=A/2;else if(p.base==="AN")L=AN;else if(p.base==="HN")L=HN;else if(p.base==="ANF"){L=AN;q=c*fijas}
         per(p.nombre,L,q)}
       const g=sc.vid[n]||sc.vid["2"],va=(A-g.dA*10)/n;
       if(corr)vid(va,H-g.hC*10,corr,"corrediza");if(fijas)vid(va,H-g.hF*10,fijas,"fija");
@@ -573,7 +577,7 @@ function errGuardar(e){
   setSync();
 }
 function saveLocal(){try{localStorage.setItem("alumel-local",JSON.stringify({cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros}))}catch(e){}}
-function loadLocal(){try{const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(d){S.cfg=mergeCfg(DEFAULT_CFG,d.cfg||{});S.clientes=d.clientes||[];S.obras=d.obras||[];S.cobros=d.cobros||[]}}catch(e){}}
+function loadLocal(){try{const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(d){S.cfg=migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg||{}));S.clientes=d.clientes||[];S.obras=d.obras||[];S.cobros=d.cobros||[]}}catch(e){}}
 function setSync(){const el=$("#sync");if(!el)return;
   if(S.offline){el.textContent="Solo este equipo";el.className="sync err";return}
   if(S.readonly){el.textContent="Sin permiso";el.className="sync err";return}
@@ -599,7 +603,7 @@ function conectar(db){
   const timer=setTimeout(()=>{if(!["config",...COLS].every(k=>S.loaded[k]))setSync()},10000);
   const done=k=>{S.loaded[k]=true;if(["config",...COLS].every(x=>S.loaded[x]))clearTimeout(timer);setSync()};
   const err=k=>e=>{done(k);if(e.code==="permission-denied"){S.readonly=true;setSync();toast("Tu usuario no tiene permiso. Pide que te agreguen.")}};
-  S.unsubs.push(db.doc("config/general").onSnapshot({includeMetadataChanges:true},snap=>{S.cfgExists=snap.exists;S.cfg=snap.exists?mergeCfg(DEFAULT_CFG,snap.data()):clone(DEFAULT_CFG);done("config");softRender()},err("config")));
+  S.unsubs.push(db.doc("config/general").onSnapshot({includeMetadataChanges:true},snap=>{S.cfgExists=snap.exists;S.cfg=migrarCfg(snap.exists?mergeCfg(DEFAULT_CFG,snap.data()):clone(DEFAULT_CFG));done("config");softRender()},err("config")));
   for(const col of COLS){
     S.unsubs.push(db.collection(col).onSnapshot({includeMetadataChanges:true},snap=>{S[col]=snap.docs.map(d=>({...d.data(),id:d.id}));S.pendientes=snap.metadata.hasPendingWrites;done(col);softRender()},err(col)));
   }
@@ -960,7 +964,7 @@ function vAjustes(){
    <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th><th>Cobro</th></tr></thead><tbody>
    ${sc.perfiles.map((p,i)=>`<tr><td><input aria-label="Nombre perfil" data-cfg="series.${k}.perfiles.${i}.nombre" value="${esc(p.nombre)}" class="cin" style="width:130px"></td>
      <td class="n"><input aria-label="Precio ${esc(p.nombre)}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.precio" value="${p.precio}" class="cin" style="width:96px;text-align:right"></td>
-     <td><select aria-label="Medida ${esc(p.nombre)}" data-cfg="series.${k}.perfiles.${i}.base" class="cin">${[["A","Ancho total"],["H","Alto total"],["AN","Ancho de nave"],["HN","Alto de nave"],["ANF","Ancho nave fija"]].map(([v,t])=>`<option value="${v}" ${p.base===v?"selected":""}>${t}</option>`).join("")}</select></td>
+     <td><select aria-label="Medida ${esc(p.nombre)}" data-cfg="series.${k}.perfiles.${i}.base" class="cin">${[["A","Ancho total"],["A2","Ancho total ÷ 2"],["H","Alto total"],["AN","Ancho de nave"],["HN","Alto de nave"],["ANF","Ancho nave fija"]].map(([v,t])=>`<option value="${v}" ${p.base===v?"selected":""}>${t}</option>`).join("")}</select></td>
      ${["c2","c3","c4"].map(cc=>`<td class="n"><input aria-label="Cantidad ${cc}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.${cc}" value="${p[cc]}" class="cin" style="width:48px;text-align:right"></td>`).join("")}
      <td>${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}</td></tr>`).join("")}
    </tbody></table></div>
@@ -1171,7 +1175,7 @@ document.addEventListener("input",ev=>{
 document.addEventListener("change",ev=>{const t=ev.target;
   if(t.id==="imp-file"&&t.files[0]){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.app!=="alumel")throw 0;
     confirmar("Se agregarán o reemplazarán "+(d.clientes||[]).length+" clientes, "+(d.obras||[]).length+" obras y "+(d.cobros||[]).length+" cuentas de cobro del respaldo.","Importar",async()=>{
-      if(d.cfg)await guardarCfg(mergeCfg(DEFAULT_CFG,d.cfg));for(const col of COLS)for(const x of (d[col]||[]))await guardar(col,x.id||uid(),x);toast("Respaldo importado")})}catch(e){toast("Ese archivo no es un respaldo de Alumel")}};r.readAsText(t.files[0]);t.value=""}
+      if(d.cfg)await guardarCfg(migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg)));for(const col of COLS)for(const x of (d[col]||[]))await guardar(col,x.id||uid(),x);toast("Respaldo importado")})}catch(e){toast("Ese archivo no es un respaldo de Alumel")}};r.readAsText(t.files[0]);t.value=""}
   if(t.dataset.actChange==="cortes-obra"){S.cortesObra=t.value;render()}
   if(t.id==="cb-obra"&&t.value){const o=obra(t.value);if(o&&!$("#cb-cli").value)$("#cb-cli").value=o.clienteId||""}
 });
