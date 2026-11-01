@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.1.0";
+const APP_VER="1.2.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -253,20 +253,21 @@ const DEFAULT_CFG = {
   accesorios:{s744:0,s8025:0,corrediza:35000,proyectante:45000,fija:0,puerta:120000,division:180000,pasamanos:25000},
   series:{
     s744:{traslapeNave:30,altoNave:40,perfiles:[
-      {nombre:"Cabezal",precio:65000,base:"A",c2:1,c3:1,c4:1},{nombre:"Sillar",precio:65000,base:"A",c2:1,c3:1,c4:1},
-      {nombre:"Jamba",precio:65000,base:"H",c2:2,c3:2,c4:2},{nombre:"Enganche",precio:72000,base:"HN",c2:2,c3:2,c4:2},
-      {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6},{nombre:"Superior",precio:52000,base:"AN",c2:2,c3:3,c4:4},
-      {nombre:"Inferior",precio:70000,base:"AN",c2:2,c3:3,c4:4},{nombre:"Adaptador",precio:30000,base:"ANF",c2:1,c3:1,c4:1}],
+      {nombre:"Cabezal",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},{nombre:"Sillar",precio:65000,base:"A",c2:1,c3:1,c4:1,cobro:"metro"},
+      {nombre:"Jamba",precio:65000,base:"H",c2:2,c3:2,c4:2,cobro:"metro"},{nombre:"Enganche",precio:72000,base:"HN",c2:2,c3:2,c4:2,cobro:"metro"},
+      {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6,cobro:"metro"},{nombre:"Superior",precio:52000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},
+      {nombre:"Inferior",precio:70000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},{nombre:"Adaptador",precio:30000,base:"ANF",c2:1,c3:1,c4:1,cobro:"metro"}],
       vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}},
     s8025:{traslapeNave:30,altoNave:40,perfiles:[
-      {nombre:"Cabezal",precio:95000,base:"A",c2:1,c3:1,c4:1},{nombre:"Sillar",precio:85000,base:"A",c2:1,c3:1,c4:1},
-      {nombre:"Jamba",precio:95000,base:"H",c2:2,c3:2,c4:2},{nombre:"Enganche",precio:115000,base:"HN",c2:2,c3:2,c4:2},
-      {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6},{nombre:"Zócalo superior",precio:100000,base:"AN",c2:2,c3:3,c4:4},
-      {nombre:"Zócalo inferior",precio:120000,base:"AN",c2:2,c3:3,c4:4},{nombre:"Adaptador",precio:40000,base:"ANF",c2:1,c3:1,c4:1}],
+      {nombre:"Cabezal",precio:95000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},{nombre:"Sillar",precio:85000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},
+      {nombre:"Jamba",precio:95000,base:"H",c2:2,c3:2,c4:2,cobro:"min3"},{nombre:"Enganche",precio:115000,base:"HN",c2:2,c3:2,c4:2,cobro:"min3"},
+      {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6,cobro:"min3"},{nombre:"Zócalo superior",precio:100000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},
+      {nombre:"Zócalo inferior",precio:120000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},{nombre:"Adaptador",precio:40000,base:"ANF",c2:1,c3:1,c4:1,cobro:"min3"}],
       vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}}
   },
   puertas:{
     perfiles:{U66:0,T77:0,T166:0,A61:0,U78:0,T87:0,T244:0,U71:0,S343:0,S344:0,F06:0},
+    cobro:{U66:"metro",T77:"metro",T166:"metro",A61:"metro",U78:"metro",T87:"metro",T244:"metro",U71:"metro",S343:"metro",S344:"metro",F06:"metro"},
     acc:{chapa1:0,bisagra1:0,chapa15:0,bisagra15:0,tornSil:0,varilla:0,cuna:0},
     utilF06:8.5, utilT166:7.4,
     marmo:{ancho:122,alto:244,precio:0},
@@ -425,14 +426,20 @@ function layout(it){const n=it.naves||2,d=it.dist;
 function distNombre(it){const n=it.naves||2,d=it.dist;
   if(n===2)return d==="FC"?"fija + corrediza":"2 corredizas";if(n===3)return d==="FD"?"fija a la derecha":"fija a la izquierda";return "F-C-C-F"}
 /* Regla de cobro de perfil por referencia (consumo acumulado de toda la cotización) */
-function metrosCobrados(tipo,m){
-  if(m<=0)return 0;
-  if(tipo==="s744"){const t=Math.floor(m/6+1e-9),r=m-t*6;let c=t*6;if(r>1e-6)c+=r<4?Math.ceil(r-1e-9)*1.2:6;return Math.round(c*100)/100}
-  if(tipo==="Puertas"){const t=Math.floor(m/6+1e-9),r=m-t*6;let c=t*6;if(r>1e-6)c+=r<5-1e-9?Math.ceil(r-1e-9)*1.2:6;return Math.round(c*100)/100}
-  if(tipo==="s8025")return Math.max(m,3);
-  return m;}
-const reglaTxt={s744:"Menos de 4 m: consumo redondeado al metro siguiente + 20 %. Desde 4 m: tira de 6 m.",s8025:"Según consumo, mínimo 3 m (media tira).",
-  Puertas:"Menos de 5 m: consumo redondeado al metro siguiente + 20 %. Desde 5 m: tira de 6 m."};
+/* Formas de cobrar cada referencia de perfil. Las tiras completas se cobran como tira;
+   lo que sobra se cobra por metro (redondeado al metro siguiente) a precio de tira ÷ 5,
+   sin pasar nunca del precio de una tira. */
+const MODOS=[["tira","1. Tira entera"],["metro","2. Por metro (tira ÷ 5)"],["min3","3. Por metro, mínimo 3 m"]];
+const modoTxt=k=>(MODOS.find(m=>m[0]===k)||MODOS[1])[1];
+const MODOS_AYUDA="1. Tira entera: se cobran tiras completas. 2. Por metro: se redondea al metro siguiente y cada metro vale el precio de la tira ÷ 5. 3. Igual que la 2, pero se cobran mínimo 3 m. En la 2 y la 3 nunca se cobra más que una tira por lo que sobra.";
+const modoPorDefecto=tipo=>tipo==="s8025"?"min3":"metro";
+function cobroPerfil(modo,m,tira){
+  const L=(S.cfg.barra||6000)/1000;if(!(m>1e-9))return {valor:0,txt:"—"};
+  if(modo==="tira"){const n=Math.ceil(m/L-1e-9);return {valor:n*tira,txt:n+(n===1?" tira":" tiras")}}
+  let t=Math.floor(m/L+1e-9),r=m-t*L,mts=r>1e-6?Math.ceil(r-1e-9):0;
+  if(modo==="min3"&&t===0)mts=Math.max(mts,3);
+  if(mts&&mts/5>=1-1e-9){t++;mts=0}
+  return {valor:t*tira+mts*tira/5,txt:[t?t+(t===1?" tira":" tiras"):"",mts?mts+" m":""].filter(Boolean).join(" + ")}}
 const redV=mm=>{const r=(S.cfg.redondeoVidrio||0)*10;return r?Math.ceil(mm/r-1e-9)*r:mm};
 function calcCot(items){
   const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[];let marmoMedia=true;
@@ -443,12 +450,12 @@ function calcCot(items){
       for(const p of dp.perfiles){
         if(p.pool==="cielo"){cielo.push({i,largo:p.largo,cant:p.cant*q});continue}
         const key="PTA|"+p.ref+"|"+(it.color||""),tira=(+cfg.puertas.perfiles[p.ref]||0)*f;
-        const pl=pools[key]=pools[key]||{tipo:"Puertas",serie:"Puertas",perfil:p.ref,color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
+        const pl=pools[key]=pools[key]||{tipo:"Puertas",modo:cfg.puertas.cobro?.[p.ref]||"metro",serie:"Puertas",perfil:p.ref,color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
       for(const t of dp.tab){marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q});if(it.mediaLam===false)marmoMedia=false}}
     else if(ser){const sc=cfg.series[it.tipo];
       for(const p of dp.perfiles){const key=it.tipo+"|"+p.nombre+"|"+(it.color||"");const ref=sc.perfiles.find(x=>x.nombre===p.nombre);
-        const pl=pools[key]=pools[key]||{tipo:it.tipo,serie:TIPOS[it.tipo].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
+        const pl=pools[key]=pools[key]||{tipo:it.tipo,modo:ref?.cobro||modoPorDefecto(it.tipo),serie:TIPOS[it.tipo].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}}
     else{const ml=dp.perfiles.reduce((s,p)=>s+p.largo*p.cant,0)/1000;lin[i].perf=ml*(cfg.perfilMl[it.tipo]||0)*f*q}
     const m2=dp.vidrios.reduce((s,v)=>s+redV(v.ancho)*redV(v.alto)*v.cant,0)/1e6;
@@ -459,8 +466,8 @@ function calcCot(items){
     lin[i].acc=acc*q;
     lin[i].inst=(it.instalacion!=null&&it.instalacion!==""?+it.instalacion:(cfg.instalacion||0))*q;
   });
-  const materiales=Object.values(pools).map(pl=>{const cob=metrosCobrados(pl.tipo,pl.m),valor=cob*pl.precio;
-    for(const [i,m] of pl.partes)lin[i].perf+=pl.m?valor*m/pl.m:0;return {...pl,cobrado:cob,valor,partes:undefined}});
+  const materiales=Object.values(pools).map(pl=>{const cb=cobroPerfil(pl.modo,pl.m,pl.tira),valor=cb.valor;
+    for(const [i,m] of pl.partes)lin[i].perf+=pl.m?valor*m/pl.m:0;return {...pl,cobrado:cb.txt,valor,partes:undefined}});
   /* Tableros de PVC de puertas: se suman en todo el pedido */
   const tableros=[];
   if(cielo.length){const c=cfg.puertas.cielo,list=[];cielo.forEach(p=>{for(let k=0;k<p.cant;k++)list.push(p.largo)});
@@ -681,8 +688,8 @@ function resumenHtml(calc,total){
    <tfoot><tr><td>Total</td><td class="n">${money(R.total)}</td></tr></tfoot></table></div>
    ${mats.length?`<details><summary class="small" style="cursor:pointer;font-weight:600">Perfiles por referencia (consumo y metros cobrados)</summary>
     <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Referencia</th><th class="n">Consumo</th><th class="n">Cobrado</th><th class="n">Valor</th></tr></thead><tbody>
-    ${mats.map(m=>`<tr><td>${esc(m.serie)} · ${esc(m.perfil)}${m.color?`<div class="small muted">${esc(m.color)} · ${money(m.tira)}/tira</div>`:""}</td><td class="n mono">${m.m.toFixed(2).replace(".",",")} m</td><td class="n mono">${m.cobrado.toFixed(2).replace(".",",")} m</td><td class="n">${money(m.valor)}</td></tr>`).join("")}
-    </tbody></table></div><div class="small muted" style="margin-top:6px">${[...new Set(mats.map(m=>m.tipo))].map(t=>`<b>${TIPOS[t]?.corto||t}:</b> ${reglaTxt[t]}`).join("<br>")}</div></details>`:""}
+    ${mats.map(m=>`<tr><td>${esc(m.serie)} · ${esc(m.perfil)}${m.color?`<div class="small muted">${esc(m.color)} · ${money(m.tira)}/tira</div>`:""}</td><td class="n mono">${m.m.toFixed(2).replace(".",",")} m</td><td class="n mono">${esc(typeof m.cobrado==="number"?m.cobrado.toFixed(2).replace(".",",")+" m":m.cobrado)}${m.modo?`<div class="small muted">${esc(modoTxt(m.modo))}</div>`:""}</td><td class="n">${money(m.valor)}</td></tr>`).join("")}
+    </tbody></table></div><div class="small muted" style="margin-top:6px">${MODOS_AYUDA} La forma de cada perfil se cambia en Ajustes.</div></details>`:""}
    ${(calc.tableros||[]).length?`<details><summary class="small" style="cursor:pointer;font-weight:600">Tableros PVC de puertas</summary>
     <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Material</th><th class="n">Se cobra</th><th class="n">Valor</th></tr></thead><tbody>
     ${calc.tableros.map(t=>`<tr><td>${esc(t.nombre)}<div class="small muted">${esc(t.detalle)}</div></td><td class="n">${esc(t.cobrado)}</td><td class="n">${money(t.valor)}</td></tr>`).join("")}
@@ -901,6 +908,7 @@ function clienteSheet(id,from){
 }
 
 /* --- Ajustes --- */
+const selModo=(path,val,lbl)=>`<select aria-label="Forma de cobro ${esc(lbl)}" data-cfg="${path}" class="cin">${MODOS.map(([v,t])=>`<option value="${v}" ${val===v?"selected":""}>${t}</option>`).join("")}</select>`;
 function vAjustes(){
   const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const e=c.empresa;
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
@@ -920,12 +928,13 @@ function vAjustes(){
   <div class="panel"><div class="row sp"><h2>Vidrios · precio por m²</h2><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
    ${c.vidrios.map((v,i)=>`<div class="row"><input class="grow field-in" aria-label="Nombre vidrio" data-cfg="vidrios.${i}.nombre" value="${esc(v.nombre)}" style="border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px"><input aria-label="Precio m²" inputmode="numeric" data-cfg="vidrios.${i}.m2" value="${v.m2}" style="width:120px;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px;text-align:right"><button class="btn sm danger" data-act="del-vidrio" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}</div>
   ${Object.entries(c.series).map(([k,sc])=>`<div class="panel"><h2>${TIPOS[k].nombre}</h2>
-   <span class="small muted">Cobro de perfil: ${reglaTxt[k]}</span>
-   <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th></tr></thead><tbody>
+   <span class="small muted">${MODOS_AYUDA}</span>
+   <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th><th>Cobro</th></tr></thead><tbody>
    ${sc.perfiles.map((p,i)=>`<tr><td><input aria-label="Nombre perfil" data-cfg="series.${k}.perfiles.${i}.nombre" value="${esc(p.nombre)}" class="cin" style="width:130px"></td>
      <td class="n"><input aria-label="Precio ${esc(p.nombre)}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.precio" value="${p.precio}" class="cin" style="width:96px;text-align:right"></td>
      <td><select aria-label="Medida ${esc(p.nombre)}" data-cfg="series.${k}.perfiles.${i}.base" class="cin">${[["A","Ancho total"],["H","Alto total"],["AN","Ancho de nave"],["HN","Alto de nave"],["ANF","Ancho nave fija"]].map(([v,t])=>`<option value="${v}" ${p.base===v?"selected":""}>${t}</option>`).join("")}</select></td>
-     ${["c2","c3","c4"].map(cc=>`<td class="n"><input aria-label="Cantidad ${cc}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.${cc}" value="${p[cc]}" class="cin" style="width:48px;text-align:right"></td>`).join("")}</tr>`).join("")}
+     ${["c2","c3","c4"].map(cc=>`<td class="n"><input aria-label="Cantidad ${cc}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.${cc}" value="${p[cc]}" class="cin" style="width:48px;text-align:right"></td>`).join("")}
+     <td>${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}</td></tr>`).join("")}
    </tbody></table></div>
    <span class="small muted">2N, 3N y 4N: cuántas piezas lleva cada ventana según sus naves. "Ancho nave fija" se multiplica por las naves fijas.</span>
    <div class="fgrid"><div class="field"><label for="tn-${k}">Traslape entre naves (mm)</label><input id="tn-${k}" inputmode="numeric" data-cfg="series.${k}.traslapeNave" value="${sc.traslapeNave}"></div>
@@ -936,9 +945,9 @@ function vAjustes(){
    </tbody></table></div>
    <span class="small muted">Ancho de cada vidrio = (ancho de la ventana − descuento) ÷ número de naves.</span></div>`).join("")}
   <div class="panel"><h2>Puertas 1″ y 1½″</h2>
-   <span class="small muted">Cobro de perfil: ${reglaTxt.Puertas} Se suma cada referencia en todo el pedido.</span>
-   <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th>Uso</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th></tr></thead><tbody>
-   ${PTA_REFS.map(([r,u])=>`<tr><td class="mono">${r}</td><td class="small">${esc(u)}</td><td class="n"><input aria-label="Precio ${r}" inputmode="numeric" data-cfg="puertas.perfiles.${r}" value="${c.puertas.perfiles[r]??0}" class="cin" style="width:100px;text-align:right"></td></tr>`).join("")}
+   <span class="small muted">${MODOS_AYUDA} Se suma cada referencia en todo el pedido.</span>
+   <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th>Uso</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Cobro</th></tr></thead><tbody>
+   ${PTA_REFS.map(([r,u])=>`<tr><td class="mono">${r}</td><td class="small">${esc(u)}</td><td class="n"><input aria-label="Precio ${r}" inputmode="numeric" data-cfg="puertas.perfiles.${r}" value="${c.puertas.perfiles[r]??0}" class="cin" style="width:100px;text-align:right"></td><td>${selModo("puertas.cobro."+r,c.puertas.cobro[r]||"metro",r)}</td></tr>`).join("")}
    </tbody></table></div>
    <h3>Accesorios de puerta</h3><div class="fgrid">
    ${PTA_ACC.map(([k,t,u])=>`<div class="field"><label for="pa-${k}">${esc(t)} $/${u}</label><input id="pa-${k}" inputmode="numeric" data-cfg="puertas.acc.${k}" value="${c.puertas.acc[k]??0}"></div>`).join("")}</div>
