@@ -199,7 +199,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 
 <header class="top">
   <div class="top-in">
-    <div class="brand"><b>Alumel</b><span id="sub">Sistema · Vidrio y aluminio</span></div>
+    <div class="brand"><b>Alumel</b><span id="sub">Sistema · v<span id="ver"></span></span></div>
     <span class="sync" id="sync">Conectando…</span>
     <button class="icon-btn" data-act="go" data-v="ajustes" aria-label="Ajustes">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -223,7 +223,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.4.3";
+const APP_VER="1.4.4";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -969,6 +969,10 @@ function vAjustes(){
    </tbody></table></div>
    <div class="field"><span class="hint">Cada vidrio tiene su medida de lámina (ancho × alto en cm). Cuando en una cotización activas "Cobrar vidrio por láminas", se acomodan los vidrios en láminas. Si lo que sale de una lámina cobrado por m² supera el valor de la lámina, se cobra la lámina; si no, se cobra por m².</span></div></div>
   ${Object.entries(c.series).map(([k,sc])=>`<div class="panel"><h2>${TIPOS[k].nombre}</h2>
+   <h3>Rodamientos ${TIPOS[k].corto}</h3><div class="fgrid">
+    <div class="field"><label for="rn-${k}">Rodamiento nylon ${TIPOS[k].corto} $/unidad</label><input id="rn-${k}" inputmode="numeric" data-cfg="series.${k}.rod.nylon" value="${sc.rod?.nylon??0}"></div>
+    <div class="field"><label for="ra-${k}">Rodamiento ABB ${TIPOS[k].corto} $/unidad</label><input id="ra-${k}" inputmode="numeric" data-cfg="series.${k}.rod.abb" value="${sc.rod?.abb??0}"></div></div>
+   <span class="small muted">Cada nave corrediza lleva 2 rodamientos.</span>
    <span class="small muted">${MODOS_AYUDA}</span>
    <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th><th>Cobro</th></tr></thead><tbody>
    ${sc.perfiles.map((p,i)=>`<tr><td><input aria-label="Nombre perfil" data-cfg="series.${k}.perfiles.${i}.nombre" value="${esc(p.nombre)}" class="cin" style="width:130px"></td>
@@ -978,10 +982,6 @@ function vAjustes(){
      <td>${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}</td></tr>`).join("")}
    </tbody></table></div>
    <span class="small muted">2N, 3N y 4N: cuántas piezas lleva cada ventana según sus naves. "Ancho nave fija" se multiplica por las naves fijas.</span>
-   <h3>Rodamientos ${TIPOS[k].corto}</h3><div class="fgrid">
-    <div class="field"><label for="rn-${k}">Nylon $/unidad</label><input id="rn-${k}" inputmode="numeric" data-cfg="series.${k}.rod.nylon" value="${sc.rod?.nylon??0}"></div>
-    <div class="field"><label for="ra-${k}">ABB $/unidad</label><input id="ra-${k}" inputmode="numeric" data-cfg="series.${k}.rod.abb" value="${sc.rod?.abb??0}"></div></div>
-   <span class="small muted">Cada nave corrediza lleva 2 rodamientos.</span>
    <h3>Vidrio (descuentos en cm)</h3>
    <div class="tbl-wrap"><table><thead><tr><th>Naves</th><th class="n">Desc. ancho total</th><th class="n">Desc. alto corrediza</th><th class="n">Desc. alto fija</th></tr></thead><tbody>
    ${["2","3","4"].map(n=>`<tr><td>${n} naves</td>${["dA","hC","hF"].map(f=>`<td class="n"><input aria-label="${f} ${n} naves" inputmode="decimal" data-cfg="series.${k}.vid.${n}.${f}" value="${String(sc.vid[n][f]).replace(".",",")}" class="cin" style="width:70px;text-align:right"></td>`).join("")}</tr>`).join("")}
@@ -1037,6 +1037,13 @@ function autoGuardarCfg(){clearTimeout(S.cfgTimer);const el=$("#cfg-estado");if(
 async function guardarCfgYa(){if(!S.cfgTimer)return;clearTimeout(S.cfgTimer);S.cfgTimer=null;if(!S.cfgEdit||S.readonly)return;
   const c=clone(S.cfgEdit);c.preciosEjemplo=false;try{await guardarCfg(c);const el=$("#cfg-estado");if(el)el.textContent="✓ Guardado"}catch(e){}}
 window.addEventListener("pagehide",()=>{guardarCfgYa()});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")guardarCfgYa()});
+
+/* Aviso de nueva versión: al volver a la app revisa si hay una versión publicada más nueva */
+async function revisarVersion(){if(!navigator.onLine||$("#upd"))return;try{const r=await fetch("index.html?v="+Date.now(),{cache:"no-store"}),t=await r.text(),m=t.match(/const APP_VER="([^"]+)"/);
+  if(m&&m[1]!==APP_VER){const d=document.createElement("button");d.id="upd";d.className="toast";d.style.cursor="pointer";d.style.border="0";d.textContent="Hay una versión nueva ("+m[1]+"). Toca aquí para actualizar";
+    d.onclick=async()=>{await guardarCfgYa();try{const rg=await navigator.serviceWorker?.getRegistration();await rg?.update()}catch(e){}location.reload()};document.body.appendChild(d)}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")revisarVersion()});
+window.addEventListener("load",()=>{const v=$("#ver");if(v)v.textContent=APP_VER;setTimeout(revisarVersion,3000)});
 
 /* ============ Sheet ============ */
 let sheetFn=null;
