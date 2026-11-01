@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.10.0";
+const APP_VER="1.10.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -277,7 +277,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, instalacionTipo:{division:200000}, division:{templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
+  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
   desc:{
@@ -531,8 +531,9 @@ function calcCot(items,opts){opts=opts||{};
 function calcDe(o){return o.calc&&o.calc.lineas&&o.calc.lineas.length===(o.items||[]).length?o.calc:calcCot(o.items||[],o)}
 function totalObra(o){return calcDe(o).resumen.total}
 function tableroTxt(it){const tb=tableroPta(it);return TAB_NOM[tb.mat]+(tb.mat==="marmo"?"":it.orient==="V"?" vertical":" horizontal")}
+const vidrioDivTxt=()=>"Vidrio templado "+(S.cfg.division?.espesor||"8 mm");
 function detalleItem(it){if(TIPOS[it.tipo]?.puerta)return it.color||"";
-  if(it.tipo==="division"){const r=vidriosDivision(it);return "Vidrio templado"+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
+  if(it.tipo==="division"){const r=vidriosDivision(it);return vidrioDivTxt()+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
 function describeItem(it){const t=TIPOS[it.tipo];
   if(t?.puerta)return t.corto+(it.tipo==="p15"?" · nave "+(it.nave==="t244"?"T244":"T87"):"")+" · tablero "+tableroTxt(it);
   if(t?.serie)return t.corto+" · "+(it.naves||2)+" naves ("+distNombre(it)+")";
@@ -551,7 +552,7 @@ function barras(cortes){
 }
 function sumarDespiece(items){
   const per={},vid={},acc={};
-  for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?"Templado":vidrioDe(it.vidrio).nombre;
+  for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
     for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,key=sis+"|"+p.nombre+"|"+(p.pool==="cielo"?"":color);(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color,cortes:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const [n,c] of dp.acc){acc[n]=(acc[n]||0)+c}}
@@ -799,7 +800,7 @@ function vCotizar(){
     </div>
   </div>
   <div class="panel"><div class="row sp"><h2>Ítems</h2><button class="btn pri sm" data-act="nuevo-item">+ Agregar</button></div>
-    ${d.items.some(it=>!TIPOS[it.tipo]?.puerta&&!(it.precioManual>0))?`<label class="row small" style="gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" data-draft-chk="vidrioLamina" ${d.vidrioLamina?"checked":""} style="width:20px;height:20px"> Cobrar vidrio por láminas (obras grandes)</label>`:""}
+    ${d.items.some(it=>TIPOS[it.tipo]&&!TIPOS[it.tipo].puerta&&!TIPOS[it.tipo].div&&!(it.precioManual>0))?`<label class="row small" style="gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" data-draft-chk="vidrioLamina" ${d.vidrioLamina?"checked":""} style="width:20px;height:20px"> Cobrar vidrio por láminas (obras grandes)</label>`:""}
     ${d.items.some(it=>TIPOS[it.tipo]?.puerta&&tableroPta(it).mat==="marmo"&&!(it.precioManual>0))?(()=>{const mt=(calc.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),ms=S.cfg.puertas.marmo;
       return `<div class="field"><label>PVC marmolizado${mt?" · "+esc(mt.detalle):""}</label><div class="seg"><button data-act="marmo-media" data-v="1" aria-pressed="${d.marmoMedia!==false}">Media lámina cuando alcance</button><button data-act="marmo-media" data-v="0" aria-pressed="${d.marmoMedia===false}">Solo láminas enteras</button></div>
       <span class="hint">Media lámina = ${ms.ancho} × ${ms.alto/2} cm. Se cobra: ${mt?esc(mt.cobrado)+" · "+money(mt.valor):"—"}</span></div>`})():""}
@@ -864,7 +865,7 @@ function ptaInfo(it,c){
   if(falt.length)h+=`<div class="note">Sin precio en Ajustes → Puertas: ${esc(falt.join(", "))}.</div>`;
   return h}
 function divInfo(it){const r=vidriosDivision(it),st=n=>n==null?"":` <span style="color:${n>0?"var(--ok)":"var(--bad)"}">(${n>0?n+" en stock":"sin stock"})</span>`;
-  let h=`<div class="small">Vidrios ${r.modo==="especial"?"a la medida":"estándar"}: fijo ${cm(r.fijo)} × ${cm(it.alto)}${st(r.stockF)} · móvil ${cm(r.movil)} × ${cm(it.alto)}${st(r.stockM)} · traslape ${cm(r.traslape)} cm · ${money(precioDivM2(r))}/m²</div>`;
+  let h=`<div class="small">${vidrioDivTxt()} ${r.modo==="especial"?"a la medida":"estándar"}: fijo ${cm(r.fijo)} × ${cm(it.alto)}${st(r.stockF)} · móvil ${cm(r.movil)} × ${cm(it.alto)}${st(r.stockM)} · traslape ${cm(r.traslape)} cm · ${money(precioDivM2(r))}/m²</div>`;
   if(r.modo==="estandar"&&r.disponible===false)h+=`<div class="note">No hay stock suficiente de esas medidas. Puedes cotizarla igual y pedir los vidrios, o cambiar a "Mandar a hacer".</div>`;
   if(r.auto)h+=`<div class="note">Ninguna medida estándar de ${cm(it.alto)} cm de alto sirve para este ancho, así que se cotiza para mandar a hacer.</div>`;
   if(r.sinCatalogo)h+=`<div class="small muted">Aún no hay medidas en el inventario; se usan vidrios de ${S.cfg.division.paso} en ${S.cfg.division.paso} cm. Agrégalas en Ajustes.</div>`;
@@ -1092,6 +1093,7 @@ function vAjustes(){
    ${c.colores.map((v,i)=>`<div class="row"><input class="grow" aria-label="Color" data-cfg="colores.${i}.nombre" value="${esc(v.nombre)}" style="border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px"><input aria-label="Factor" inputmode="decimal" data-cfg="colores.${i}.factor" value="${v.factor}" style="width:90px;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px;text-align:right"><button class="btn sm danger" data-act="del-color" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}
    <span class="hint small muted">Factor 1 = precio base del perfil. 1,15 = 15% más caro.</span></div>
   <div class="panel"><h2>División de baño · vidrio templado</h2><div class="fgrid">
+   <div class="field"><label for="dv-esp2">Espesor del vidrio</label><input id="dv-esp2" data-cfg="division.espesor" value="${esc(c.division.espesor||"8 mm")}"></div>
    <div class="field"><label for="dv-m2">Vidrio templado $/m²</label><input id="dv-m2" inputmode="numeric" data-cfg="division.templadoM2" value="${c.division.templadoM2}"></div>
    <div class="field"><label for="dv-acc">Accesorios $/división</label><input id="dv-acc" inputmode="numeric" data-cfg="division.accesorios" value="${c.division.accesorios}"></div>
    <div class="field"><label for="dv-paso">Medidas del vidrio de cada (cm)</label><input id="dv-paso" inputmode="numeric" data-cfg="division.paso" value="${c.division.paso}"></div>
