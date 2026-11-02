@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.17.3";
+const APP_VER="1.17.4";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -368,7 +368,7 @@ function packRects(rects,W,H){
     for(const [w,h] of [[r.w,r.h],[r.h,r.w]]){if(w<=f.w+1e-6&&h<=f.h+1e-6){s.free.splice(k,1);const rw=f.w-w,rh=f.h-h;
       if(rw<rh){if(rw>0)s.free.push({x:f.x+w,y:f.y,w:rw,h});if(rh>0)s.free.push({x:f.x,y:f.y+h,w:f.w,h:rh})}
       else{if(rw>0)s.free.push({x:f.x+w,y:f.y,w:rw,h:f.h});if(rh>0)s.free.push({x:f.x,y:f.y+h,w,h:rh})}
-      s.items.push({...r,w,h});return true}}}return false};
+      s.items.push({...r,w,h,x:f.x,y:f.y});return true}}}return false};
   for(const r of list){if(sheets.some(s=>place(s,r)))continue;const s={free:[{x:0,y:0,w:W,h:H}],items:[]};if(!place(s,r))s.items.push({...r,over:true});sheets.push(s)}
   return sheets;}
 /* Cuántas tiras salen para una lista de cortes (primero el más largo) */
@@ -613,12 +613,13 @@ function barras(cortes){
   return bars;
 }
 function sumarDespiece(items){
-  const per={},vid={},acc={};
+  const per={},vid={},acc={},pvc={};
   for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
     for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,key=sis+"|"+p.nombre+"|"+(p.pool==="cielo"?"":color);(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color,cortes:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
-    for(const [n,c] of dp.acc){acc[n]=(acc[n]||0)+c}}
-  return {per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
+    for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
+    for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
+  return {pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
 }
 
 /* Dibujo de la ventana */
@@ -1030,7 +1031,9 @@ function vCortes(){
     return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)}</h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
       <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm`).join(" · ")}</div>
       <div class="stack" style="gap:6px">${bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map(l=>`<div class="cut" style="width:${Math.min(100,l/L*100)}%" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")}</div></div>`}).join("");
-  const m2=res.vid.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6;
+  const m2=res.vid.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6,nVid=res.vid.reduce((s,v)=>s+v.cant,0);
+  const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.ancho,h:p.alto})});
+  const nPvc=rects.length,hojas=nPvc?packRects(rects,mm.ancho*10,mm.alto*10):[],L2=nPvc?laminasMarmo(rects,true):null;
   return `
   <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm</div><h1>Cortes</h1></div></div>
   <div class="field"><label for="c-obra">Obra</label><select id="c-obra" data-act-change="cortes-obra">
@@ -1038,14 +1041,23 @@ function vCortes(){
     ${obras.map(o=>`<option value="${o.id}" ${o.id===sel?"selected":""}>COT-${pad(o.numero||0)} · ${esc(o.nombre||"Sin nombre")}</option>`).join("")}</select></div>
   ${!items.length?emptyBox("No hay medidas para cortar","Elige una obra con ítems o crea una cotización. Los cortes salen de las medidas de cada ventana.",`<button class="btn pri" data-act="go" data-v="cotizar">Ir a cotizar</button>`):`
   <div class="stats"><div class="stat"><div class="eyebrow">Barras de perfil</div><div class="v">${totalBarras}</div></div>
-   <div class="stat"><div class="eyebrow">Vidrio</div><div class="v">${m2.toFixed(2).replace(".",",")} m²</div></div>
-   <div class="stat"><div class="eyebrow">Piezas vidrio</div><div class="v">${res.vid.reduce((s,v)=>s+v.cant,0)}</div></div></div>
+   ${nVid?`<div class="stat"><div class="eyebrow">Vidrio</div><div class="v">${m2.toFixed(2).replace(".",",")} m²</div></div>
+   <div class="stat"><div class="eyebrow">Piezas vidrio</div><div class="v">${nVid}</div></div>`:""}
+   ${nPvc?`<div class="stat"><div class="eyebrow">Láminas PVC</div><div class="v">${String(L2.laminas).replace(".",",")}</div></div>
+   <div class="stat"><div class="eyebrow">Piezas PVC</div><div class="v">${nPvc}</div></div>`:""}</div>
   <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
   <h2>Perfiles</h2>${perfHtml}
-  <div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
+  ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
+   <span class="small muted">Lámina de ${mm.ancho} × ${mm.alto} cm${L2.media?" · la última se usa solo hasta la mitad":""}</span>
+   <div class="tbl-wrap"><table><thead><tr><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>
+   ${res.pvc.map(p=>`<tr><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}
+   </tbody></table></div>
+   <div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${mm.alto*10} ${mm.ancho*10}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}</svg></div>`).join("")}</div>
+   <span class="small muted">Medidas en cm. Distribución sugerida para cortar.</span></div>`:""}
+  ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
    <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th><th class="n">m²</th></tr></thead><tbody>
    ${res.vid.map(v=>`<tr><td>${esc(v.vidrio)}${v.nota?`<div class="small muted">${esc(v.nota)}</div>`:""}</td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="n">${v.cant}</td><td class="n">${(v.ancho*v.alto*v.cant/1e6).toFixed(2).replace(".",",")}</td></tr>`).join("")}
-   </tbody></table></div><span class="small muted">Medidas en cm.</span></div>
+   </tbody></table></div><span class="small muted">Medidas en cm.</span></div>`:""}
   <div class="panel"><h2>Accesorios</h2><div class="tbl-wrap"><table><tbody>${res.acc.map(([n,c])=>`<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join("")}</tbody></table></div></div>`}`;
 }
 
