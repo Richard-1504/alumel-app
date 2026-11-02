@@ -226,7 +226,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.16.0";
+const APP_VER="1.16.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -279,7 +279,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
+  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
   desc:{
@@ -419,7 +419,8 @@ function gabinete(A){const max=(+S.cfg.cocina?.maxPuerta||32)*10,N=Math.max(1,Ma
   gPar=Math.max(0,P-1),gSola=P>0&&sola?1:0,puerta=(A-40-38*gPar-25*gSola)/N;return {N,P,sola,divisores:gPar+gSola,puerta}}
 function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+cc.descPvc||0)*10;
   const R=(l,c)=>{if(l>0&&c>0)P.push({nombre:"Nave de ducha",largo:Math.round(l),cant:c,ref:"naveDucha",sis})};
-  let marcos=0,puertas=0,perim=0;const pv={};
+  let marcos=0,puertas=0,perim=0,loseros=0,vidrios=0;const pv={};
+  const A61=(l,c)=>{if(l>0&&c>0)P.push({nombre:"A61",largo:Math.round(l),cant:c,ref:"A61",sis})};
   const marco=(a,b,n)=>{if(!(a>0&&b>0&&n>0))return;R(a,2*n);R(b,2*n);marcos+=n;   // marco de 4 perfiles a 45° + su lámina de PVC
     const w=Math.round(a-dp),h=Math.round(b-dp);if(w>0&&h>0){const k=w+"x"+h;pv[k]=(pv[k]||0)+n;perim+=2*(w+h)*n}};
   for(const A of tramosCocina(it)){const g=gabinete(A);
@@ -428,9 +429,13 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
     marco(585,220,g.divisores);// divisores: 58,5 × 22
     marco(585,A-30,1);         // espaldar: 58,5 × (ancho − 3)
     marco(g.puerta,605,g.N);   // puertas: ancho × 60,5
-    puertas+=g.N}
+    puertas+=g.N;
+    // A61: 2 de 58,5 por gabinete; el hueco del losero lleva 4 de 30 y cada uno de los demás huecos 2 de 30 con su vidrio
+    const huecos=g.P+g.sola,conLosero=it.losero!==false&&!loseros?1:0;
+    A61(585,2);A61(300,4*conLosero+2*(huecos-conLosero));loseros+=conLosero;vidrios+=huecos-conLosero}
   for(const [k,n] of Object.entries(pv)){const [w,h]=k.split("x").map(Number);T.push({ancho:w,alto:h,cant:n})}
   if(marcos)P.push({nombre:"A15 (escuadras)",largo:Math.round((+cc.escuadra||8)*10),cant:marcos,ref:"a15",sis});
+  if(loseros)acc.push(["Losero",loseros,"losero"]);if(vidrios)acc.push(["Vidrios de entrepaño",vidrios,"vidrioHueco"]);
   acc.push(["Bisagras (par)",puertas,"bisagra"],["Manijas",puertas,"manija"],["Empaque PVC (m)",Math.round(perim/10)/100,"empaque"],["Láminas de PVC marmolizado (piezas)",Object.values(pv).reduce((a,b)=>a+b,0)]);}
 function despiece(it){
   const d=S.cfg.desc, A=it.ancho, H=it.alto, P=[], V=[], acc=[], T=[];
@@ -502,7 +507,10 @@ function calcCot(items,opts){opts=opts||{};
       lin[i].inst=(it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo))*q;return}
     const dp=despiece({...it,cant:1}),color=cfg.colores.find(c=>c.nombre===it.color)||cfg.colores[0]||{factor:1},f=+color.factor||1,ser=TIPOS[it.tipo]?.serie,pta=TIPOS[it.tipo]?.puerta;
     if(it.tipo==="cocina"){const cc=cfg.cocina||{};
-      for(const p of dp.perfiles){const a15=p.ref==="a15",key="COC|"+p.ref+"|"+(a15?"":it.color||""),tira=(+(a15?cc.a15:cc.naveDucha)||0)*(a15?1:f);
+      for(const p of dp.perfiles){if(p.ref==="A61"){const key="PTA|A61|"+(it.color||""),tira=(+cfg.puertas.perfiles.A61||0)*f;
+          const pl=pools[key]=pools[key]||{tipo:"Puertas",modo:cfg.puertas.cobro?.A61||"metro",serie:"Puertas",perfil:"A61",color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
+          const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
+        const a15=p.ref==="a15",key="COC|"+p.ref+"|"+(a15?"":it.color||""),tira=(+(a15?cc.a15:cc.naveDucha)||0)*(a15?1:f);
         const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:(a15?cc.cobroA15:cc.cobro)||(a15?"metro":"tira"),serie:"Cocina",perfil:a15?"A15 (escuadras)":"Nave de ducha",color:a15?"":it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
       for(const t of dp.tab)marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
@@ -948,6 +956,7 @@ function divInfo(it){const r=vidriosDivision(it),st=n=>n==null?"":` <span style=
 function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class="seg">${opts.map(([o,t])=>`<button data-act="it-set" data-k="${k}" data-v="${o}" aria-pressed="${v===o}">${t}</button>`).join("")}</div>`;
   const an=(k,l)=>`<div class="field"><label for="it-${k}">${l} (cm)</label><input id="it-${k}" inputmode="decimal" data-it="${k}" value="${it[k]?cm(it[k]):""}"></div>`;
   return `<div class="field"><label>Parte</label>${seg("parte",[["superior","Gabinete superior"]],"superior")}<span class="hint">Las puertas inferiores las agregamos cuando definamos sus reglas.</span></div>
+  <label class="row small" style="gap:8px;font-weight:600"><input type="checkbox" data-it="losero" ${it.losero!==false?"checked":""} style="width:20px;height:20px"> Lleva losero (en un hueco)</label>
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
   <div class="fgrid">${an("ancho",f==="recta"?"Ancho":"Ancho tramo 1")}${f!=="recta"?an("ancho2","Ancho tramo 2"):""}${f==="U"?an("ancho3","Ancho tramo 3"):""}
     <div class="field"><label>Alto</label><input value="${String(S.cfg.cocina?.alto||61.5).replace(".",",")} cm" disabled></div>
@@ -963,7 +972,7 @@ function pasaCampos(it){return `<div class="fgrid">
     <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
   </div>`}
 function cocinaInfo(it){return tramosCocina(it).map((A,k,arr)=>{const g=gabinete(A);return `<div class="small">${arr.length>1?"Tramo "+(k+1)+" · ":""}${cm(A)} cm: ${g.N} puertas de ${cm(g.puerta)} × 60,5 cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
-    return `<div class="small muted">PVC marmolizado: ${a["Láminas de PVC marmolizado (piezas)"]||0} piezas${mt?" · "+esc(mt.cobrado):""} · empaque ${String(a["Empaque PVC (m)"]||0).replace(".",",")} m · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas</div>`})()}
+    return `<div class="small muted">PVC marmolizado: ${a["Láminas de PVC marmolizado (piezas)"]||0} piezas${mt?" · "+esc(mt.cobrado):""} · empaque ${String(a["Empaque PVC (m)"]||0).replace(".",",")} m · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas${a["Losero"]?" · losero":""}${a["Vidrios de entrepaño"]?" · "+a["Vidrios de entrepaño"]+" vidrios":""}</div>`})()}
 function calcHtml(it){
   if(it.tipo==="pasamanos"){const a=+it.acero||0,v=+it.vidrioTpl||0,r=+S.cfg.pasamanosRecargo||0,sub=a+v,con=sub*(1+r/100),ins=it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe("pasamanos"),q=it.cant||1,L=calcCot([{...it,precioManual:0}]).lineas[0]||{};
     return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
@@ -1200,6 +1209,8 @@ function vAjustes(){
    <div class="field"><label>Cobro A15</label>${selModo("cocina.cobroA15",c.cocina.cobroA15||"metro","A15")}</div>
    <div class="field"><label for="cc-esc">A15 por marco (cm)</label><input id="cc-esc" inputmode="decimal" data-cfg="cocina.escuadra" value="${c.cocina.escuadra}"></div>
    <div class="field"><label for="cc-dp">Lámina PVC: menos por lado (cm)</label><input id="cc-dp" inputmode="decimal" data-cfg="cocina.descPvc" value="${String(c.cocina.descPvc).replace(".",",")}"></div>
+   <div class="field"><label for="cc-lo">Losero $</label><input id="cc-lo" inputmode="numeric" data-cfg="cocina.losero" value="${c.cocina.losero}"></div>
+   <div class="field"><label for="cc-vh">Vidrio por hueco $</label><input id="cc-vh" inputmode="numeric" data-cfg="cocina.vidrioHueco" value="${c.cocina.vidrioHueco}"><span class="hint">El A61 se cobra con el precio de Puertas.</span></div>
    <div class="field"><label for="cc-bi">Bisagras $/par</label><input id="cc-bi" inputmode="numeric" data-cfg="cocina.bisagra" value="${c.cocina.bisagra}"></div>
    <div class="field"><label for="cc-ma">Manija $/unidad</label><input id="cc-ma" inputmode="numeric" data-cfg="cocina.manija" value="${c.cocina.manija}"></div>
    <div class="field"><label for="cc-em">Empaque $/metro</label><input id="cc-em" inputmode="numeric" data-cfg="cocina.empaque" value="${c.cocina.empaque}"></div>
