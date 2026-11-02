@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.20.1";
+const APP_VER="1.21.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -676,6 +676,12 @@ function barras(cortes){
   const bars=best.bars;bars.cambios=best.cambios;bars.minimo=minimo;return bars;
 }
 /* Resumen del orden de corte: "180 ×4 → 177 ×2 → …" */
+/* Ángulo de corte por perfil: naves y marcos a 45°, el resto a 90° (se cambia en Ajustes) */
+const ANG45=["Nave de ducha","T77","T87","T244"];
+function angKey(sistema,nombre){return /^Serie/.test(sistema||"")?sistema+" · "+nombre:String(nombre).replace(/\s*\(.*\)$/,"")}
+function anguloDe(sistema,nombre){const k=angKey(sistema,nombre),a=S.cfg.angulos||{};return a[k]?+a[k]:ANG45.includes(k)?45:90}
+function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T244","T166","U66","U78","U71","S343","S344","F06"];
+  for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])r.push(TIPOS[k].corto+" · "+p.nombre);return r}
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={};
@@ -1098,7 +1104,7 @@ function vCortes(){
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes);totalBarras+=bs.length;
-    return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)}</h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
+    return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} <span class="pill ${anguloDe(p.sistema,p.nombre)===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${anguloDe(p.sistema,p.nombre)}°</span></h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
       ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
       <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm`).join(" · ")}</div>
       ${(()=>{const ot=ordenTope(bs);return `<div class="small"><b>Orden de corte</b> · ${ot.length} tope${ot.length===1?"":"s"}: <span class="mono">${ot.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}</span></div>`})()}
@@ -1313,6 +1319,8 @@ function vAjustes(){
   <div class="panel"><div class="row sp"><h2>Colores · recargo</h2><button class="btn sm" data-act="add-color">+ Color</button></div>
    ${c.colores.map((v,i)=>`<div class="row"><input class="grow" aria-label="Color" data-cfg="colores.${i}.nombre" value="${esc(v.nombre)}" style="border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px"><input aria-label="Factor" inputmode="decimal" data-cfg="colores.${i}.factor" value="${v.factor}" style="width:90px;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px;text-align:right"><button class="btn sm danger" data-act="del-color" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}
    <span class="hint small muted">Factor 1 = precio base del perfil. 1,15 = 15% más caro.</span></div>
+  <div class="panel"><h2>Ángulo de corte por perfil</h2><span class="small muted">Se muestra en Cortes para saber si el perfil va a 45° (marcos y naves) o recto a 90°.</span>
+   <div class="tbl-wrap"><table><tbody>${refsAngulo().map(r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<tr><td>${esc(r)}</td><td class="n"><div class="seg" style="justify-content:flex-end">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:56px">${a}°</button>`).join("")}</div></td></tr>`}).join("")}</tbody></table></div></div>
   <div class="panel"><h2>Cocina · gabinete superior y puertas inferiores</h2><div class="fgrid">
    <div class="field"><label for="cc-nd">Nave de ducha $/tira ${String(c.barra/1000).replace(".",",")} m</label><input id="cc-nd" inputmode="numeric" data-cfg="cocina.naveDucha" value="${c.cocina.naveDucha}"></div>
    <div class="field"><label for="cc-cb">Cobro</label>${selModo("cocina.cobro",c.cocina.cobro||"tira","nave de ducha")}</div>
@@ -1643,6 +1651,7 @@ document.addEventListener("click",async ev=>{
     case"materiales":materialesSheet(id);break;
     case"enviar-materiales":compartirTexto(S.matTxt||"");break;
     case"copiar-materiales":copiar(S.matTxt||"");break;
+    case"ang-set":{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));c.angulos={...(c.angulos||{}),[b.dataset.k]:+b.dataset.v};autoGuardarCfg();render();break}
     case"firma-dibujar":firmaSheet();break;
     case"firma-limpiar":{const cv=$("#firma-pad");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);S.firmaTrazo=false;break}
     case"firma-ok":{if(!S.firmaTrazo){toast("Primero dibuja tu firma");return}if(guardarFirma(procesarFirma($("#firma-pad"))))closeSheet();break}
