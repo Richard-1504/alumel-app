@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.2";
+const APP_VER="1.27.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -662,7 +662,7 @@ function calcCot(items,opts){opts=opts||{};
   return {lineas,materiales,tableros,vidLam,resumen:R};
 }
 /* Valor que se muestra en cada renglón: el independiente si hubo ahorro por material compartido */
-const valLinea=(calc,i)=>{const l=calc.lineas[i]||{};return calc.resumen?.ahorro>0&&l.tSolo!=null?{unit:l.uSolo,total:l.tSolo}:{unit:l.unit,total:l.total}};
+const valLinea=(calc,i)=>{const l=calc.lineas[i]||{};return {unit:l.unit,total:l.total}};   // cada renglón con su parte del total (los renglones suman el total)
 function calcDe(o){return o.calc&&o.calc.lineas&&o.calc.lineas.length===(o.items||[]).length?o.calc:calcCot(o.items||[],o)}
 function totalObra(o){return calcDe(o).resumen.total}
 function tableroTxt(it){const tb=tableroPta(it);return TAB_NOM[tb.mat]+(tb.mat==="marmo"?"":it.orient==="V"?" vertical":" horizontal")}
@@ -673,7 +673,7 @@ function detalleItem(it){if(it.tipo==="pasamanos")return "";
   if(it.tipo==="cocina"){const g=tramosEf(it).map((t,k)=>gabinete(t.Ap,esInf(it),puertasTramo(it,k)));return g.map(x=>x.N).join(" + ")+" puertas · "+(it.color||"")}if(TIPOS[it.tipo]?.puerta)return it.color||"";
   if(it.tipo==="division"){const r=vidriosDivision(it);return vidrioDivTxt()+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
 function describeItem(it){const t=TIPOS[it.tipo];
-  if(it.tipo==="cocina")return "Cocina"+(esMel(it)?" en melamina":"")+" · "+(esMel(it)?(esInf(it)?"mueble inferior":"mueble superior"):(esInf(it)?"puertas inferiores":"gabinete superior"))+({L:" en L",U:" en U"}[it.forma]||"");
+  if(it.tipo==="cocina")return "Cocina"+(esMel(it)?" en melamina":" en aluminio y PVC marmolizado")+" · "+(esMel(it)?(esInf(it)?"mueble inferior":"mueble superior"):(esInf(it)?"puertas inferiores":"gabinete superior"))+({L:" en L",U:" en U"}[it.forma]||"");
   if(t?.puerta)return t.corto+(it.tipo==="p15"?" · nave "+(it.nave==="t244"?"T244":"T87"):"")+" · tablero "+tableroTxt(it);
   if(t?.serie)return t.corto+" · "+(it.naves||2)+" naves ("+distNombre(it)+")";
   if(it.tipo==="division")return "División de baño recta";
@@ -995,7 +995,7 @@ function resumenHtml(calc,total,items){const F=faltanItems(items);if(F.length)re
   return `<div class="panel"><h2>Resumen</h2>
    <div class="tbl-wrap"><table><tbody>${f("Materiales (perfilería)",R.perfiles)||`<tr><td>Materiales (perfilería)</td><td class="n">${money(0)}</td></tr>`}${f("Vidrio",R.vidrio)}${f("Tableros PVC (puertas)",R.tableros)}${f("Accesorios (rodamientos, empaque, chapas, bisagras y otros)",R.accesorios)}${f("Instalación",R.instalacion)}${f("Ítems con precio manual",R.manual)}${Math.abs(R.ajuste)>=1?`<tr><td>${S.cfg.margen?"Margen "+S.cfg.margen+" % y redondeo":"Redondeo"}</td><td class="n">${money(R.ajuste)}</td></tr>`:""}</tbody>
    <tfoot><tr><td>Total</td><td class="n">${money(R.total)}</td></tr></tfoot></table></div>
-   ${R.ahorro>0?`<div class="note info">Cada ítem muestra su precio por separado. Juntos comparten material (tiras, láminas, escuadras) y el total baja <b>${money(R.ahorro)}</b>. Así sale en el PDF y en WhatsApp: "Ahorro por aprovechamiento de material".</div>`:""}
+
    ${mats.length?`<details><summary class="small" style="cursor:pointer;font-weight:600">Perfiles por referencia (consumo y metros cobrados)</summary>
     <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Referencia</th><th class="n">Consumo</th><th class="n">Cobrado</th><th class="n">Valor</th></tr></thead><tbody>
     ${mats.map(m=>`<tr><td>${esc(m.serie)} · ${esc(m.perfil)}${m.color?`<div class="small muted">${esc(m.color)} · ${money(m.tira)}/tira</div>`:""}</td><td class="n mono">${m.m.toFixed(2).replace(".",",")} m</td><td class="n mono">${esc(typeof m.cobrado==="number"?m.cobrado.toFixed(2).replace(".",",")+" m":m.cobrado)}${m.modo?`<div class="small muted">${esc(modoTxt(m.modo))}</div>`:""}</td><td class="n">${money(m.valor)}</td></tr>`).join("")}
@@ -1620,9 +1620,8 @@ function confirmar(msg,okTxt,fn){S.confirmFn=fn;openSheet(()=>`<div class="sheet
 /* ============ Texto y PDF ============ */
 async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("Copiado")}catch(e){openSheet(()=>`<div class="sheet-h"><h2>Copia este texto</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div><textarea id="copy-area" style="width:100%;min-height:260px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);font-size:14px">${esc(txt)}</textarea>`);setTimeout(()=>{const t=$("#copy-area");t&&t.select()},50)}}
 function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
-  return `*${e.nombre}*\nCotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
+  return `*Cotización COT-${pad(o.numero||0)}*\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
   (o.items||[]).map((it,i)=>`${i+1}. ${[describeItem(it)+(medidaTxt(it)?" "+medidaTxt(it)+" cm":""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
-  (calcDe(o).resumen.ahorro>0?`\n\nAhorro por aprovechamiento de material: − ${money(calcDe(o).resumen.ahorro)}`:"")+
   `\n\n*TOTAL: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
   return `CUENTA DE COBRO No. ${pad(c.numero)}\n${e.ciudad?e.ciudad+", ":""}${fechaLarga(c.fecha)}\n\n${cl?cl.nombre+(cl.nit?"\nNIT/C.C. "+cl.nit:""):""}\n\nDEBE A:\n${e.propietario||e.nombre}${e.cc?"\nC.C. "+e.cc:""}\n\nLA SUMA DE: ${letras(+c.valor||0)} PESOS M/CTE (${money(c.valor)})\n\nPOR CONCEPTO DE: ${c.concepto}\n\n${e.nota||""}${e.banco?"\nPago a: "+e.banco:""}`}
@@ -1663,7 +1662,7 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
     doc.text(String(i+1),16,y);doc.text(desc,26,y);doc.text(medidaTxt(it),110,y);doc.text(String(it.cant),150,y,{align:"right"});doc.text(money(valLinea(calc,i).unit),173,y,{align:"right"});doc.text(money(valLinea(calc,i).total),200,y,{align:"right"});
     y+=desc.length*4+3;doc.setDrawColor(203,211,219);doc.line(14,y-2,202,y-2);});
   y+=3;if(y>215){doc.addPage();y=20}doc.setFontSize(10);
-  if(R.ahorro>0){doc.text("Ahorro por aprovechamiento de material",120,y);doc.text("- "+money(R.ahorro),200,y,{align:"right"});y+=7}
+
   y+=4;doc.setFillColor(40,34,30);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(31,26,23);
   y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5);y+=doc.splitTextToSize(o.notas,180).length*4+8}
   if(S.cfg.empresa.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
