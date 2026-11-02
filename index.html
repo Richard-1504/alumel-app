@@ -226,7 +226,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.12.2";
+const APP_VER="1.12.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -524,7 +524,7 @@ function calcCot(items,opts){opts=opts||{};
   const r=cfg.redondeo||1,mg=1+(cfg.margen||0)/100;let R={perfiles:0,vidrio:0,tableros:0,accesorios:0,instalacion:0,manual:0,ajuste:0,total:0};
   const lineas=items.map((it,i)=>{const q=it.cant||1,L=lin[i];
     if(L.manual){const t=it.precioManual*q;R.manual+=t;R.total+=t;return {unit:it.precioManual,total:t,manual:true}}
-    const base=L.perf+L.vid+L.tab+L.acc+L.inst,unit=Math.ceil(base*mg/q/r-1e-9)*r,t=unit*q;
+    const base=L.perf+L.vid+L.tab+L.acc+L.inst,conMg=it.tipo==="division"?base+L.inst*(mg-1):base*mg,unit=Math.ceil(conMg/q/r-1e-9)*r,t=unit*q;
     R.perfiles+=L.perf;R.vidrio+=L.vid;R.tableros+=L.tab;R.accesorios+=L.acc;R.instalacion+=L.inst;R.ajuste+=t-base;R.total+=t;
     return {unit,total:t,perf:L.perf,vid:L.vid,tab:L.tab,acc:L.acc,inst:L.inst,m2:L.m2}});
   return {lineas,materiales,tableros,vidLam,resumen:R};
@@ -1131,7 +1131,7 @@ function vAjustes(){
    <div class="full"><div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Instalación $/unidad</th></tr></thead><tbody>
    ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto).map(([k,t])=>`<tr><td>${esc(t.corto)}</td><td class="n"><input aria-label="Instalación ${esc(t.corto)}" inputmode="numeric" data-cfg="instalacionTipo.${k}" value="${c.instalacionTipo[k]}" class="cin" style="width:110px;text-align:right"></td></tr>`).join("")}
    </tbody></table></div><span class="small muted">Es el valor que aparece al agregar cada ítem. En cada ítem lo puedes cambiar.</span></div>
-   <div class="field"><label for="c-mg">Margen de ganancia %</label><input id="c-mg" inputmode="decimal" data-cfg="margen" value="${c.margen}"></div>
+   <div class="field"><label for="c-mg">Margen de ganancia %</label><input id="c-mg" inputmode="decimal" data-cfg="margen" value="${c.margen}"><span class="hint">En divisiones de baño se aplica solo a la mano de obra.</span></div>
    <div class="field"><label for="c-red">Redondear a ($)</label><input id="c-red" inputmode="numeric" data-cfg="redondeo" value="${c.redondeo}"></div></div></div>
   <div class="panel"><h2>Descuentos de despiece</h2><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
    <div class="field"><label for="c-barra">Largo de barra (mm)</label><input id="c-barra" inputmode="numeric" data-cfg="barra" value="${c.barra}"></div>
