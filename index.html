@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.21.1";
+const APP_VER="1.21.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -677,7 +677,7 @@ function barras(cortes){
 }
 /* Resumen del orden de corte: "180 ×4 → 177 ×2 → …" */
 /* Ángulo de corte por perfil: naves y marcos a 45°, el resto a 90° (se cambia en Ajustes) */
-const ANG45=["Nave de ducha","T77"];
+const ANG45=["Nave de ducha","T77","U71"];
 /* Ángulo de un corte: si la pieza trae su propio ángulo (ej. Álamo) manda ese */
 const angCorte=(p,c)=>c&&c.ang?c.ang:anguloDe(p.sistema,p.nombre);
 const angsPerfil=p=>[...new Set(p.cortes.map(c=>angCorte(p,c)))];
