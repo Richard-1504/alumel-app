@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.11.1";
+const APP_VER="1.12.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -242,8 +242,10 @@ const TIPOS = {
   pasamanos:  {nombre:"Vidrio templado pasamanos", corto:"Pasamanos"}
 };
 const ESTADOS = [
-  ["cotizacion","Cotización","st-cot"],["aprobada","Aprobada","st-apr"],["produccion","En producción","st-pro"],
-  ["instalada","Instalada","st-ins"],["entregada","Entregada","st-ent"],["anulada","Anulada","st-anu"]];
+  ["cotizacion","Cotización","st-cot"],["produccion","En producción","st-pro"],["instalada","Instalada","st-ent"],["anulada","Anulada","st-anu"]];
+/* Proceso simple: Cotización → En producción (al aprobar) → Instalada. Los estados viejos se convierten. */
+const EST_VIEJO={aprobada:"produccion",entregada:"instalada"};
+function normEstados(){for(const o of S.obras)if(EST_VIEJO[o.estado])o.estado=EST_VIEJO[o.estado]}
 const DEFAULT_CFG = {
   preciosEjemplo:true,
   empresa:{nombre:"Alumel Estructuras",propietario:"Richard Hernández Cardona",cc:"",telefono:"",ciudad:"Ansermanuevo, Valle",banco:"",nota:"Persona natural no responsable de IVA."},
@@ -610,7 +612,7 @@ function errGuardar(e){
   setSync();
 }
 function saveLocal(){try{localStorage.setItem("alumel-local",JSON.stringify({cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros}))}catch(e){}}
-function loadLocal(){try{const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(d){S.cfg=migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg||{}));S.clientes=d.clientes||[];S.obras=d.obras||[];S.cobros=d.cobros||[]}}catch(e){}}
+function loadLocal(){try{const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(d){S.cfg=migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg||{}));S.clientes=d.clientes||[];S.obras=d.obras||[];normEstados();S.cobros=d.cobros||[]}}catch(e){}}
 function setSync(){const el=$("#sync");if(!el)return;
   if(S.offline){el.textContent="Solo este equipo";el.className="sync err";return}
   if(S.readonly){el.textContent="Sin permiso";el.className="sync err";return}
@@ -638,7 +640,7 @@ function conectar(db){
   const err=k=>e=>{done(k);if(e.code==="permission-denied"){S.readonly=true;setSync();toast("Tu usuario no tiene permiso. Pide que te agreguen.")}};
   S.unsubs.push(db.doc("config/general").onSnapshot({includeMetadataChanges:true},snap=>{S.cfgExists=snap.exists;S.cfg=migrarCfg(snap.exists?mergeCfg(DEFAULT_CFG,snap.data()):clone(DEFAULT_CFG));done("config");softRender()},err("config")));
   for(const col of COLS){
-    S.unsubs.push(db.collection(col).onSnapshot({includeMetadataChanges:true},snap=>{S[col]=snap.docs.map(d=>({...d.data(),id:d.id}));S.pendientes=snap.metadata.hasPendingWrites;done(col);softRender()},err(col)));
+    S.unsubs.push(db.collection(col).onSnapshot({includeMetadataChanges:true},snap=>{S[col]=snap.docs.map(d=>({...d.data(),id:d.id}));if(col==="obras")normEstados();S.pendientes=snap.metadata.hasPendingWrites;done(col);softRender()},err(col)));
   }
 }
 function vLogin(){return `<div class="panel" style="max-width:420px;margin:24px auto;width:100%">
@@ -671,13 +673,13 @@ function pagosObra(o){const tot=totalObra(o),abO=(o.abonos||[]).reduce((s,a)=>s+
 /* Lo que debe un cliente: saldo de sus obras aprobadas + cuentas de cobro que no están ligadas a una obra */
 function deudaCliente(id){return S.obras.filter(o=>o.clienteId===id&&!["cotizacion","anulada"].includes(o.estado)).reduce((s,o)=>s+pagosObra(o).debe,0)+
   S.cobros.filter(x=>x.clienteId===id&&!x.anulada&&!obra(x.obraId)).reduce((s,x)=>s+Math.max(0,saldoCobro(x).saldo),0)}
-const SIGUIENTE={aprobada:["produccion","Pasar a producción"],produccion:["instalada","Marcar como instalada"],instalada:["entregada","Marcar como entregada"]};
+const SIGUIENTE={produccion:["instalada","Marcar como instalada"]};
 function cobroPill(c){if(c.anulada)return pill("Anulada","st-anu");const {ab,saldo}=saldoCobro(c);if(saldo<=0)return pill("Pagada","st-pag");if(ab>0)return pill("Abonada","st-par");return pill("Pendiente","st-pen")}
 function emptyBox(t,s,btn){return `<div class="empty"><b>${t}</b><span>${s}</span>${btn||""}</div>`}
 
 /* --- Obras --- */
 function vObras(){
-  const ENC=["aprobada","produccion"],FIN=["instalada","entregada"];
+  const ENC=["produccion"],FIN=["instalada"];
   const act=S.obras.filter(o=>ENC.includes(o.estado));
   const porCobrar=S.obras.filter(o=>!["cotizacion","anulada"].includes(o.estado)).reduce((s,o)=>s+pagosObra(o).debe,0);
   const cot=S.obras.filter(o=>o.estado==="cotizacion");
@@ -710,8 +712,8 @@ function vObra(){
   <button class="linkish" data-act="go" data-v="obras">← Obras</button>
   <div class="head"><div class="grow"><div class="eyebrow">Cotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><h1>${esc(o.nombre||"Sin nombre")}</h1></div>${estadoPill(o.estado)}</div>
   <div class="panel"><div class="row sp"><div class="eyebrow">Estado</div>${estadoPill(o.estado)}</div>
-    ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala. Pasa a "En curso" y puedes registrar el anticipo.</span>`
-     :sig?`<button class="btn dark block" data-act="${["instalada","entregada"].includes(sig[0])&&pg.debe>0?"estado-pago":"estado-obra"}" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
+    ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala: pasa directo a producción.</span>`
+     :sig?`<button class="btn dark block" data-act="${sig[0]==="instalada"&&pg.debe>0?"estado-pago":"estado-obra"}" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
     ${o.fechaAprobada?`<span class="small muted">Aprobada el ${fechaCorta(o.fechaAprobada)}</span>`:""}
     <details><summary class="small" style="cursor:pointer;font-weight:600">Cambiar estado manualmente</summary>
       <div class="chips" style="margin-top:8px">${ESTADOS.map(e=>`<button class="chip" data-act="estado-obra" data-id="${o.id}" data-v="${e[0]}" data-confirma="1" aria-pressed="${o.estado===e[0]}">${e[1]}</button>`).join("")}</div></details></div>
@@ -1303,9 +1305,9 @@ document.addEventListener("click",async ev=>{
     case"pg-ok":{const P=S.pg,o=obra(P.obraId);if(!o)break;const debe=pagosObra(o).debe,fecha=P.fecha||hoy();
       const v=P.tipo==="todo"?debe:P.tipo==="parcial"?Math.round(num(P.valor)):0;if(P.tipo==="parcial"&&!(v>0)){toast("Escribe cuánto abonó");return}
       const ab=[...(o.abonos||[])];if(v>0)ab.push({valor:v,fecha,forma:P.forma,nota:P.modo==="aprobar"?(P.tipo==="todo"?"Pago total":"Anticipo"):(P.tipo==="todo"?"Pago total":"Abono")});
-      let extra={};if(P.modo==="aprobar"){extra={estado:"aprobada",fechaAprobada:fecha};const inv=$("#ap-inv")?.checked?vidriosInvObra(o):null;if(inv){await moverInventario(inv,-1);extra.invDesc=inv}}
+      let extra={};if(P.modo==="aprobar"){extra={estado:"produccion",fechaAprobada:fecha};const inv=$("#ap-inv")?.checked?vidriosInvObra(o):null;if(inv){await moverInventario(inv,-1);extra.invDesc=inv}}
       if(P.modo==="estado")extra={estado:P.estado};
-      try{await guardar("obras",o.id,{...o,abonos:ab,...extra});toast(P.modo==="aprobar"?"Cotización aprobada":v>0?(P.tipo==="todo"?"Pago total registrado":"Abono registrado"):"Estado: "+estadoDe(P.estado)[1]);
+      try{await guardar("obras",o.id,{...o,abonos:ab,...extra});toast(P.modo==="aprobar"?"Aprobada · en producción":v>0?(P.tipo==="todo"?"Pago total registrado":"Abono registrado"):"Estado: "+estadoDe(P.estado)[1]);
         sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";go("obra",o.id)}catch(e){}break}
     case"recibo-abono":{const o=obra(id),i=+b.dataset.i;if(!o||!o.abonos?.[i])break;
       if(!o.abonos[i].rc){const ab=[...o.abonos];ab[i]={...ab[i],rc:siguienteRecibo()};try{await guardar("obras",o.id,{...o,abonos:ab});render()}catch(e){break}}
