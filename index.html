@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.22.1";
+const APP_VER="1.23.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -240,10 +240,12 @@ const TIPOS = {
   puerta:     {nombre:"Puerta de aluminio",  corto:"Puerta", oculto:true},
   p1:         {nombre:"Puerta de aluminio 1″",  corto:"Puerta 1″", puerta:true},
   p15:        {nombre:"Puerta de aluminio 1½″", corto:"Puerta 1½″", puerta:true},
-  division:   {nombre:"División de baño",    corto:"División baño", div:true},
+  division:   {nombre:"División de baño",    corto:"División de baño", div:true},
   pasamanos:  {nombre:"Pasamanos en acero inoxidable", corto:"Pasamanos"},
   cocina:     {nombre:"Cocina en aluminio", corto:"Cocina", coc:true}
 };
+/* Categorías para agregar ítems */
+const CATS=[["ventanas","Ventanas",["s744","s8025"]],["puertas","Puertas",["p1","p15"]],["cocinas","Cocinas",["cocina"]],["banos","Baños",["division"]],["pasamanos","Pasamanos",["pasamanos"]]];
 const ESTADOS = [
   ["cotizacion","Cotización","st-cot"],["produccion","En producción","st-pro"],["instalada","Instalada","st-ent"]];
 /* Proceso simple: Cotización → En producción (al aprobar) → Instalada. Los estados viejos se convierten. */
@@ -801,7 +803,15 @@ function vCargando(){return `<div class="empty"><b>Abriendo Alumel</b><span>Un m
 function softRender(){const a=document.activeElement;if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT")&&$("#main").contains(a))return;if($("#sheet-root").children.length)return;render()}
 
 /* ============ Render ============ */
-function go(v,param){if(S.view==="login")return;S.view=v;S.param=param??null;if(v==="cotizar"&&!S.draft)S.draft=nuevoDraft();render();window.scrollTo(0,0)}
+/* Historial de pantallas para el botón "Atrás" (y el atrás del navegador) */
+S.hist=[];
+function go(v,param,{sinHist}={}){if(S.view==="login")return;
+  if(!sinHist&&S.view&&S.view!=="cargando"&&(S.view!==v||S.param!==(param??null))){S.hist.push([S.view,S.param]);if(S.hist.length>40)S.hist.shift();try{history.pushState({v},"")}catch(e){}}
+  S.view=v;S.param=param??null;if(v==="cotizar"&&!S.draft)S.draft=nuevoDraft();render();window.scrollTo(0,0)}
+function atras(){if(sheetFn){closeSheet();return}let p=S.hist.pop();while(p&&p[1]&&!({obra,cobro:id=>S.cobros.find(x=>x.id===id),cliente})[p[0]]?.(p[1])&&["obra","cobro","cliente"].includes(p[0]))p=S.hist.pop();
+  go(p?p[0]:"obras",p?p[1]:null,{sinHist:true})}
+window.addEventListener("popstate",()=>{if(S.view!=="login")atras()});
+const backBtn=()=>`<button class="linkish" data-act="atras">← Atrás</button>`;
 function render(){
   const sinNav=S.view==="login"||S.view==="cargando";document.querySelector("nav.tabs").hidden=sinNav;document.querySelector("[data-v=ajustes].icon-btn").hidden=sinNav;
   document.querySelectorAll(".tab").forEach(t=>{const v=t.dataset.v,cur=S.view;
@@ -842,6 +852,7 @@ function vObras(){
   list.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")||(b.numero||0)-(a.numero||0));
   const chips=[["activas","En curso"],["cotizacion","Cotizaciones"],["terminadas","Terminadas"],["deben","Deben"],["todas","Todas"]];
   return `
+  ${S.hist.length?backBtn():""}
   <div class="head"><div><div class="eyebrow">Taller · ${esc(S.cfg.empresa.nombre)}</div><h1>Obras</h1></div>
     <button class="btn pri" data-act="nueva-cot">+ Nueva cotización</button></div>
   ${S.db&&!S.readonly&&datosLocales()?(()=>{const n=datosLocales().n;return `<div class="note info"><b>Este equipo tiene datos guardados solo aquí</b>: ${n.obras} cotizaciones/obras, ${n.clientes} clientes y ${n.cobros} cuentas de cobro, además de tus ajustes. Súbelos para verlos en todos tus equipos.
@@ -865,7 +876,7 @@ function vObra(){
   const c=clienteDe(o),calc=calcDe(o),tot=calc.resumen.total;
   const pg=pagosObra(o),sig=SIGUIENTE[o.estado],abonos=(o.abonos||[]).map((a,i)=>({...a,i})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   return `
-  <button class="linkish" data-act="go" data-v="obras">← Obras</button>
+  ${backBtn()}
   <div class="head"><div class="grow"><div class="eyebrow">Cotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><h1>${esc(o.nombre||"Sin nombre")}</h1></div>${estadoPill(o.estado)}</div>
   <div class="panel"><div class="row sp"><div class="eyebrow">Estado</div>${estadoPill(o.estado)}</div>
     ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala: pasa directo a producción.</span>`
@@ -967,6 +978,7 @@ function vCotizar(){
   const d=S.draft;const calc=calcCot(d.items,d);
   const clientes=[...S.clientes].sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   return `
+  ${S.hist.length?backBtn():""}
   <div class="head"><div><div class="eyebrow">${d.id?"Editando COT-"+pad(obra(d.id)?.numero||0):"Nueva cotización"}</div><h1>Cotizar</h1></div>
    ${d.id||d.items.length?`<button class="btn sm" data-act="descartar">Descartar</button>`:""}</div>
   ${S.cfg.preciosEjemplo?`<div class="note">Los precios de vidrio, rodamientos, empaque e instalación son de ejemplo. Ponle los tuyos en <button class="linkish" data-act="go" data-v="ajustes">Ajustes</button> para que las cotizaciones salgan bien.</div>`:""}
@@ -1005,7 +1017,9 @@ function itemSheetHtml(){
   const conHojas=it.tipo==="corrediza";
   const dists=n===2?[["FI","Fija izquierda"],["FD","Fija derecha"],["CC","Ambas corredizas"]]:n===3?[["FI","Fija izquierda"],["FD","Fija derecha"]]:[["FCCF","Fija · Corr · Corr · Fija"]];
   return `<div class="sheet-h"><h2>${S.itemIdx!=null?"Editar ítem":"Agregar ítem"}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
-  <div class="field"><label>Tipo</label><div class="seg">${Object.entries(TIPOS).filter(([k,t])=>!t.oculto||k===it.tipo).map(([k,t])=>`<button data-act="it-tipo" data-v="${k}" aria-pressed="${it.tipo===k}">${t.corto}</button>`).join("")}</div></div>
+  ${(()=>{const cat=CATS.find(c=>c[2].includes(it.tipo))||CATS[0];
+    return `<div class="field"><label>¿Qué vas a cotizar?</label><div class="seg">${CATS.map(c=>`<button data-act="it-tipo" data-v="${c[2][0]}" aria-pressed="${c===cat}">${c[1]}</button>`).join("")}</div></div>
+    ${cat[2].length>1?`<div class="field"><label>Tipo</label><div class="seg">${cat[2].map(k=>`<button data-act="it-tipo" data-v="${k}" aria-pressed="${it.tipo===k}">${TIPOS[k].corto}</button>`).join("")}</div></div>`:""}`})()}
   ${ser?`<div class="field"><label>Naves</label><div class="seg">${[2,3,4].map(k=>`<button data-act="it-naves" data-v="${k}" aria-pressed="${n===k}">${k} naves</button>`).join("")}</div></div>
   <div class="field"><label>Distribución</label><div class="seg">${dists.map(([k,t])=>`<button data-act="it-dist" data-v="${k}" aria-pressed="${(dists.length===1)||(it.dist==="FC"?"FI":it.dist)===k}">${t}</button>`).join("")}</div></div>
   <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(precioRod(it.tipo,k))}</button>`).join("")}</div></div>`:""}
@@ -1116,6 +1130,7 @@ function vCortes(){
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.ancho,h:p.alto})});
   const nPvc=rects.length,hojas=nPvc?packRects(rects,mm.ancho*10,mm.alto*10):[],L2=nPvc?laminasMarmo(rects,true):null;
   return `
+  ${backBtn()}
   <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm</div><h1>Cortes</h1></div></div>
   <div class="field"><label for="c-obra">Obra</label><select id="c-obra" data-act-change="cortes-obra">
     ${S.draft&&S.draft.items.length?`<option value="__draft" ${sel==="__draft"?"selected":""}>Cotización en curso (sin guardar)</option>`:""}
@@ -1152,6 +1167,7 @@ function vCobros(){
   let list=S.cobros.filter(c=>f==="todas"?true:f==="pendientes"?(!c.anulada&&saldoCobro(c).saldo>0):(!c.anulada&&saldoCobro(c).saldo<=0));
   list.sort((a,b)=>(b.numero||0)-(a.numero||0));
   return `
+  ${S.hist.length?backBtn():""}
   <div class="head"><div><div class="eyebrow">Cuentas de cobro y abonos</div><h1>Cobros</h1></div><button class="btn pri" data-act="nuevo-cobro">+ Cuenta de cobro</button></div>
   <div class="stats"><div class="stat"><div class="eyebrow">Facturado</div><div class="v">${money(total)}</div></div>
    <div class="stat"><div class="eyebrow">Recibido</div><div class="v">${money(ab)}</div></div>
@@ -1173,7 +1189,7 @@ function siguienteCobro(){return Math.max(S.cfg.cobroInicio||1,...S.cobros.map(c
 function vCobro(){
   const c=S.cobros.find(x=>x.id===S.param);if(!c)return emptyBox("Cuenta no encontrada","",`<button class="btn" data-act="go" data-v="cobros">Volver</button>`);
   const cl=cliente(c.clienteId),o=obra(c.obraId),s=saldoCobro(c);
-  return `<button class="linkish" data-act="go" data-v="cobros">← Cobros</button>
+  return `${backBtn()}
   <div class="head"><div class="grow"><div class="eyebrow">Cuenta de cobro · ${fechaLarga(c.fecha)}</div><h1>No. ${pad(c.numero)}</h1></div>${cobroPill(c)}</div>
   <div class="panel"><dl class="kv"><dt>Cliente</dt><dd>${cl?`<button class="linkish" data-act="ver-cliente" data-id="${cl.id}">${esc(cl.nombre)}</button>`:"—"}</dd>
    ${o?`<dt>Obra</dt><dd><button class="linkish" data-act="ver-obra" data-id="${o.id}">${esc(o.nombre)}</button></dd>`:""}
@@ -1212,7 +1228,7 @@ function cobroSheet(id,obraId){
 function vClientes(){
   const q=S.buscar.toLowerCase();
   const list=S.clientes.filter(c=>!q||(c.nombre||"").toLowerCase().includes(q)||(c.telefono||"").includes(q)).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
-  return `<div class="head"><div><div class="eyebrow">${S.clientes.length} registrados</div><h1>Clientes</h1></div><button class="btn pri" data-act="nuevo-cliente">+ Cliente</button></div>
+  return `${S.hist.length?backBtn():""}<div class="head"><div><div class="eyebrow">${S.clientes.length} registrados</div><h1>Clientes</h1></div><button class="btn pri" data-act="nuevo-cliente">+ Cliente</button></div>
   <div class="field"><label for="buscar">Buscar</label><input id="buscar" data-buscar value="${esc(S.buscar)}" placeholder="Nombre o teléfono"></div>
   ${list.length?`<div class="list">${list.map(c=>{const deuda=deudaCliente(c.id);const n=S.obras.filter(o=>o.clienteId===c.id).length;
    return `<button class="li" data-act="ver-cliente" data-id="${c.id}"><div class="grow"><div class="t">${esc(c.nombre)}</div><div class="small muted">${esc(c.telefono||"Sin teléfono")} · ${n} obra(s)</div></div><div class="r">${deuda>0?`<span class="num small" style="color:var(--bad);font-weight:600">Debe ${money(deuda)}</span>`:`<span class="small muted">Al día</span>`}</div></button>`}).join("")}</div>`
@@ -1222,7 +1238,7 @@ function vCliente(){
   const c=cliente(S.param);if(!c)return emptyBox("Cliente no encontrado","",`<button class="btn" data-act="go" data-v="clientes">Volver</button>`);
   const obras=S.obras.filter(o=>o.clienteId===c.id),cobros=S.cobros.filter(x=>x.clienteId===c.id);
   const deuda=deudaCliente(c.id);
-  return `<button class="linkish" data-act="go" data-v="clientes">← Clientes</button>
+  return `${backBtn()}
   <div class="head"><div class="grow"><div class="eyebrow">Cliente</div><h1>${esc(c.nombre)}</h1></div><button class="btn sm" data-act="editar-cliente" data-id="${c.id}">Editar</button></div>
   <div class="panel"><dl class="kv">${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)} <button class="btn sm" data-act="copiar" data-v="${esc(c.telefono)}">Copiar</button></dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${c.direccion?`<dt>Dirección</dt><dd>${esc(c.direccion)}</dd>`:""}${c.notas?`<dt>Notas</dt><dd>${esc(c.notas)}</dd>`:""}<dt>Saldo</dt><dd class="num"><b>${money(deuda)}</b></dd></dl></div>
   <h2>Obras</h2>${obras.length?`<div class="list">${obras.map(o=>`<button class="li" data-act="ver-obra" data-id="${o.id}"><div class="grow"><div class="t">${esc(o.nombre)}</div><div class="small muted">COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div></div><div class="r"><span class="num">${money(totalObra(o))}</span>${estadoPill(o.estado)}</div></button>`).join("")}</div>`:`<span class="muted small">Sin obras.</span>`}
@@ -1249,7 +1265,7 @@ function vAjustes(){
   c.vidrios.forEach(v=>{if(v.lam==null)v.lam=0;if(v.lamA==null)v.lamA=+c.laminaVidrio?.ancho||330;if(v.lamH==null)v.lamH=+c.laminaVidrio?.alto||214});
   if(!(+c.puertas.acc.chapa>0))c.puertas.acc.chapa=precioAccPta("chapa");
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
-  return `<button class="linkish" data-act="go" data-v="obras">← Volver</button>
+  return `${backBtn()}
   <div class="head"><div><div class="eyebrow">Configuración compartida</div><h1>Ajustes</h1></div></div>
   <div class="note info">Los cambios se guardan solos mientras escribes. <b id="cfg-estado"></b>${S.offline?"<br>Ojo: la base de datos en la nube no está conectada, así que estos ajustes quedan solo en este equipo y en este navegador.":""}</div>
   <div class="panel"><h2>Firma</h2>
@@ -1586,7 +1602,8 @@ document.addEventListener("click",async ev=>{
   const b=ev.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;
   if(a==="scrim"){if(ev.target===b)closeSheet();return}
   switch(a){
-    case"go":await guardarCfgYa();S.cfgEdit=null;go(b.dataset.v);break;
+    case"go":await guardarCfgYa();S.cfgEdit=null;if(b.classList.contains("tab")){S.hist=[]}go(b.dataset.v);break;
+    case"atras":await guardarCfgYa();S.cfgEdit=null;if(S.hist.length&&history.state&&history.state.v)history.back();else atras();break;
     case"filtro-obras":S.filtroObras=b.dataset.v;render();break;
     case"filtro-cobros":S.filtroCobros=b.dataset.v;render();break;
     case"ver-obra":go("obra",id);break;
