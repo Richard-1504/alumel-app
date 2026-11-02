@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.19.0";
+const APP_VER="1.19.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -469,6 +469,7 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
     marco(300,A,2);            // superior e inferior: 30 × ancho
     marco(300,585,2);          // laterales: 30 × 58,5
     marco(585,260,g.divisores);// divisores: 58,5 × 26
+    if(g.divisores)P.push({nombre:"T78 (divisor)",largo:585,cant:g.divisores,ref:"T78",sis}); // 1 T78 de 58,5 por divisor
     marco(585,A-30,1);         // espaldar: 58,5 × (ancho − 3)
     marco(g.puerta,605,g.N);   // puertas: ancho × 60,5
     puertas+=g.N;
@@ -646,7 +647,7 @@ function barras(cortes){
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={};
   for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
-    for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,key=sis+"|"+p.nombre+"|"+(p.pool==="cielo"?"":color);(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color,cortes:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant}
+    for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
