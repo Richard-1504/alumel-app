@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.18.2";
+const APP_VER="1.19.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -849,11 +849,14 @@ function vObra(){
   ${resumenHtml(calc)}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
+    <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
     <button class="btn" data-act="cortes-obra" data-id="${o.id}">Ver cortes</button>
     <button class="btn" data-act="pdf-cot" data-id="${o.id}">PDF</button>
-    <button class="btn" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button>
-    <button class="btn pri full" data-act="nuevo-cobro" data-obra="${o.id}">Hacer cuenta de cobro</button>
-    <button class="btn danger full" data-act="borrar-obra" data-id="${o.id}">Eliminar obra</button>
+    <button class="btn full" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button>
+  </div>
+  <div class="row" style="justify-content:space-between">
+    <button class="btn sm" data-act="nuevo-cobro" data-obra="${o.id}">Hacer cuenta de cobro</button>
+    <button class="btn sm danger" data-act="borrar-obra" data-id="${o.id}">Eliminar obra</button>
   </div>`;
 }
 function tablaItems(items,calc,editable){
@@ -945,6 +948,7 @@ function vCotizar(){
   </div>
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
   ${d.items.length?resumenHtml(calc):""}
+  ${d.items.length?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
 function itemSheet(i){
@@ -1359,6 +1363,34 @@ function firmaSheet(){openSheet(()=>`<div class="sheet-h"><h2>Dibuja tu firma</h
   cv.addEventListener("pointermove",e=>{if(!dn)return;const [x,y]=pos(e);g.beginPath();g.moveTo(lx,ly);g.lineTo(x,y);g.stroke();lx=x;ly=y});
   const up=()=>{dn=false};cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up)}
 
+/* ============ Lista de materiales (para comprar) ============ */
+const mts=mm=>(Math.round(mm/10)/100).toFixed(2).replace(".",",")+" m";
+function listaMateriales(items){const res=sumarDespiece(items),L=S.cfg.barra||6000,G=[];
+  // Perfiles: tiras completas + lo que se usa de la última
+  const per=res.per.filter(p=>p.nombre!=="PVC cielorraso").map(p=>{const bs=barras(p.cortes),llenas=bs.filter(b=>!b.over).length-1,ult=bs[bs.length-1];
+    const n=Math.max(0,llenas),resto=ult&&!ult.over?ult.used:0,lleno=resto>L*0.98;
+    return {t:p.nombre+(p.color?" · "+p.color:""),g:p.sistema,v:(lleno?n+1:n)?((lleno?n+1:n)+" tira"+((lleno?n+1:n)===1?"":"s")+(lleno?"":" + "+mts(resto))):mts(resto),tiras:bs.length}}).sort((a,b)=>a.g.localeCompare(b.g)||a.t.localeCompare(b.t));
+  if(per.length)G.push({h:"Perfiles",filas:per.map(p=>[p.g+" · "+p.t,p.v,p.tiras+" tira"+(p.tiras===1?"":"s")+" para cortar"])});
+  // PVC cielorraso
+  const cie=res.per.find(p=>p.nombre==="PVC cielorraso");if(cie){const c=S.cfg.puertas.cielo,lst=[];cie.cortes.forEach(x=>{for(let k=0;k<x.cant;k++)lst.push(x.largo)});const n=tirasNecesarias(lst,c.largo*10);G.push({h:"PVC cielorraso",filas:[["Tira "+c.ancho+" × "+c.largo+" cm",n+" tira"+(n===1?"":"s"),lst.length+" piezas"]]})}
+  // PVC marmolizado
+  const r=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});if(r.length){const m=S.cfg.puertas.marmo,l=laminasMarmo(r,true),le=laminasMarmo(r,false);
+    G.push({h:"PVC marmolizado",filas:[["Lámina "+m.ancho+" × "+m.alto+" cm",le.laminas+" lámina"+(le.laminas===1?"":"s"),(l.media?"(se usa "+String(l.laminas).replace(".",",")+") · ":"")+r.length+" piezas"]]})}
+  // Vidrio
+  if(res.vid.length){const by={};for(const v of res.vid){const k=v.vidrio;(by[k]=by[k]||{m2:0,n:0,l:{}});by[k].m2+=v.ancho*v.alto*v.cant/1e6;by[k].n+=v.cant;const z=cm(v.ancho)+" × "+cm(v.alto);by[k].l[z]=(by[k].l[z]||0)+v.cant}
+    G.push({h:"Vidrio",filas:Object.entries(by).map(([k,v])=>[k,v.m2.toFixed(2).replace(".",",")+" m²",v.n+" piezas: "+Object.entries(v.l).map(([z,n])=>n+" de "+z).join(", ")])})}
+  // Accesorios
+  const acc=res.acc.filter(([n,c])=>c>0).map(([n,c])=>{const mt=/\(m\)/.test(n);return [n.replace(/ \(m\)/,""),mt?String(Math.ceil(c*10)/10).replace(".",",")+" m":String(c),""]});
+  if(acc.length)G.push({h:"Accesorios",filas:acc});
+  return G}
+function materialesSheet(id){const o=id==="__draft"?S.draft:obra(id);if(!o)return;const G=listaMateriales(o.items||[]);S.matTxt=textoMateriales(o,G);
+  openSheet(()=>`<div class="sheet-h"><h2>Lista de materiales</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+  <span class="small muted">${esc(o.nombre||"Cotización en curso")} · lo que hay que comprar</span>
+  ${G.length?G.map(g=>`<div class="panel" style="gap:8px"><h3>${g.h}</h3><div class="tbl-wrap"><table><tbody>${g.filas.map(f=>`<tr><td>${esc(f[0])}${f[2]?`<div class="small muted">${esc(f[2])}</div>`:""}</td><td class="n" style="font-weight:700">${esc(f[1])}</td></tr>`).join("")}</tbody></table></div></div>`).join("")
+   :emptyBox("Sin materiales","Esta cotización no tiene ítems con despiece.")}
+  <div class="row"><button class="btn pri grow" data-act="enviar-materiales">Enviar por WhatsApp</button><button class="btn grow" data-act="copiar-materiales">Copiar</button></div>`)}
+function textoMateriales(o,G){return `*Materiales — ${S.cfg.empresa.nombre}*\n${o.nombre||""}\n\n`+G.map(g=>`*${g.h}*\n`+g.filas.map(f=>`• ${f[0]}: ${f[1]}${g.h==="Vidrio"?"\n   "+f[2]:""}`).join("\n")).join("\n\n")}
+
 /* ============ Sheet ============ */
 let sheetFn=null;
 function openSheet(fn){sheetFn=fn;$("#sheet-root").innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${fn()}</div></div>`;document.body.style.overflow="hidden"}
@@ -1572,6 +1604,9 @@ document.addEventListener("click",async ev=>{
     case"del-vtemp":S.cfgEdit.division.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
     case"subir-locales":b.disabled=true;await subirLocales();break;
     case"descartar-locales":confirmar("Se oculta este aviso. Los datos de este equipo no se suben.","Ocultar aviso",async()=>{try{localStorage.setItem("alumel-subido","1")}catch(e){}});break;
+    case"materiales":materialesSheet(id);break;
+    case"enviar-materiales":compartirTexto(S.matTxt||"");break;
+    case"copiar-materiales":copiar(S.matTxt||"");break;
     case"firma-dibujar":firmaSheet();break;
     case"firma-limpiar":{const cv=$("#firma-pad");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);S.firmaTrazo=false;break}
     case"firma-ok":{if(!S.firmaTrazo){toast("Primero dibuja tu firma");return}if(guardarFirma(procesarFirma($("#firma-pad"))))closeSheet();break}
