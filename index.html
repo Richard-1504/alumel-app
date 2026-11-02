@@ -226,7 +226,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.12.4";
+const APP_VER="1.13.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -677,6 +677,15 @@ function cobroPill(c){if(c.anulada)return pill("Anulada","st-anu");const {ab,sal
 function emptyBox(t,s,btn){return `<div class="empty"><b>${t}</b><span>${s}</span>${btn||""}</div>`}
 
 /* --- Obras --- */
+/* Datos guardados en este equipo antes de conectar la nube */
+function datosLocales(){try{if(localStorage.getItem("alumel-subido"))return null;const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(!d)return null;
+  const n={obras:(d.obras||[]).length,clientes:(d.clientes||[]).length,cobros:(d.cobros||[]).length};return n.obras+n.clientes+n.cobros||d.cfg?{d,n}:null}catch(e){return null}}
+async function subirLocales(){const L=datosLocales();if(!L)return;const d=L.d;let ren=0;
+  if(d.cfg&&!S.cfgExists)await guardarCfg(migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg)));
+  for(const c of d.clientes||[])if(!cliente(c.id))await guardar("clientes",c.id,c);
+  for(const o of d.obras||[]){if(obra(o.id))continue;let x={...o};if(S.obras.some(y=>y.numero===x.numero)){x.numero=Math.max(0,...S.obras.map(y=>y.numero||0))+1;ren++}await guardar("obras",x.id,x)}
+  for(const c of d.cobros||[]){if(S.cobros.some(y=>y.id===c.id))continue;let x={...c};if(S.cobros.some(y=>y.numero===x.numero)){x.numero=siguienteCobro();ren++}await guardar("cobros",x.id,x)}
+  try{localStorage.setItem("alumel-subido","1")}catch(e){}toast("Datos subidos a la nube"+(ren?" · "+ren+" números se cambiaron para no repetirse":""));render()}
 function vObras(){
   const ENC=["produccion"],FIN=["instalada"];
   const act=S.obras.filter(o=>ENC.includes(o.estado));
@@ -689,6 +698,8 @@ function vObras(){
   return `
   <div class="head"><div><div class="eyebrow">Taller · ${esc(S.cfg.empresa.nombre)}</div><h1>Obras</h1></div>
     <button class="btn pri" data-act="nueva-cot">+ Nueva cotización</button></div>
+  ${S.db&&!S.readonly&&datosLocales()?(()=>{const n=datosLocales().n;return `<div class="note info"><b>Este equipo tiene datos guardados solo aquí</b>: ${n.obras} cotizaciones/obras, ${n.clientes} clientes y ${n.cobros} cuentas de cobro, además de tus ajustes. Súbelos para verlos en todos tus equipos.
+    <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="subir-locales">Subir a la nube</button><button class="btn sm" data-act="descartar-locales">No, ya los subí</button></div></div>`})():""}
   <div class="stats">
     <div class="stat"><div class="eyebrow">En curso</div><div class="v">${act.filter(o=>o.estado!=="cotizacion").length}</div></div>
     <div class="stat"><div class="eyebrow">Cotizaciones</div><div class="v">${cot.length}</div></div>
@@ -1391,6 +1402,8 @@ document.addEventListener("click",async ev=>{
     case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"add-vtemp":{const L=S.cfgEdit.division.vidrios,u=L[L.length-1];L.push({ancho:u?+u.ancho+5:60,alto:u?+u.alto:190,stock:0});autoGuardarCfg();render();break}
     case"del-vtemp":S.cfgEdit.division.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
+    case"subir-locales":b.disabled=true;await subirLocales();break;
+    case"descartar-locales":confirmar("Se oculta este aviso. Los datos de este equipo no se suben.","Ocultar aviso",async()=>{try{localStorage.setItem("alumel-subido","1")}catch(e){}});break;
     case"firma-dibujar":firmaSheet();break;
     case"firma-limpiar":{const cv=$("#firma-pad");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);S.firmaTrazo=false;break}
     case"firma-ok":{if(!S.firmaTrazo){toast("Primero dibuja tu firma");return}if(guardarFirma(procesarFirma($("#firma-pad"))))closeSheet();break}
