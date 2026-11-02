@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.23.0";
+const APP_VER="1.24.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -284,7 +284,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
+  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{ancho:183,alto:244,precio:0,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
   desc:{
@@ -455,6 +455,21 @@ function puertasSug(A,inf){const max=(+(inf?S.cfg.cocina?.maxPuertaInf||38:S.cfg
 function puertasTramo(it,k){const v=+(it["np"+(k+1)]||0);return v>0?Math.round(v):puertasSug(tramosCocina(it)[k],esInf(it))}
 function gabinete(A,inf,nElegido){const N=nElegido>0?Math.round(nElegido):puertasSug(A,inf),P=Math.floor(N/2),sola=N%2,
   gPar=Math.max(0,P-1),gSola=P>0&&sola?1:0,puerta=(A-(inf?60:40)-38*gPar-25*gSola)/N;return {N,P,sola,divisores:gPar+gSola,puerta}}
+/* ===== Cocina en melamina 15 mm (cm): superior/inferior ancho × (fondo−1,5); laterales (alto−3) × (fondo−1,5);
+   divisores (alto−3) × (fondo−3[−0,3 con espaldar]); reengrueses 7 × (alto−3) por divisor y por lateral;
+   puertas (ancho/N − 0,2) × (alto+1); espaldar opcional en fondo de 3 mm. Canto solo en bordes visibles. ===== */
+const esMel=it=>it.tipo==="cocina"&&it.mat==="melamina";
+function despieceMelamina(it,M,F,acc){const H=it.alto||0,FD=it.fondo||0,esp=it.espaldar!==false;let canto=0,puertas=0;
+  const pz=(n,w,h,c,cw)=>{if(w>0&&h>0&&c>0){M.push({pieza:n,ancho:Math.round(w),alto:Math.round(h),cant:c});canto+=(cw||0)*c}};
+  for(const [k,A] of tramosCocina(it).entries()){const N=puertasTramo(it,k),P2=Math.floor(N/2),sola=N%2,div=Math.max(0,P2+sola-1);
+    pz("Superior e inferior",A,FD-15,2,A+2*(FD-15));          // canto: frente y las dos puntas
+    pz("Laterales",FD-15,H-30,2,H-30);                          // canto: frente
+    pz("Divisores",FD-30-(esp?3:0),H-30,div,H-30);              // canto: frente
+    pz("Reengruese divisores",70,H-30,div,0);
+    pz("Fichas laterales (soporte espaldar)",70,H-30,2,0);
+    const pw=A/N-2,ph=H+10;pz("Puertas",pw,ph,N,2*(pw+ph));puertas+=N;
+    if(esp&&A>0&&H>0)F.push({pieza:"Espaldar",ancho:Math.round(A),alto:Math.round(H),cant:1})}
+  acc.push(["Bisagras (par)",puertas,"bisagra"],["Manijas",puertas,"manija"],["Canto "+(it.canto==="rigido"?"rígido":"flex")+" (m)",Math.round(canto/10)/100,"canto"])}
 function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+cc.descPvc||0)*10;
   const R=(l,c)=>{if(l>0&&c>0)P.push({nombre:"Nave de ducha",largo:Math.round(l),cant:c,ref:"naveDucha",sis})};
   let marcos=0,puertas=0,perim=0,loseros=0,vidrios=0;const pv={};
@@ -483,12 +498,12 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
   if(loseros)acc.push(["Losero",loseros,"losero"]);if(vidrios)acc.push(["Vidrios de entrepaño",vidrios,"vidrioHueco"]);
   acc.push(["Bisagras (par)",puertas,"bisagra"],["Manijas",puertas,"manija"],["Empaque PVC (m)",Math.round(perim/10)/100,"empaque"],["Láminas de PVC marmolizado (piezas)",Object.values(pv).reduce((a,b)=>a+b,0)]);}
 function despiece(it){
-  const d=S.cfg.desc, A=it.ancho, H=it.alto, P=[], V=[], acc=[], T=[];
+  const d=S.cfg.desc, A=it.ancho, H=it.alto, P=[], V=[], acc=[], T=[], MEL=[], FON=[];
   const per=(n,l,c)=>{if(l>0&&c>0)P.push({nombre:n,largo:Math.round(l),cant:c})};
   const vid=(a,h,c,nota)=>{if(a>0&&h>0&&c>0)V.push({ancho:Math.round(a),alto:Math.round(h),cant:c,nota:nota||""})};
   switch(it.tipo){
     case"p1":case"p15":despiecePuerta(it,P,acc,T);break;
-    case"cocina":despieceCocina(it,P,acc,T);break;
+    case"cocina":if(esMel(it))despieceMelamina(it,MEL,FON,acc);else despieceCocina(it,P,acc,T);break;
     case"s744":case"s8025":{const sc=S.cfg.series[it.tipo],n=it.naves||2,lay=layout(it),fijas=lay.filter(x=>x==="F").length,corr=n-fijas;
       const AN=A/n,HN=H;
       for(const p of sc.perfiles){const c=+p["c"+n]||0;if(!c)continue;let L=A,q=c;
@@ -515,7 +530,7 @@ function despiece(it){
     case"pasamanos":break;
   }
   const q=it.cant||1;
-  return {perfiles:P.map(p=>({...p,cant:p.cant*q})),vidrios:V.map(v=>({...v,cant:v.cant*q})),tab:T.map(t=>({...t,cant:t.cant*q})),acc:acc.map(([n,c,k])=>[n,Math.round(c*q*100)/100,k])};
+  return {perfiles:P.map(p=>({...p,cant:p.cant*q})),vidrios:V.map(v=>({...v,cant:v.cant*q})),tab:T.map(t=>({...t,cant:t.cant*q})),mel:MEL.map(t=>({...t,cant:t.cant*q})),fon:FON.map(t=>({...t,cant:t.cant*q})),acc:acc.map(([n,c,k])=>[n,Math.round(c*q*100)/100,k])};
 }
 /* Distribución de naves: F = fija, C = corrediza */
 function layout(it){const n=it.naves||2,d=it.dist;
@@ -545,13 +560,14 @@ function instDe(tipo){const t=S.cfg.instalacionTipo||{};return t[tipo]!=null&&t[
 /* Precio del rodamiento según la serie (744 y 8025 usan rodamientos distintos) */
 function precioRod(tipo,rod){const k=rod==="abb"?"abb":"nylon",r=S.cfg.series[tipo]?.rod;return +(r&&r[k]!=null?r[k]:S.cfg.rodamientos[k])||0}
 function calcCot(items,opts){opts=opts||{};
-  const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[],vpz={};const marmoMedia=opts.marmoMedia!==false;
+  const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[],vpz={},melP=[],fonP=[];const marmoMedia=opts.marmoMedia!==false;
   items.forEach((it,i)=>{
     const q=it.cant||1;if(it.precioManual>0){lin[i].manual=true;return}
     if(it.tipo==="pasamanos"){const rc=1+(+cfg.pasamanosRecargo||0)/100;lin[i].perf=(+it.acero||0)*rc*q;lin[i].vid=(+it.vidrioTpl||0)*rc*q;lin[i].m2=0;
       lin[i].inst=(it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo))*q;return}
     const dp=despiece({...it,cant:1}),color=cfg.colores.find(c=>c.nombre===it.color)||cfg.colores[0]||{factor:1},f=+color.factor||1,ser=TIPOS[it.tipo]?.serie,pta=TIPOS[it.tipo]?.puerta;
-    if(it.tipo==="cocina"){const cc=cfg.cocina||{};
+    if(esMel(it)){for(const t of dp.mel)melP.push({i,w:t.ancho,h:t.alto,cant:t.cant*q});for(const t of dp.fon)fonP.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
+    else if(it.tipo==="cocina"){const cc=cfg.cocina||{};
       for(const p of dp.perfiles){if(p.ref==="A61"||p.ref==="T77"){const key="PTA|"+p.ref+"|"+(it.color||""),tira=(+cfg.puertas.perfiles[p.ref]||0)*f;
           const pl=pools[key]=pools[key]||{tipo:"Puertas",modo:cfg.puertas.cobro?.[p.ref]||"metro",serie:"Puertas",perfil:p.ref,color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
           const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
@@ -582,7 +598,7 @@ function calcCot(items,opts){opts=opts||{};
     let acc=dvs?(+cfg.division.accesorios||0):(cfg.accesorios[it.tipo]||0);
     if(ser){for(const [n,c] of dp.acc){if(n.startsWith("Rodamientos"))acc+=c*precioRod(it.tipo,it.rod);if(n.startsWith("Empaque"))acc+=c*(cfg.empaqueMl||0)}}
     if(pta){for(const [n,c,k] of dp.acc)if(k)acc+=c*precioAccPta(k)}
-    if(it.tipo==="cocina"){const cc=cfg.cocina||{};for(const [n,c,k] of dp.acc)if(k)acc+=c*(+cc[k]||0)}
+    if(it.tipo==="cocina"){const cc=cfg.cocina||{},ml=cfg.melamina||{};for(const [n,c,k] of dp.acc)if(k)acc+=c*(k==="canto"?(+(it.canto==="rigido"?ml.cantoRigido:ml.cantoFlex)||0):(+cc[k]||0))}
     lin[i].acc=acc*q;
     lin[i].inst=(it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo))*q;
   });
@@ -596,6 +612,10 @@ function calcCot(items,opts){opts=opts||{};
       for(const s2 of sh){const sum=s2.items.reduce((a,p)=>a+p.costo,0),porLam=lam>0&&!s2.items.some(p=>p.over)&&lam<sum,cobra=porLam?lam:sum;
         if(porLam)nLam++;s2.items.forEach(p=>lin[p.i].vid+=sum?cobra*p.costo/sum:0);valor+=cobra}
       vidLam.push({nombre:vv.nombre,medida:la+" × "+lh+" cm",piezas:pz.length,laminas:sh.length,comoLamina:nLam,sinPrecio:!(lam>0),valor})}}
+  /* Láminas de melamina y de fondo: se suman en todo el pedido y se cobran láminas enteras */
+  const laminasDe=(arr,W,H,precio,nombre,medida)=>{if(!arr.length)return;const rects=[];arr.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.w,h:p.h})});
+    const n=packRects(rects,W*10,H*10).length,valor=n*(+precio||0),tot=arr.reduce((s,p)=>s+p.w*p.h*p.cant,0);arr.forEach(p=>lin[p.i].tab+=tot?valor*p.w*p.h*p.cant/tot:0);
+    tableros.push({nombre,detalle:rects.length+(rects.length===1?" pieza":" piezas")+" · lámina "+medida,cobrado:n+(n===1?" lámina":" láminas"),valor})};
   /* Tableros de PVC de puertas: se suman en todo el pedido */
   const tableros=[];
   if(cielo.length){const c=cfg.puertas.cielo,list=[];cielo.forEach(p=>{for(let k=0;k<p.cant;k++)list.push(p.largo)});
@@ -606,6 +626,7 @@ function calcCot(items,opts){opts=opts||{};
     const L=laminasMarmo(rects,marmoMedia),valor=L.laminas*(+m.precio||0),tot=marmo.reduce((s,p)=>s+p.w*p.h*p.cant,0);
     marmo.forEach(p=>lin[p.i].tab+=tot?valor*p.w*p.h*p.cant/tot:0);
     tableros.push({nombre:"PVC marmolizado",detalle:rects.length+" tableros · lámina "+m.ancho+" × "+m.alto+" cm",cobrado:String(L.laminas).replace(".",",")+(L.laminas===1?" lámina":" láminas")+(L.media?" (incluye media)":""),valor})}
+  {const ml=cfg.melamina||{};laminasDe(melP,ml.ancho,ml.alto,ml.precio,"Melamina 15 mm",ml.ancho+" × "+ml.alto+" cm");laminasDe(fonP,ml.fondoAncho,ml.fondoAlto,ml.fondoPrecio,"Fondo 3 mm",ml.fondoAncho+" × "+ml.fondoAlto+" cm")}
   const r=cfg.redondeo||1,mg=1+(cfg.margen||0)/100;let R={perfiles:0,vidrio:0,tableros:0,accesorios:0,instalacion:0,manual:0,ajuste:0,total:0};
   const lineas=items.map((it,i)=>{const q=it.cant||1,L=lin[i];
     if(L.manual){const t=it.precioManual*q;R.manual+=t;R.total+=t;return {unit:it.precioManual,total:t,manual:true}}
@@ -624,12 +645,13 @@ function calcDe(o){return o.calc&&o.calc.lineas&&o.calc.lineas.length===(o.items
 function totalObra(o){return calcDe(o).resumen.total}
 function tableroTxt(it){const tb=tableroPta(it);return TAB_NOM[tb.mat]+(tb.mat==="marmo"?"":it.orient==="V"?" vertical":" horizontal")}
 const vidrioDivTxt=()=>"Vidrio templado "+(S.cfg.division?.espesor||"8 mm");
-const medidaTxt=it=>it.tipo==="pasamanos"?"":it.tipo==="cocina"?tramosCocina(it).map(cm).join(" + ")+" × "+(esInf(it)?cm(it.alto||0):String(S.cfg.cocina?.alto||61.5).replace(".",",")):cm(it.ancho)+" × "+cm(it.alto);
+const medidaTxt=it=>it.tipo==="pasamanos"?"":esMel(it)?tramosCocina(it).map(cm).join(" + ")+" × "+cm(it.alto||0):it.tipo==="cocina"?tramosCocina(it).map(cm).join(" + ")+" × "+(esInf(it)?cm(it.alto||0):String(S.cfg.cocina?.alto||61.5).replace(".",",")):cm(it.ancho)+" × "+cm(it.alto);
 function detalleItem(it){if(it.tipo==="pasamanos")return "";
+  if(esMel(it))return tramosCocina(it).map((A,k)=>puertasTramo(it,k)).join(" + ")+" puertas · fondo "+cm(it.fondo||0)+(it.espaldar===false?" · sin espaldar":"");
   if(it.tipo==="cocina"){const g=tramosCocina(it).map((A,k)=>gabinete(A,esInf(it),puertasTramo(it,k)));return g.map(x=>x.N).join(" + ")+" puertas · "+(it.color||"")}if(TIPOS[it.tipo]?.puerta)return it.color||"";
   if(it.tipo==="division"){const r=vidriosDivision(it);return vidrioDivTxt()+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
 function describeItem(it){const t=TIPOS[it.tipo];
-  if(it.tipo==="cocina")return "Cocina · "+(esInf(it)?"puertas inferiores":"gabinete superior")+({L:" en L",U:" en U"}[it.forma]||"");
+  if(it.tipo==="cocina")return "Cocina"+(esMel(it)?" en melamina":"")+" · "+(esMel(it)?(esInf(it)?"mueble inferior":"mueble superior"):(esInf(it)?"puertas inferiores":"gabinete superior"))+({L:" en L",U:" en U"}[it.forma]||"");
   if(t?.puerta)return t.corto+(it.tipo==="p15"?" · nave "+(it.nave==="t244"?"T244":"T87"):"")+" · tablero "+tableroTxt(it);
   if(t?.serie)return t.corto+" · "+(it.naves||2)+" naves ("+distNombre(it)+")";
   if(it.tipo==="division")return "División de baño recta";
@@ -689,13 +711,14 @@ function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T2
   for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])r.push(TIPOS[k].corto+" · "+p.nombre);return r}
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
 function sumarDespiece(items){
-  const per={},vid={},acc={},pvc={};
+  const per={},vid={},acc={},pvc={},melC={};
   for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
     for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
+    for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const key=g+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
-  return {pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
+  return {mel:Object.values(melC),pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
 }
 
 /* Dibujo de la ventana */
@@ -713,6 +736,10 @@ function sketch(it){
   else if(it.tipo==="corrediza"){const hw=w/n;for(let i=0;i<n;i++){inner+=`<rect x="${x+4+i*hw}" y="${y+4}" width="${hw-8}" height="${h-8}" ${glass} ${s} stroke-width="2"/>`}
     inner+=`<path d="M${x+w/2-14} ${y+h/2}h28m-6-5 6 5-6 5" fill="none" ${s} stroke-width="1.5"/>`}
   else if(it.tipo==="proyectante"){inner=`<rect x="${x+5}" y="${y+5}" width="${w-10}" height="${h-10}" ${glass} ${s} stroke-width="2"/><path d="M${x+5} ${y+h-5}L${x+w/2} ${y+5}L${x+w-5} ${y+h-5}" fill="none" ${s} stroke-dasharray="4 3"/>`}
+  else if(esMel(it)){const T=tramosCocina(it),tot=T.reduce((a,b)=>a+b,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
+    for(const [kt,A] of T.entries()){const N=puertasTramo(it,kt),tw=A*sc,pw=tw/N;inner+=`<rect x="${cx}" y="${y}" width="${tw}" height="${h}" fill="var(--surface)" ${s} stroke-width="2"/>`;
+      for(let k=0;k<N;k++){const px=cx+k*pw,izq=k%2===0&&k<N-(N%2);inner+=`<rect x="${px+1}" y="${y+2}" width="${Math.max(1,pw-2)}" height="${h-2}" fill="#d9c3a5" ${s} stroke-width="1.2"/><line x1="${izq?px+pw-6:px+5}" y1="${y+h/2-6}" x2="${izq?px+pw-6:px+5}" y2="${y+h/2+6}" ${s} stroke-width="2"/>`}
+      cx+=tw+gap}}
   else if(it.tipo==="cocina"){const inf=esInf(it),T=tramosCocina(it),tot=T.reduce((a,b)=>a+b,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
     const dd=inf?0:Math.min(18,300*sc*0.45);  // profundidad (30 cm) en perspectiva para el gabinete superior
     for(const [kt,A] of T.entries()){const g=gabinete(A,inf,puertasTramo(it,kt)),tw=A*sc,e=(inf?30:20)*sc,pw=g.puerta*sc,top=y+dd,hh=h-dd;let px=cx+e;
@@ -1073,7 +1100,20 @@ function divInfo(it){const r=vidriosDivision(it),st=n=>n==null?"":` <span style=
 function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class="seg">${opts.map(([o,t])=>`<button data-act="it-set" data-k="${k}" data-v="${o}" aria-pressed="${v===o}">${t}</button>`).join("")}</div>`;
   const an=(k,l)=>`<div class="field"><label for="it-${k}">${l} (cm)</label><input id="it-${k}" inputmode="decimal" data-it="${k}" value="${it[k]?cm(it[k]):""}"></div>`;
   const inf=esInf(it);
-  return `<div class="field"><label>Parte</label>${seg("parte",[["superior","Gabinete superior"],["inferior","Puertas inferiores"]],inf?"inferior":"superior")}</div>
+  if(esMel(it))return `<div class="field"><label>Material</label>${seg("mat",[["aluminio","Aluminio"],["melamina","Melamina 15 mm"]],"melamina")}</div>
+  <div class="field"><label>Mueble</label>${seg("parte",[["superior","Superior"],["inferior","Inferior"]],inf?"inferior":"superior")}</div>
+  <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
+  <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
+      `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(it[k],inf):""}</span></div>`).join("")}
+    ${an("alto","Alto")}${an("fondo","Fondo")}
+    <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
+    <div class="field"><label>Canto</label>${seg("canto",[["flex","Flex"],["rigido","Rígido"]],it.canto==="rigido"?"rigido":"flex")}</div>
+    <label class="row small full" style="gap:8px;font-weight:600"><input type="checkbox" data-it="espaldar" ${it.espaldar!==false?"checked":""} style="width:20px;height:20px"> Con espaldar (fondo 3 mm)</label>
+    <div class="field"><label for="it-rec">Recargo (%)</label><input id="it-rec" inputmode="decimal" data-it="recargo" value="${String(recCocina(it)).replace(".",",")}"></div>
+    <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>
+  <div class="sketch">${sketch(it)}</div>`;
+  return `<div class="field"><label>Material</label>${seg("mat",[["aluminio","Aluminio"],["melamina","Melamina 15 mm"]],"aluminio")}</div>
+  <div class="field"><label>Parte</label>${seg("parte",[["superior","Gabinete superior"],["inferior","Puertas inferiores"]],inf?"inferior":"superior")}</div>
   ${inf?"":`<label class="row small" style="gap:8px;font-weight:600"><input type="checkbox" data-it="losero" ${it.losero!==false?"checked":""} style="width:20px;height:20px"> Lleva losero (en un hueco)</label>`}
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
@@ -1092,7 +1132,12 @@ function pasaCampos(it){return `<div class="fgrid">
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
   </div>`}
-function cocinaInfo(it){const inf=esInf(it);return tramosCocina(it).map((A,k,arr)=>{const g=gabinete(A,inf,puertasTramo(it,k));return `<div class="small">${arr.length>1?"Tramo "+(k+1)+" · ":""}${cm(A)} cm: ${g.N} puertas de ${cm(g.puerta)} × ${inf?cm((it.alto||0)-30):"60,5"} cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}${inf&&g.divisores?" en T78 de "+cm((it.alto||0)-50)+" cm":""}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
+function melInfo(it){const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
+  const t=(c.tableros||[]).map(x=>esc(x.nombre)+": "+esc(x.cobrado)).join(" · "),ck=Object.keys(a).find(k=>/^Canto/.test(k));
+  return `<div class="small">${dp.mel.map(p=>`${esc(p.pieza)}: ${p.cant} × ${cm(p.ancho)} × ${cm(p.alto)}`).join("<br>")}${dp.fon.map(p=>`<br>Espaldar (fondo 3 mm): ${cm(p.ancho)} × ${cm(p.alto)}`).join("")}</div>
+  <div class="small muted">${t}${ck?" · "+esc(ck.replace(" (m)",""))+" "+String(a[ck]).replace(".",",")+" m":""} · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas</div>
+  ${!(+S.cfg.melamina.precio>0)?`<div class="note">Pon el precio de la lámina de melamina, el fondo y el canto en Ajustes → Cocina en melamina.</div>`:""}`}
+function cocinaInfo(it){if(esMel(it))return melInfo(it);const inf=esInf(it);return tramosCocina(it).map((A,k,arr)=>{const g=gabinete(A,inf,puertasTramo(it,k));return `<div class="small">${arr.length>1?"Tramo "+(k+1)+" · ":""}${cm(A)} cm: ${g.N} puertas de ${cm(g.puerta)} × ${inf?cm((it.alto||0)-30):"60,5"} cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}${inf&&g.divisores?" en T78 de "+cm((it.alto||0)-50)+" cm":""}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
     return `<div class="small muted">PVC marmolizado: ${a["Láminas de PVC marmolizado (piezas)"]||0} piezas${mt?" · "+esc(mt.cobrado):""} · empaque ${String(a["Empaque PVC (m)"]||0).replace(".",",")} m · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas${a["Losero"]?" · losero":""}${a["Vidrios de entrepaño"]?" · "+a["Vidrios de entrepaño"]+" vidrios":""}</div>`})()}
 function calcHtml(it){
   if(it.tipo==="pasamanos"){const a=+it.acero||0,v=+it.vidrioTpl||0,r=+S.cfg.pasamanosRecargo||0,sub=a+v,con=sub*(1+r/100),ins=it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe("pasamanos"),q=it.cant||1,L=calcCot([{...it,precioManual:0}]).lineas[0]||{};
@@ -1103,7 +1148,7 @@ function calcHtml(it){
   const c=calcCot([{...it,precioManual:0}]),L=c.lineas[0]||{},dp=despiece({...it,cant:1}),q=it.cant||1,pta=TIPOS[it.tipo]?.puerta;
   return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
   ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
-  <div class="small muted num">Perfilería ${money(L.perf/q)} · ${pta||it.tipo==="cocina"?`${pta?"Tablero ":""}PVC ${money(L.tab/q)} · `:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)} · `}Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${it.tipo==="cocina"?" · Recargo "+String(recCocina(it)).replace(".",",")+" %":S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
+  <div class="small muted num">${esMel(it)?`Láminas ${money(L.tab/q)} · `:`Perfilería ${money(L.perf/q)} · `}${esMel(it)?"":pta||it.tipo==="cocina"?`${pta?"Tablero ":""}PVC ${money(L.tab/q)} · `:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)} · `}Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${it.tipo==="cocina"?" · Recargo "+String(recCocina(it)).replace(".",",")+" %":S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
   ${pta?ptaInfo(it,c):""}
   ${it.tipo==="cocina"?cocinaInfo(it):""}
   ${it.tipo==="division"&&it.ancho>0?divInfo(it):""}
@@ -1113,6 +1158,13 @@ function calcHtml(it){
 }
 
 /* --- Cortes --- */
+function dibujoLaminas(hojas,W,H){return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
+      return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>`}
+function melCortesHtml(mel){const ml=S.cfg.melamina;return [["mel","Melamina 15 mm",ml.ancho,ml.alto],["fon","Fondo 3 mm (espaldar)",ml.fondoAncho,ml.fondoAlto]].map(([g,t,W,H])=>{const L=mel.filter(x=>x.g===g);if(!L.length)return "";
+  const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const hojas=packRects(r,W*10,H*10);
+  return `<div class="panel"><div class="row sp"><h2>${t}</h2><span class="pill st-apr">${hojas.length} lámina${hojas.length===1?"":"s"}</span></div><span class="small muted">Lámina de ${W} × ${H} cm</span>
+   <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td>${esc(p.pieza)}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
+   ${dibujoLaminas(hojas,W*10,H*10)}</div>`}).join("")}
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada").sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));
@@ -1144,6 +1196,7 @@ function vCortes(){
   <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
   <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button></div>
   <h2>Perfiles</h2>${perfHtml}
+  ${(res.mel||[]).length?melCortesHtml(res.mel):""}
   ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
    <span class="small muted">Lámina de ${mm.ancho} × ${mm.alto} cm${L2.media?" · la última se usa solo hasta la mitad":""}</span>
    <div class="tbl-wrap"><table><thead><tr><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>
@@ -1341,6 +1394,14 @@ function vAjustes(){
    <span class="hint small muted">Factor 1 = precio base del perfil. 1,15 = 15% más caro.</span></div>
   <div class="panel"><h2>Ángulo de corte por perfil</h2><span class="small muted">Se muestra en Cortes para saber si el perfil va a 45° (marcos y naves) o recto a 90°.</span>
    <div class="tbl-wrap"><table><tbody>${refsAngulo().map(r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<tr><td>${esc(r)}</td><td class="n"><div class="seg" style="justify-content:flex-end">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:56px">${a}°</button>`).join("")}</div></td></tr>`}).join("")}</tbody></table></div></div>
+  <div class="panel"><h2>Cocina en melamina 15 mm</h2><div class="fgrid">
+   <div class="field"><label>Lámina de melamina (cm)</label><div class="row"><input aria-label="Ancho lámina melamina" inputmode="numeric" data-cfg="melamina.ancho" value="${c.melamina.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina melamina" inputmode="numeric" data-cfg="melamina.alto" value="${c.melamina.alto}" class="cin" style="width:70px;text-align:right"></div></div>
+   <div class="field"><label for="ml-p">Precio lámina melamina $</label><input id="ml-p" inputmode="numeric" data-cfg="melamina.precio" value="${c.melamina.precio}"></div>
+   <div class="field"><label>Lámina fondo 3 mm (cm)</label><div class="row"><input aria-label="Ancho lámina fondo" inputmode="numeric" data-cfg="melamina.fondoAncho" value="${c.melamina.fondoAncho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina fondo" inputmode="numeric" data-cfg="melamina.fondoAlto" value="${c.melamina.fondoAlto}" class="cin" style="width:70px;text-align:right"></div></div>
+   <div class="field"><label for="ml-fp">Precio lámina fondo $</label><input id="ml-fp" inputmode="numeric" data-cfg="melamina.fondoPrecio" value="${c.melamina.fondoPrecio}"></div>
+   <div class="field"><label for="ml-cf">Canto flex $/metro</label><input id="ml-cf" inputmode="numeric" data-cfg="melamina.cantoFlex" value="${c.melamina.cantoFlex}"></div>
+   <div class="field"><label for="ml-cr">Canto rígido $/metro</label><input id="ml-cr" inputmode="numeric" data-cfg="melamina.cantoRigido" value="${c.melamina.cantoRigido}"></div></div>
+   <span class="small muted">Bisagras y manijas usan los precios de la cocina en aluminio. Las láminas se cobran enteras.</span></div>
   <div class="panel"><h2>Cocina · gabinete superior y puertas inferiores</h2><div class="fgrid">
    <div class="field"><label for="cc-nd">Nave de ducha $/tira ${String(c.barra/1000).replace(".",",")} m</label><input id="cc-nd" inputmode="numeric" data-cfg="cocina.naveDucha" value="${c.cocina.naveDucha}"></div>
    <div class="field"><label for="cc-cb">Cobro</label>${selModo("cocina.cobro",c.cocina.cobro||"tira","nave de ducha")}</div>
@@ -1440,6 +1501,9 @@ function listaMateriales(items){const res=sumarDespiece(items),L=S.cfg.barra||60
   // PVC marmolizado
   const r=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});if(r.length){const m=S.cfg.puertas.marmo,l=laminasMarmo(r,true),le=laminasMarmo(r,false);
     G.push({h:"PVC marmolizado",filas:[["Lámina "+m.ancho+" × "+m.alto+" cm",le.laminas+" lámina"+(le.laminas===1?"":"s"),(l.media?"(se usa "+String(l.laminas).replace(".",",")+") · ":"")+r.length+" piezas"]]})}
+  // Melamina y fondo
+  {const ml=S.cfg.melamina;for(const [g,t,W,H] of [["mel","Melamina 15 mm",ml.ancho,ml.alto],["fon","Fondo 3 mm",ml.fondoAncho,ml.fondoAlto]]){const L=(res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;
+    const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const n=packRects(r,W*10,H*10).length;G.push({h:t,filas:[["Lámina "+W+" × "+H+" cm",n+" lámina"+(n===1?"":"s"),r.length+" piezas"]]})}}
   // Vidrio
   if(res.vid.length){const by={};for(const v of res.vid){const k=v.vidrio;(by[k]=by[k]||{m2:0,n:0,l:{}});by[k].m2+=v.ancho*v.alto*v.cant/1e6;by[k].n+=v.cant;const z=cm(v.ancho)+" × "+cm(v.alto);by[k].l[z]=(by[k].l[z]||0)+v.cant}
     G.push({h:"Vidrio",filas:Object.entries(by).map(([k,v])=>[k,v.m2.toFixed(2).replace(".",",")+" m²",v.n+" piezas: "+Object.entries(v.l).map(([z,n])=>n+" de "+z).join(", ")])})}
@@ -1466,6 +1530,7 @@ function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&
     if(angs.length>1)t+=p.cortes.map(c=>`   ${c.cant} × ${cm(c.largo)} a ${angCorte(p,c)}°`).join("\n")+"\n";
     t+=`   Orden: ${orden.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}\n`;
     t+=bs.map((b,i)=>`   Tira ${i+1}: ${ordenTope([b]).map(([l,n])=>n>1?n+"×"+cm(l):cm(l)).join(" + ")}${b.over?" (más larga que la tira)":" · sobra "+cm(D.L-b.used)}`).join("\n")+"\n"}
+  for(const g of ["mel","fon"]){const L=(D.res.mel||[]).filter(x=>x.g===g);if(L.length)t+=`\n*${g==="mel"?"Melamina 15 mm":"Fondo 3 mm"}*\n`+L.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)} · ${x.pieza}`).join("\n")+"\n"}
   if(D.res.pvc.length)t+=`\n*PVC marmolizado* — ${D.lam} lámina${D.lam===1?"":"s"} de ${D.mm.ancho} × ${D.mm.alto}\n`+D.res.pvc.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)}`).join("\n")+"\n";
   if(D.res.vid.length)t+=`\n*Vidrios*\n`+D.res.vid.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
@@ -1488,6 +1553,8 @@ function pdfCortes(sel){if(!window.jspdf){toast("No cargó el generador de PDF. 
         x+=w+(S.cfg.sierra||4)*esc2}
       doc.setFontSize(8);doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+4,{align:"right"});y+=BH+2.5}
     y+=3}
+  for(const g of ["mel","fon"]){const L=(D.res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(g==="mel"?"Melamina 15 mm":"Fondo 3 mm (espaldar)",16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
+    for(const x of L){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto)+"  ·  "+x.pieza,20,y);y+=4.5}y+=3}
   if(D.res.pvc.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("PVC marmolizado · "+D.lam+" lámina"+(D.lam===1?"":"s")+" de "+D.mm.ancho+" × "+D.mm.alto,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const x of D.res.pvc){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto),20,y);y+=4.5}y+=3}
   if(D.res.vid.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Vidrios",16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
@@ -1647,7 +1714,7 @@ document.addEventListener("click",async ev=>{
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
-    case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
+    case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;if(b.dataset.k==="mat"||(b.dataset.k==="parte"&&esMel(S.itemTmp))){const d=S.itemTmp;if(esMel(d)){const inf=d.parte==="inferior";d.alto=inf?800:615;d.fondo=inf?550:300;if(d.espaldar==null)d.espaldar=true;d.canto=d.canto||"flex"}else{d.alto=d.parte==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10)}refreshSheet();break}if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
     case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"FI":n===3?"FI":"FCCF";refreshSheet();break}
     case"it-dist":S.itemTmp.dist=b.dataset.v;refreshSheet();break;
@@ -1730,7 +1797,7 @@ document.addEventListener("input",ev=>{
     const h=$("#d-cli-hint");if(h)h.textContent=cliHint(S.draft);return}
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
-    if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl"||/^np\d$/.test(k))v=Math.round(num(v));else if(k==="recargo")v=num(v);
+    if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3"||k==="fondo")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl"||/^np\d$/.test(k))v=Math.round(num(v));else if(k==="recargo")v=num(v);
     S.itemTmp[k]=v;const it=S.itemTmp;
     const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);
     const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
