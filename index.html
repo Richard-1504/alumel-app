@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.1";
+const APP_VER="1.27.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -454,9 +454,10 @@ function puertasSug(A,inf){const max=(+(inf?S.cfg.cocina?.maxPuertaInf||38:S.cfg
 /* Puertas elegidas en el tramo k (0, 1 o 2) */
 /* Esquinas en L y U: el tramo que se arrima se fabrica de ancho − fondo; el que recibe va completo pero sus puertas
    cubren ancho − fondo (la esquina queda tapada). En L se recorta el más largo; en U van completos el del medio. */
-const fondoCocina=it=>esMel(it)?(it.fondo||0):300;
-function tramosEf(it){const T=tramosCocina(it),F=fondoCocina(it),f=esInf(it)?"recta":(it.forma||"recta");   // solo el gabinete superior descuenta la esquina
-  const comp=(A,ci,cd)=>({A,Ap:Math.max(0,A-ci-cd),ci,cd,rec:false}),rec=A=>({A:Math.max(0,A-F),Ap:Math.max(0,A-F),ci:0,cd:0,rec:true,orig:A});
+const fondoCocina=it=>esMel(it)?(esInf(it)?(it.fondo||550):(it.fondo||0)):300;
+function tramosEf(it){const T=tramosCocina(it),F=fondoCocina(it),f=it.forma||"recta",inf=esInf(it);
+  // en los muebles inferiores no queda vacío: el tramo completo lleva puertas en todo su ancho
+  const comp=(A,ci,cd)=>inf?{A,Ap:A,ci:0,cd:0,rec:false}:{A,Ap:Math.max(0,A-ci-cd),ci,cd,rec:false},rec=A=>({A:Math.max(0,A-F),Ap:Math.max(0,A-F),ci:0,cd:0,rec:true,orig:A});
   if(f==="L"&&T.length===2){const larga=T[0]>=T[1]?0:1;return T.map((A,k)=>k===larga?rec(A):k===0?comp(A,0,F):comp(A,F,0))}
   if(f==="U"&&T.length===3)return T.map((A,k)=>k===1?comp(A,F,F):rec(A));
   return T.map(A=>comp(A,0,0))}
@@ -1144,7 +1145,7 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
       `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}</span></div>`).join("")}
-    ${an("alto","Alto")}${inf?"":an("fondo","Fondo")}
+    ${an("alto","Alto")}${inf&&f==="recta"?"":an("fondo",inf?"Fondo (para la esquina)":"Fondo")}
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     <div class="field"><label for="it-mc">Color estructura</label><select id="it-mc" data-it="melColor">${melColores().map(c=>`<option ${c.nombre===colorEst(it)?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>
     <div class="field"><label for="it-mcp">Color puertas</label><select id="it-mcp" data-it="melColorP"><option value="" ${!it.melColorP?"selected":""}>Igual a la estructura</option>${melColores().map(c=>`<option ${c.nombre===it.melColorP?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>
@@ -1179,7 +1180,7 @@ function melInfo(it){const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioM
   return `<div class="small">${dp.mel.map(p=>`${esc(p.pieza)}: ${p.cant} × ${cm(p.ancho)} × ${cm(p.alto)}`).join("<br>")}${dp.fon.map(p=>`<br>Espaldar (fondo 3 mm): ${cm(p.ancho)} × ${cm(p.alto)}`).join("")}</div>
   <div class="small muted">${t}${ck?" · "+esc(ck.replace(" (m)",""))+" "+String(a[ck]).replace(".",",")+" m":""} · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas</div>
   ${!(+S.cfg.melamina.precio>0)?`<div class="note">Pon el precio de la lámina de melamina, el fondo y el canto en Ajustes → Cocina en melamina.</div>`:""}`}
-function esquinaTxt(it){const T=tramosEf(it);if(T.length<2||esInf(it))return "";return `<div class="small" style="color:var(--info)">${T.map((t,k)=>`Tramo ${k+1}: `+(t.rec?`se fabrica de ${cm(t.A)} (${cm(t.orig)} − fondo ${cm(fondoCocina(it))})`:`completo de ${cm(t.A)}, puertas en ${cm(t.Ap)} (esquina tapada)`)).join("<br>")}</div>`}
+function esquinaTxt(it){const T=tramosEf(it);if(T.length<2)return "";return `<div class="small" style="color:var(--info)">${T.map((t,k)=>`Tramo ${k+1}: `+(t.rec?`se fabrica de ${cm(t.A)} (${cm(t.orig)} − fondo ${cm(fondoCocina(it))})`:t.Ap<t.A?`completo de ${cm(t.A)}, puertas en ${cm(t.Ap)} (esquina tapada)`:`completo de ${cm(t.A)}`)).join("<br>")}</div>`}
 function cocinaInfo(it){if(esMel(it))return esquinaTxt(it)+melInfo(it);const inf=esInf(it);return esquinaTxt(it)+tramosEf(it).map((t,k,arr)=>{const A=t.Ap,g=gabinete(A,inf,puertasTramo(it,k));return `<div class="small">${arr.length>1?"Tramo "+(k+1)+" · ":""}${cm(A)} cm: ${g.N} puertas de ${cm(g.puerta)} × ${inf?cm((it.alto||0)-30):"60,5"} cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}${inf&&g.divisores?" en T78 de "+cm((it.alto||0)-50)+" cm":""}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
     return `<div class="small muted">PVC marmolizado: ${a["Láminas de PVC marmolizado (piezas)"]||0} piezas${mt?" · "+esc(mt.cobrado):""} · empaque ${String(a["Empaque PVC (m)"]||0).replace(".",",")} m · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas${a["Losero"]?" · losero":""}${a["Vidrios de entrepaño"]?" · "+a["Vidrios de entrepaño"]+" vidrios":""}</div>`})()}
 function calcHtml(it){const F=faltanItem({...it,precioManual:0});
