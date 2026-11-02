@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.24.0";
+const APP_VER="1.24.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -461,14 +461,21 @@ function gabinete(A,inf,nElegido){const N=nElegido>0?Math.round(nElegido):puerta
 const esMel=it=>it.tipo==="cocina"&&it.mat==="melamina";
 function despieceMelamina(it,M,F,acc){const H=it.alto||0,FD=it.fondo||0,esp=it.espaldar!==false;let canto=0,puertas=0;
   const pz=(n,w,h,c,cw)=>{if(w>0&&h>0&&c>0){M.push({pieza:n,ancho:Math.round(w),alto:Math.round(h),cant:c});canto+=(cw||0)*c}};
-  for(const [k,A] of tramosCocina(it).entries()){const N=puertasTramo(it,k),P2=Math.floor(N/2),sola=N%2,div=Math.max(0,P2+sola-1);
+  const inf=esInf(it);
+  for(const [k,A] of tramosCocina(it).entries()){const N=puertasTramo(it,k),P2=Math.floor(N/2),sola=N%2,div=Math.max(0,P2+sola-1),pw=A/N-2;
+    if(inf){ // mueble inferior: marco y T en tiras de 7 cm, divisores de 2 tiras, puertas de alto − 9
+      pz("Marco · tiras verticales",70,H-30,2,H-30);
+      pz("Marco · tiras horizontales",70,A,2,A);
+      pz("T · tiras",70,A-30,2,A-30);
+      pz("Divisores · tiras",70,H-115,2*div,H-115);
+      pz("Puertas",pw,H-90,N,2*(pw+H-90));puertas+=N;continue}
     pz("Superior e inferior",A,FD-15,2,A+2*(FD-15));          // canto: frente y las dos puntas
     pz("Laterales",FD-15,H-30,2,H-30);                          // canto: frente
     pz("Divisores",FD-30-(esp?3:0),H-30,div,H-30);              // canto: frente
     pz("Reengruese divisores",70,H-30,div,0);
     pz("Fichas laterales (soporte espaldar)",70,H-30,2,0);
-    const pw=A/N-2,ph=H+10;pz("Puertas",pw,ph,N,2*(pw+ph));puertas+=N;
-    if(esp&&A>0&&H>0)F.push({pieza:"Espaldar",ancho:Math.round(A),alto:Math.round(H),cant:1})}
+    pz("Puertas",pw,H+10,N,2*(pw+H+10));puertas+=N;
+    if(esp&&A>30&&H>30)F.push({pieza:"Espaldar",ancho:Math.round(A-30),alto:Math.round(H-30),cant:1})}
   acc.push(["Bisagras (par)",puertas,"bisagra"],["Manijas",puertas,"manija"],["Canto "+(it.canto==="rigido"?"rígido":"flex")+" (m)",Math.round(canto/10)/100,"canto"])}
 function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+cc.descPvc||0)*10;
   const R=(l,c)=>{if(l>0&&c>0)P.push({nombre:"Nave de ducha",largo:Math.round(l),cant:c,ref:"naveDucha",sis})};
@@ -647,7 +654,7 @@ function tableroTxt(it){const tb=tableroPta(it);return TAB_NOM[tb.mat]+(tb.mat==
 const vidrioDivTxt=()=>"Vidrio templado "+(S.cfg.division?.espesor||"8 mm");
 const medidaTxt=it=>it.tipo==="pasamanos"?"":esMel(it)?tramosCocina(it).map(cm).join(" + ")+" × "+cm(it.alto||0):it.tipo==="cocina"?tramosCocina(it).map(cm).join(" + ")+" × "+(esInf(it)?cm(it.alto||0):String(S.cfg.cocina?.alto||61.5).replace(".",",")):cm(it.ancho)+" × "+cm(it.alto);
 function detalleItem(it){if(it.tipo==="pasamanos")return "";
-  if(esMel(it))return tramosCocina(it).map((A,k)=>puertasTramo(it,k)).join(" + ")+" puertas · fondo "+cm(it.fondo||0)+(it.espaldar===false?" · sin espaldar":"");
+  if(esMel(it))return tramosCocina(it).map((A,k)=>puertasTramo(it,k)).join(" + ")+" puertas"+(esInf(it)?"":" · fondo "+cm(it.fondo||0)+(it.espaldar===false?" · sin espaldar":""));
   if(it.tipo==="cocina"){const g=tramosCocina(it).map((A,k)=>gabinete(A,esInf(it),puertasTramo(it,k)));return g.map(x=>x.N).join(" + ")+" puertas · "+(it.color||"")}if(TIPOS[it.tipo]?.puerta)return it.color||"";
   if(it.tipo==="division"){const r=vidriosDivision(it);return vidrioDivTxt()+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
 function describeItem(it){const t=TIPOS[it.tipo];
@@ -1105,10 +1112,11 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
       `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(it[k],inf):""}</span></div>`).join("")}
-    ${an("alto","Alto")}${an("fondo","Fondo")}
+    ${an("alto","Alto")}${inf?"":an("fondo","Fondo")}
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     <div class="field"><label>Canto</label>${seg("canto",[["flex","Flex"],["rigido","Rígido"]],it.canto==="rigido"?"rigido":"flex")}</div>
-    <label class="row small full" style="gap:8px;font-weight:600"><input type="checkbox" data-it="espaldar" ${it.espaldar!==false?"checked":""} style="width:20px;height:20px"> Con espaldar (fondo 3 mm)</label>
+    ${inf?`<span class="hint full">Mueble inferior: marco y T en tiras de 7 cm, divisores de 2 tiras y puertas de alto − 9 cm.</span>`:""}
+    <label class="row small full" style="gap:8px;font-weight:600${inf?";display:none":""}"><input type="checkbox" data-it="espaldar" ${it.espaldar!==false?"checked":""} style="width:20px;height:20px"> Con espaldar (fondo 3 mm)</label>
     <div class="field"><label for="it-rec">Recargo (%)</label><input id="it-rec" inputmode="decimal" data-it="recargo" value="${String(recCocina(it)).replace(".",",")}"></div>
     <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>
   <div class="sketch">${sketch(it)}</div>`;
