@@ -226,7 +226,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.12.3";
+const APP_VER="1.12.4";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -797,6 +797,10 @@ function pagoHtml(o){const P=S.pg,pg=pagosObra(o),deb=P.modo==="aprobar"?pg.tot-
    <div class="field"><label for="pg-fecha">Fecha</label><input id="pg-fecha" type="date" data-pg="fecha" value="${esc(P.fecha)}"></div>`:""}
   ${P.modo==="aprobar"?(()=>{const m=vidriosInvObra(o),k=Object.keys(m);return k.length?`<label class="row small" style="gap:8px;font-weight:600"><input type="checkbox" id="ap-inv" checked style="width:20px;height:20px"> Descontar del inventario: ${k.map(x=>m[x]+" de "+x.replace("x"," × ")).join(", ")}</label>`:""})():""}
   <button class="btn pri block" data-act="pg-ok">${btn}</button>`}
+/* Nombre por defecto: cliente + lo que se cotiza, ej. "Don Pedro · 2 Serie 744 + División baño" */
+function nombreAuto(d){const cnt={};for(const it of d.items||[]){const t=TIPOS[it.tipo]?.corto||it.tipo;cnt[t]=(cnt[t]||0)+(it.cant||1)}
+  const qu=Object.entries(cnt).map(([t,n])=>(n>1?n+" ":"")+t).join(" + ")||"Cotización",cl=cliente(d.clienteId)?.nombre||d.clienteNombre||"";
+  return (cl?cl+" · ":"")+qu}
 function cliHint(d){return d.clienteId&&cliente(d.clienteId)?"✓ Cliente guardado en Clientes":d.clienteNombre?"Solo para esta cotización. Toca \"+ Guardar\" si lo quieres en Clientes.":"Puedes dejarlo vacío."}
 function vCotizar(){
   const d=S.draft;const calc=calcCot(d.items,d);
@@ -812,7 +816,7 @@ function vCotizar(){
         <button class="btn sm" data-act="nuevo-cliente" data-from="cotizar">+ Guardar</button></div>
         <datalist id="dl-clientes">${clientes.map(c=>`<option value="${esc(c.nombre)}"></option>`).join("")}</datalist>
         <span class="hint" id="d-cli-hint">${cliHint(d)}</span></div>
-      <div class="field full"><label for="d-nombre">Nombre de la obra</label><input id="d-nombre" data-draft="nombre" value="${esc(d.nombre)}" placeholder="Ej: Casa Pérez · ventanas segundo piso"></div>
+      <div class="field full"><label for="d-nombre">Nombre de la obra</label><input id="d-nombre" data-draft="nombre" value="${esc(d.nombre)}" placeholder="Opcional · si lo dejas vacío se pone solo"></div>
       <div class="field"><label for="d-dir">Dirección</label><input id="d-dir" data-draft="direccion" value="${esc(d.direccion)}"></div>
       <div class="field"><label for="d-fecha">Fecha</label><input id="d-fecha" type="date" data-draft="fecha" value="${esc(d.fecha)}"></div>
     </div>
@@ -1340,7 +1344,7 @@ document.addEventListener("click",async ev=>{
       if(S.itemIdx!=null)S.draft.items[S.itemIdx]=it;else S.draft.items.push(it);closeSheet();break}
     case"quitar-item":S.draft.items.splice(S.itemIdx,1);closeSheet();break;
     case"guardar-obra":{const d=S.draft;if(!d.items.length){toast("Agrega al menos un ítem");return}
-      if(!d.nombre){toast("Ponle nombre a la obra");$("#d-nombre")?.focus();return}
+      if(!String(d.nombre||"").trim())d.nombre=nombreAuto(d);
       const id2=d.id||uid();const prev=d.id?obra(d.id):null;
       const numero=prev?.numero||Math.max(0,...S.obras.map(o=>o.numero||0))+1;
       const calc=calcCot(d.items,d);try{await guardar("obras",id2,{...d,id:undefined,numero,calc,total:calc.resumen.total});toast("Cotización guardada");S.draft=nuevoDraft();go("obra",id2)}catch(e){}break}
