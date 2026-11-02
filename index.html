@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.25.0";
+const APP_VER="1.26.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -907,7 +907,7 @@ function vObras(){
     <div class="li" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}">
       <div class="grow"><div class="eyebrow">COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><div class="t">${esc(o.nombre||"Sin nombre")}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(o.items||[]).length} ítem(s)</div>
         ${o.estado==="cotizacion"?`<button class="btn sm pri" style="margin-top:8px" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button>`:""}</div>
-      <div class="r"><span class="num" style="font-weight:600">${money(totalObra(o))}</span>${estadoPill(o.estado)}${!["cotizacion","anulada"].includes(o.estado)?(()=>{const pg=pagosObra(o);return pg.debe>0?`<span class="small num" style="color:var(--bad);font-weight:600">Debe ${money(pg.debe)}</span>`:`<span class="small" style="color:var(--ok);font-weight:600">Pagada</span>`})():""}</div>
+      <div class="r">${faltanItems(o.items).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<span class="num" style="font-weight:600">${money(totalObra(o))}</span>`}${estadoPill(o.estado)}${!["cotizacion","anulada"].includes(o.estado)?(()=>{const pg=pagosObra(o);return pg.debe>0?`<span class="small num" style="color:var(--bad);font-weight:600">Debe ${money(pg.debe)}</span>`:`<span class="small" style="color:var(--ok);font-weight:600">Pagada</span>`})():""}</div>
     </div>`}).join("")}</div>`
   :emptyBox(S.obras.length?"Nada en este filtro":"Aún no hay obras",S.obras.length?"Cambia el filtro para ver otras obras.":"Crea tu primera cotización: agregas ventanas, puertas o vidrios con sus medidas y el sistema calcula precio y cortes.",`<button class="btn pri" data-act="nueva-cot">Crear cotización</button>`)}`;
 }
@@ -940,7 +940,7 @@ function vObra(){
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
     ${tablaItems(o.items||[],calc)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
-  ${resumenHtml(calc)}
+  ${resumenHtml(calc,0,o.items)}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
     <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
@@ -953,16 +953,32 @@ function vObra(){
     <button class="btn sm danger" data-act="borrar-obra" data-id="${o.id}">Eliminar obra</button>
   </div>`;
 }
+/* ===== Precios faltantes: un ítem no se cotiza mientras falte algún precio de lo que usa ===== */
+function faltanItem(it){if(!it||it.precioManual>0)return [];const F=new Set(),cfg=S.cfg,z=v=>!(+v>0),dp=despiece({...it,cant:1});
+  if(TIPOS[it.tipo]?.serie){const sc=cfg.series[it.tipo];for(const p of dp.perfiles){const r=sc.perfiles.find(x=>x.nombre===p.nombre);if(!r||z(r.precio))F.add(TIPOS[it.tipo].corto+" · "+p.nombre)}
+    for(const [n,c] of dp.acc){if(!(c>0))continue;if(n.startsWith("Rodamientos")&&z(precioRod(it.tipo,it.rod)))F.add("Rodamiento "+(it.rod==="abb"?"ABB":"nylon")+" "+TIPOS[it.tipo].corto);if(n.startsWith("Empaque")&&z(cfg.empaqueMl))F.add("Empaque")}
+    if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
+  else if(TIPOS[it.tipo]?.puerta){for(const p of dp.perfiles){if(p.pool==="cielo"){if(z(cfg.puertas.cielo.precio))F.add("Tira PVC cielorraso");continue}if(z(cfg.puertas.perfiles[p.ref]))F.add(p.ref)}
+    for(const [n,c,k] of dp.acc)if(k&&c>0&&z(precioAccPta(k)))F.add(n.replace(/ \(m\)/,""));if(dp.tab.length&&z(cfg.puertas.marmo.precio))F.add("Lámina PVC marmolizado")}
+  else if(esMel(it)){const ml=cfg.melamina,cs=new Set(dp.mel.map(p=>p.color));for(const c of cs)if(z(precioMel(c)))F.add("Lámina melamina "+c);if(dp.fon.length&&z(ml.fondoPrecio))F.add("Lámina fondo 3 mm");
+    for(const [n,c,k] of dp.acc){if(!k||!(c>0))continue;if(k==="canto"){if(z(it.canto==="rigido"?ml.cantoRigido:ml.cantoFlex))F.add("Canto "+(it.canto==="rigido"?"rígido":"flex"))}else if(z(cfg.cocina[k]))F.add(n.replace(/ \(.*\)/,""))}}
+  else if(it.tipo==="cocina"){const cc=cfg.cocina;for(const p of dp.perfiles){const v=p.ref==="naveDucha"?cc.naveDucha:p.ref==="a15"?cc.a15:p.ref==="T78"?cc.t78:cfg.puertas.perfiles[p.ref];if(z(v))F.add(p.ref==="naveDucha"?"Nave de ducha":p.ref==="a15"?"A15":p.ref)}
+    if(dp.tab.length&&z(cfg.puertas.marmo.precio))F.add("Lámina PVC marmolizado");for(const [n,c,k] of dp.acc)if(k&&c>0&&z(cc[k]))F.add(n.replace(/ \(.*\)/,""))}
+  else if(it.tipo==="division"){const r=vidriosDivision(it);if(z(precioDivM2(r)))F.add(r.modo==="especial"?"Vidrio templado a la medida (m²)":"Vidrio templado (m²)");if(z(cfg.division.accesorios))F.add("Accesorios división")}
+  return [...F]}
+function faltanItems(items){const F=new Set();for(const it of items||[])faltanItem(it).forEach(x=>F.add(x));return [...F]}
+function avisoFaltan(F){return `<div class="note"><b>Faltan precios</b>, por eso no se muestra el total: ${esc(F.join(", "))}. <button class="linkish" data-act="go" data-v="ajustes">Ponerlos en Ajustes</button></div>`}
 function tablaItems(items,calc,editable){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
   return `<div class="tbl-wrap"><table><thead><tr><th>Ítem</th><th class="n">Medida (cm)</th><th class="n">Cant</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
   ${items.map((it,i)=>`<tr><td><b>${esc(describeItem(it))}</b><div class="small muted">${esc(detalleItem(it))}${TIPOS[it.tipo]?.serie?" · rodamiento "+(it.rod==="abb"?"ABB":"nylon"):""}${it.ubicacion?" · "+esc(it.ubicacion):""}</div></td>
-   <td class="n mono">${medidaTxt(it)||"—"}</td><td class="n">${it.cant}</td><td class="n">${money(valLinea(calc,i).total)}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
+   <td class="n mono">${medidaTxt(it)||"—"}</td><td class="n">${it.cant}</td><td class="n">${faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
    ${editable?`<td class="n"><button class="btn sm" data-act="editar-item" data-i="${i}">Editar</button></td>`:""}</tr>`).join("")}
   </tbody></table></div>`;
 }
 
-function resumenHtml(calc,total){
+function resumenHtml(calc,total,items){const F=faltanItems(items);if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
+  <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v" style="font-size:18px">Falta precio</span></div>`;
   const R=calc.resumen,f=(t,v)=>v?`<tr><td>${t}</td><td class="n">${money(v)}</td></tr>`:"";
   const mats=calc.materiales||[];
   return `<div class="panel"><h2>Resumen</h2>
@@ -1042,7 +1058,7 @@ function vCotizar(){
     ${d.items.length?tablaItems(d.items,calc,true):emptyBox("Sin ítems","Agrega ventanas, puertas, divisiones o vidrios con sus medidas.",`<button class="btn pri" data-act="nuevo-item">+ Agregar ítem</button>`)}
   </div>
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
-  ${d.items.length?resumenHtml(calc):""}
+  ${d.items.length?resumenHtml(calc,0,d.items):""}
   ${d.items.length?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
@@ -1155,7 +1171,9 @@ function melInfo(it){const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioM
   ${!(+S.cfg.melamina.precio>0)?`<div class="note">Pon el precio de la lámina de melamina, el fondo y el canto en Ajustes → Cocina en melamina.</div>`:""}`}
 function cocinaInfo(it){if(esMel(it))return melInfo(it);const inf=esInf(it);return tramosCocina(it).map((A,k,arr)=>{const g=gabinete(A,inf,puertasTramo(it,k));return `<div class="small">${arr.length>1?"Tramo "+(k+1)+" · ":""}${cm(A)} cm: ${g.N} puertas de ${cm(g.puerta)} × ${inf?cm((it.alto||0)-30):"60,5"} cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}${inf&&g.divisores?" en T78 de "+cm((it.alto||0)-50)+" cm":""}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
     return `<div class="small muted">PVC marmolizado: ${a["Láminas de PVC marmolizado (piezas)"]||0} piezas${mt?" · "+esc(mt.cobrado):""} · empaque ${String(a["Empaque PVC (m)"]||0).replace(".",",")} m · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas${a["Losero"]?" · losero":""}${a["Vidrios de entrepaño"]?" · "+a["Vidrios de entrepaño"]+" vidrios":""}</div>`})()}
-function calcHtml(it){
+function calcHtml(it){const F=faltanItem({...it,precioManual:0});
+  if(F.length&&!(it.precioManual>0))return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b style="color:var(--warn)">Falta precio</b></div>${avisoFaltan(F)}
+   ${it.tipo==="cocina"?cocinaInfo(it):""}`;
   if(it.tipo==="pasamanos"){const a=+it.acero||0,v=+it.vidrioTpl||0,r=+S.cfg.pasamanosRecargo||0,sub=a+v,con=sub*(1+r/100),ins=it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe("pasamanos"),q=it.cant||1,L=calcCot([{...it,precioManual:0}]).lineas[0]||{};
     return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
     ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
@@ -1700,7 +1718,7 @@ document.addEventListener("click",async ev=>{
     case"editar-obra":S.draft=clone(obra(id));go("cotizar");break;
     case"descartar":S.draft=nuevoDraft();render();break;
     case"cortes-obra":S.cortesObra=id;go("cortes");break;
-    case"aprobar-obra":pagoSheet(id,"aprobar");break;
+    case"aprobar-obra":{const F=faltanItems(obra(id)?.items);if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pagoSheet(id,"aprobar");break}
     case"abono-obra":pagoSheet(id,"pago");break;
     case"estado-pago":pagoSheet(id,"estado",b.dataset.v);break;
     case"pg-set":S.pg[b.dataset.k]=b.dataset.v;refreshSheet();break;
@@ -1779,9 +1797,9 @@ document.addEventListener("click",async ev=>{
     case"logout":confirmar("Vas a cerrar sesión en este equipo.","Cerrar sesión",async()=>{await S.auth.signOut()});break;
     case"exportar":{const data={app:"alumel",version:1,fecha:new Date().toISOString(),cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros};
       entregarArchivo("alumel-respaldo-"+hoy()+".json",new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));break}
-    case"pdf-cot":pdfCot(obra(id));break;
+    case"pdf-cot":{const F=faltanItems(obra(id)?.items);if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pdfCot(obra(id));break}
     case"pdf-cobro":pdfCobro(S.cobros.find(x=>x.id===id));break;
-    case"copiar-cot":compartirTexto(textoCot(obra(id)));break;
+    case"copiar-cot":{const F=faltanItems(obra(id)?.items);if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}compartirTexto(textoCot(obra(id)));break}
     case"copiar-cobro":compartirTexto(textoCobro(S.cobros.find(x=>x.id===id)));break;
     case"copiar":copiar(b.dataset.v);break;
     case"copiar-vidrios":{const sel=b.dataset.v;const items=sel==="__draft"?S.draft.items:(obra(sel)?.items||[]);const r=sumarDespiece(items);const o=obra(sel);
