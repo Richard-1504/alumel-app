@@ -100,6 +100,9 @@ h3{font-size:17px;font-weight:600}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;min-width:0}
+button.stat{text-align:left;cursor:pointer;font:inherit;color:inherit}
+button.stat:hover{border-color:var(--muted)}
+button.stat[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .stat .v{font:700 22px/1.1 var(--f-display);font-variant-numeric:tabular-nums;margin-top:6px;word-break:break-word}
 @media (max-width:420px){.stat .v{font-size:19px}}
 
@@ -226,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.17.2";
+const APP_VER="1.17.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -769,9 +772,9 @@ function vObras(){
   ${S.db&&!S.readonly&&datosLocales()?(()=>{const n=datosLocales().n;return `<div class="note info"><b>Este equipo tiene datos guardados solo aquí</b>: ${n.obras} cotizaciones/obras, ${n.clientes} clientes y ${n.cobros} cuentas de cobro, además de tus ajustes. Súbelos para verlos en todos tus equipos.
     <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="subir-locales">Subir a la nube</button><button class="btn sm" data-act="descartar-locales">No, ya los subí</button></div></div>`})():""}
   <div class="stats">
-    <div class="stat"><div class="eyebrow">En curso</div><div class="v">${act.filter(o=>o.estado!=="cotizacion").length}</div></div>
-    <div class="stat"><div class="eyebrow">Cotizaciones</div><div class="v">${cot.length}</div></div>
-    <div class="stat"><div class="eyebrow">Por cobrar</div><div class="v">${money(porCobrar)}</div></div>
+    <button class="stat" data-act="filtro-obras" data-v="activas" aria-pressed="${f==="activas"}"><div class="eyebrow">En curso</div><div class="v">${act.length}</div></button>
+    <button class="stat" data-act="filtro-obras" data-v="cotizacion" aria-pressed="${f==="cotizacion"}"><div class="eyebrow">Cotizaciones</div><div class="v">${cot.length}</div></button>
+    <button class="stat" data-act="filtro-obras" data-v="deben" aria-pressed="${f==="deben"}"><div class="eyebrow">Por cobrar</div><div class="v">${money(porCobrar)}</div></button>
   </div>
   <div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>
   ${list.length?`<div class="list">${list.map(o=>{const c=clienteDe(o);return `
