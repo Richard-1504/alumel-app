@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.21.0";
+const APP_VER="1.21.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -409,7 +409,7 @@ function laminasMarmo(rects,media){const m=S.cfg.puertas.marmo,W=m.ancho*10,H=m.
   return {laminas:sh.length-(cabe?0.5:0),media:cabe}}
 function despiecePuerta(it,P,acc,T){
   const A=it.ancho,H=it.alto,tb=tableroPta(it),sis="Puertas";
-  const R=(ref,l,c)=>{if(l>0&&c>0)P.push({nombre:ref,largo:Math.round(l),cant:c,ref,sis})};
+  const R=(ref,l,c,ang)=>{if(l>0&&c>0)P.push({nombre:ref,largo:Math.round(l),cant:c,ref,sis,...(ang?{ang}:{})})};
   if(it.tipo==="p1"){
     R("U66",A,1);R("U66",H-25,2);R("T77",A-60,2);R("T77",H-40,2);
     R("T166",A-110,1);R("A61",A-110,4);R("A61",(H-155)/2,4);
@@ -417,7 +417,7 @@ function despiecePuerta(it,P,acc,T){
   }else{
     const t244=it.nave==="t244",nv=t244?"T244":"T87",dA=t244?212:136,dH=t244?192:116;
     R("U78",A,1);R("U78",H-25,2);R(nv,A-dA,2);R(nv,H-40,2);
-    for(const s of tb.mat==="f06"?["S343","S344"]:["U71"]){R(s,H-dH,2);R(s,A-dA,2)}
+    for(const s of tb.mat==="f06"?["S343","S344"]:["U71"]){const al=s!=="U71";R(s,H-dH,2,al?90:0);R(s,A-dA,2,al?45:0)} // Álamo: verticales rectos, horizontales a 45°
     acc.push(["Chapa",1,"chapa"],["Bisagra",4,"bisagra15"],["Tornillería y silicona",1,"tornSil"]);
     if(A<=1100)acc.push(["Varilla 3/8″",2,"varilla"]);
     if(tb.mat==="f06")acc.push(["Empaque cuña (m)",Math.round(2*(tb.bw+tb.bh)/10)/100,"cuna"]);
@@ -677,20 +677,23 @@ function barras(cortes){
 }
 /* Resumen del orden de corte: "180 ×4 → 177 ×2 → …" */
 /* Ángulo de corte por perfil: naves y marcos a 45°, el resto a 90° (se cambia en Ajustes) */
-const ANG45=["Nave de ducha","T77","T87","T244"];
+const ANG45=["Nave de ducha","T77"];
+/* Ángulo de un corte: si la pieza trae su propio ángulo (ej. Álamo) manda ese */
+const angCorte=(p,c)=>c&&c.ang?c.ang:anguloDe(p.sistema,p.nombre);
+const angsPerfil=p=>[...new Set(p.cortes.map(c=>angCorte(p,c)))];
 function angKey(sistema,nombre){return /^Serie/.test(sistema||"")?sistema+" · "+nombre:String(nombre).replace(/\s*\(.*\)$/,"")}
 function anguloDe(sistema,nombre){const k=angKey(sistema,nombre),a=S.cfg.angulos||{};return a[k]?+a[k]:ANG45.includes(k)?45:90}
-function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T244","T166","U66","U78","U71","S343","S344","F06"];
+function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T244","T166","U66","U78","U71","F06"];
   for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])r.push(TIPOS[k].corto+" · "+p.nombre);return r}
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={};
   for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
-    for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant}
+    for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
-  return {pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
+  return {pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
 }
 
 /* Dibujo de la ventana */
@@ -1104,9 +1107,9 @@ function vCortes(){
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes);totalBarras+=bs.length;
-    return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} <span class="pill ${anguloDe(p.sistema,p.nombre)===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${anguloDe(p.sistema,p.nombre)}°</span></h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
+    return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} ${angsPerfil(p).map(a=>`<span class="pill ${a===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${a}°</span>`).join(" ")}</h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
       ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
-      <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm`).join(" · ")}</div>
+      <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm${angsPerfil(p).length>1?" a "+angCorte(p,c)+"°":""}`).join(" · ")}</div>
       ${(()=>{const ot=ordenTope(bs);return `<div class="small"><b>Orden de corte</b> · ${ot.length} tope${ot.length===1?"":"s"}: <span class="mono">${ot.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}</span></div>`})()}
       <div class="stack" style="gap:6px">${(()=>{const med=[...new Set(p.cortes.map(c=>c.largo))];return bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div class="cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%;${j&&b.cuts[j-1]===l?"border-left:1px dashed rgba(255,255,255,.35);":""}" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")})()}</div></div>`}).join("");
   const m2=res.vid.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6,nVid=res.vid.reduce((s,v)=>s+v.cant,0);
