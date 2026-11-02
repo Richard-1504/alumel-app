@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.0";
+const APP_VER="1.27.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -455,7 +455,7 @@ function puertasSug(A,inf){const max=(+(inf?S.cfg.cocina?.maxPuertaInf||38:S.cfg
 /* Esquinas en L y U: el tramo que se arrima se fabrica de ancho − fondo; el que recibe va completo pero sus puertas
    cubren ancho − fondo (la esquina queda tapada). En L se recorta el más largo; en U van completos el del medio. */
 const fondoCocina=it=>esMel(it)?(it.fondo||0):300;
-function tramosEf(it){const T=tramosCocina(it),F=fondoCocina(it),f=it.forma||"recta";
+function tramosEf(it){const T=tramosCocina(it),F=fondoCocina(it),f=esInf(it)?"recta":(it.forma||"recta");   // solo el gabinete superior descuenta la esquina
   const comp=(A,ci,cd)=>({A,Ap:Math.max(0,A-ci-cd),ci,cd,rec:false}),rec=A=>({A:Math.max(0,A-F),Ap:Math.max(0,A-F),ci:0,cd:0,rec:true,orig:A});
   if(f==="L"&&T.length===2){const larga=T[0]>=T[1]?0:1;return T.map((A,k)=>k===larga?rec(A):k===0?comp(A,0,F):comp(A,F,0))}
   if(f==="U"&&T.length===3)return T.map((A,k)=>k===1?comp(A,F,F):rec(A));
@@ -1144,7 +1144,7 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
       `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}</span></div>`).join("")}
-    ${an("alto","Alto")}${inf&&f==="recta"?"":an("fondo",inf?"Fondo (para la esquina)":"Fondo")}
+    ${an("alto","Alto")}${inf?"":an("fondo","Fondo")}
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     <div class="field"><label for="it-mc">Color estructura</label><select id="it-mc" data-it="melColor">${melColores().map(c=>`<option ${c.nombre===colorEst(it)?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>
     <div class="field"><label for="it-mcp">Color puertas</label><select id="it-mcp" data-it="melColorP"><option value="" ${!it.melColorP?"selected":""}>Igual a la estructura</option>${melColores().map(c=>`<option ${c.nombre===it.melColorP?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>
