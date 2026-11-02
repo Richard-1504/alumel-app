@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.12.0";
+const APP_VER="1.12.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -242,9 +242,9 @@ const TIPOS = {
   pasamanos:  {nombre:"Vidrio templado pasamanos", corto:"Pasamanos"}
 };
 const ESTADOS = [
-  ["cotizacion","Cotización","st-cot"],["produccion","En producción","st-pro"],["instalada","Instalada","st-ent"],["anulada","Anulada","st-anu"]];
+  ["cotizacion","Cotización","st-cot"],["produccion","En producción","st-pro"],["instalada","Instalada","st-ent"]];
 /* Proceso simple: Cotización → En producción (al aprobar) → Instalada. Los estados viejos se convierten. */
-const EST_VIEJO={aprobada:"produccion",entregada:"instalada"};
+const EST_VIEJO={aprobada:"produccion",entregada:"instalada",anulada:"cotizacion"};
 function normEstados(){for(const o of S.obras)if(EST_VIEJO[o.estado])o.estado=EST_VIEJO[o.estado]}
 const DEFAULT_CFG = {
   preciosEjemplo:true,
@@ -715,8 +715,8 @@ function vObra(){
     ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala: pasa directo a producción.</span>`
      :sig?`<button class="btn dark block" data-act="${sig[0]==="instalada"&&pg.debe>0?"estado-pago":"estado-obra"}" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
     ${o.fechaAprobada?`<span class="small muted">Aprobada el ${fechaCorta(o.fechaAprobada)}</span>`:""}
-    <details><summary class="small" style="cursor:pointer;font-weight:600">Cambiar estado manualmente</summary>
-      <div class="chips" style="margin-top:8px">${ESTADOS.map(e=>`<button class="chip" data-act="estado-obra" data-id="${o.id}" data-v="${e[0]}" data-confirma="1" aria-pressed="${o.estado===e[0]}">${e[1]}</button>`).join("")}</div></details></div>
+    ${o.estado==="instalada"?`<button class="btn sm" data-act="estado-obra" data-id="${o.id}" data-v="produccion" data-confirma="1">Volver a producción</button>`:""}
+    ${o.estado!=="cotizacion"?`<button class="btn sm danger" data-act="cancelar-aprob" data-id="${o.id}">Cancelar aprobación</button>`:""}</div>
   <div class="cols2">
     <div class="panel"><div class="eyebrow">Cliente</div>
       ${c?.suelto?`<dl class="kv"><dt>Nombre</dt><dd>${esc(c.nombre)}</dd>${o.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion)}</dd>`:""}</dl>
@@ -1314,6 +1314,9 @@ document.addEventListener("click",async ev=>{
       pdfRecibo(obra(id),i);break}
     case"estado-cuenta":pdfEstadoCuenta(obra(id));break;
     case"borrar-abono-obra":{const o=obra(id),i=+b.dataset.i;confirmar("Se borra el abono de "+money(o.abonos[i].valor)+".","Borrar abono",async()=>{const ab=[...o.abonos];ab.splice(i,1);await guardar("obras",id,{...o,abonos:ab})});break}
+    case"cancelar-aprob":{const o=obra(id);if(!o)break;const pg=(o.abonos||[]).reduce((s,a)=>s+(+a.valor||0),0),vid=o.invDesc&&Object.keys(o.invDesc).length;
+      confirmar("La obra vuelve a Cotización como si no se hubiera aprobado."+(vid?" Los vidrios descontados vuelven al inventario.":"")+(pg?" Se borran los pagos registrados ("+money(pg)+").":""),"Cancelar aprobación",async()=>{
+        if(o.invDesc)await moverInventario(o.invDesc,1);await guardar("obras",o.id,{...o,estado:"cotizacion",abonos:[],invDesc:null,fechaAprobada:null});toast("Aprobación cancelada")});break}
     case"estado-obra":{const o=obra(id);if(o&&o.estado!==b.dataset.v&&b.dataset.confirma&&!b.dataset.ok){const bb=b;confirmar("La obra pasará a \""+estadoDe(b.dataset.v)[1]+"\"."+(bb.dataset.v==="anulada"&&o.invDesc?" Los vidrios descontados vuelven al inventario.":""),"Cambiar estado",async()=>{const nv=bb.dataset.v;let extra={};
         if(nv==="anulada"&&o.invDesc){await moverInventario(o.invDesc,1);extra={invDesc:null}}await guardar("obras",id,{...o,estado:nv,...extra});toast("Estado: "+estadoDe(bb.dataset.v)[1])});break}
       if(o&&o.estado!==b.dataset.v){try{await guardar("obras",id,{...o,estado:b.dataset.v});toast("Estado: "+estadoDe(b.dataset.v)[1])}catch(e){}render()}break}
