@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.20.0";
+const APP_VER="1.20.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -660,12 +660,20 @@ function ordenarCortes(bars){const rest=bars.map(b=>{const c={};b.cuts.forEach(l
 function barras(cortes){
   const L=S.cfg.barra||6000,k=S.cfg.sierra||4,list=[];
   cortes.forEach(c=>{for(let i=0;i<c.cant;i++)list.push(c.largo)});
+  if(!list.length){const b=[];b.cambios=0;return b}
+  // mínimo teórico de tiras (no se puede gastar menos)
+  const minimo=Math.ceil(list.reduce((a,l)=>a+Math.min(l,L)+k,0)/(L+k)-1e-9);
   const ords=[list.slice().sort((a,b)=>b-a)],cnt={};list.forEach(l=>cnt[l]=(cnt[l]||0)+1);
-  ords.push(list.slice().sort((a,b)=>cnt[b]*b-cnt[a]*a||b-a));   // primero las medidas que más material suman
+  ords.push(list.slice().sort((a,b)=>cnt[b]*b-cnt[a]*a||b-a));
+  // variaciones pseudoaleatorias del orden para buscar menos tiras (siempre las mismas para el mismo despiece)
+  let sem=list.length*7919+list.reduce((a,l)=>a+l,0);const rnd=()=>{sem=(sem*1103515245+12345)%2147483648;return sem/2147483648};
+  for(let t=0;t<60;t++)ords.push(ords[0].slice().sort((a,b)=>(b*(0.85+rnd()*0.3))-(a*(0.85+rnd()*0.3))));
   let best=null;
-  for(const o of ords)for(const m of ["primero","mejor","grupo","ultima"]){const r=ordenarCortes(barrasUna(o,L,k,m)),n=r.bars.length;
-    if(!best||n<best.n||(n===best.n&&r.cambios<best.cambios))best={n,cambios:r.cambios,bars:r.bars}}
-  const bars=best?best.bars:[];bars.cambios=best?best.cambios:0;return bars;
+  const evaluar=o=>{for(const m of ["primero","mejor","grupo","ultima"]){const raw=barrasUna(o,L,k,m),n=raw.length;if(best&&n>best.n)continue;
+      const r=ordenarCortes(raw),sob=Math.max(0,...r.bars.filter(b=>!b.over).map(b=>L-b.used)),sc=[n,-Math.floor(sob/100),r.cambios];
+      if(!best||sc[0]<best.sc[0]||(sc[0]===best.sc[0]&&(sc[1]<best.sc[1]||(sc[1]===best.sc[1]&&sc[2]<best.sc[2]))))best={n,sc,bars:r.bars,cambios:r.cambios}}};
+  for(const o of ords)evaluar(o);
+  const bars=best.bars;bars.cambios=best.cambios;bars.minimo=minimo;return bars;
 }
 /* Resumen del orden de corte: "180 ×4 → 177 ×2 → …" */
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
@@ -1091,6 +1099,7 @@ function vCortes(){
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes);totalBarras+=bs.length;
     return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)}</h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
+      ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
       <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm`).join(" · ")}</div>
       ${(()=>{const ot=ordenTope(bs);return `<div class="small"><b>Orden de corte</b> · ${ot.length} tope${ot.length===1?"":"s"}: <span class="mono">${ot.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}</span></div>`})()}
       <div class="stack" style="gap:6px">${(()=>{const med=[...new Set(p.cortes.map(c=>c.largo))];return bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div class="cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%;${j&&b.cuts[j-1]===l?"border-left:1px dashed rgba(255,255,255,.35);":""}" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")})()}</div></div>`}).join("");
