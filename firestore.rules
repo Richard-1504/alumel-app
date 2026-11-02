@@ -6,8 +6,7 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if request.auth != null
         && request.auth.token.email in [
-          "richar.1504@gmail.com",
-          "trabajador1@ejemplo.com"
+          "richar.1504@gmail.com"
         ];
     }
   }
