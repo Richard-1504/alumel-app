@@ -227,7 +227,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.11.0";
+const APP_VER="1.11.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -677,13 +677,14 @@ function emptyBox(t,s,btn){return `<div class="empty"><b>${t}</b><span>${s}</spa
 
 /* --- Obras --- */
 function vObras(){
-  const act=S.obras.filter(o=>!["entregada","anulada"].includes(o.estado));
+  const ENC=["aprobada","produccion"],FIN=["instalada","entregada"];
+  const act=S.obras.filter(o=>ENC.includes(o.estado));
   const porCobrar=S.obras.filter(o=>!["cotizacion","anulada"].includes(o.estado)).reduce((s,o)=>s+pagosObra(o).debe,0);
   const cot=S.obras.filter(o=>o.estado==="cotizacion");
   const f=S.filtroObras;
-  let list=S.obras.filter(o=>f==="todas"?true:f==="activas"?!["entregada","anulada","cotizacion"].includes(o.estado):o.estado===f);
+  let list=S.obras.filter(o=>f==="todas"?true:f==="activas"?ENC.includes(o.estado):f==="terminadas"||f==="entregada"?FIN.includes(o.estado):f==="deben"?!["cotizacion","anulada"].includes(o.estado)&&pagosObra(o).debe>0:o.estado===f);
   list.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")||(b.numero||0)-(a.numero||0));
-  const chips=[["activas","En curso"],["cotizacion","Cotizaciones"],["entregada","Entregadas"],["todas","Todas"]];
+  const chips=[["activas","En curso"],["cotizacion","Cotizaciones"],["terminadas","Terminadas"],["deben","Deben"],["todas","Todas"]];
   return `
   <div class="head"><div><div class="eyebrow">Taller · ${esc(S.cfg.empresa.nombre)}</div><h1>Obras</h1></div>
     <button class="btn pri" data-act="nueva-cot">+ Nueva cotización</button></div>
