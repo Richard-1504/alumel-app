@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.18.1";
+const APP_VER="1.18.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -362,15 +362,42 @@ function tableroPta(it){const A=it.ancho||0,H=it.alto||0,pc=S.cfg.puertas;
 function piezasTab(tb,orient){if(!(tb.util>0)||tb.bw<=0||tb.bh<=0)return {cant:0,largo:0};const hz=orient!=="V";
   return {cant:Math.ceil((hz?tb.bh:tb.bw)/tb.util-1e-9),largo:hz?tb.bw:tb.bh}}
 /* Acomoda rectángulos en láminas (corte guillotina, permite girar). Devuelve las láminas usadas. */
-function packRects(rects,W,H){
-  const list=rects.slice().sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h),sheets=[];
-  const place=(s,r)=>{for(let k=0;k<s.free.length;k++){const f=s.free[k];
-    for(const [w,h] of [[r.w,r.h],[r.h,r.w]]){if(w<=f.w+1e-6&&h<=f.h+1e-6){s.free.splice(k,1);const rw=f.w-w,rh=f.h-h;
-      if(rw<rh){if(rw>0)s.free.push({x:f.x+w,y:f.y,w:rw,h});if(rh>0)s.free.push({x:f.x,y:f.y+h,w:f.w,h:rh})}
-      else{if(rw>0)s.free.push({x:f.x+w,y:f.y,w:rw,h:f.h});if(rh>0)s.free.push({x:f.x,y:f.y+h,w,h:rh})}
-      s.items.push({...r,w,h,x:f.x,y:f.y});return true}}}return false};
-  for(const r of list){if(sheets.some(s=>place(s,r)))continue;const s={free:[{x:0,y:0,w:W,h:H}],items:[]};if(!place(s,r))s.items.push({...r,over:true});sheets.push(s)}
-  return sheets;}
+/* Acomoda rectángulos en láminas con cortes de guillotina (permite girar las piezas).
+   Prueba varias formas de ordenar, elegir hueco y partir el sobrante, y se queda con la que
+   usa menos láminas y deja los sobrantes más grandes y en una sola pieza. */
+function packUna(rects,W,H,orden,elegir,partir){
+  const list=rects.slice().sort(orden),sheets=[];
+  const lugar=(s,r)=>{let best=null;for(let k=0;k<s.free.length;k++){const f=s.free[k];
+      for(const [w,h] of [[r.w,r.h],[r.h,r.w]]){if(w>f.w+1e-6||h>f.h+1e-6)continue;
+        const sc=elegir==="primero"?k:elegir==="area"?f.w*f.h-w*h:elegir==="corto"?Math.min(f.w-w,f.h-h):f.y*1e6+f.x;
+        if(!best||sc<best.sc)best={k,w,h,sc};if(elegir==="primero")break}if(best&&elegir==="primero")break}return best};
+  const poner=(s,r,b)=>{const f=s.free.splice(b.k,1)[0],{w,h}=b,rw=f.w-w,rh=f.h-h;
+    const horiz=partir==="corto"?rw<rh:partir==="largo"?rw>=rh:partir==="area"?rw*f.h<rh*f.w:false;
+    if(horiz){if(rw>0)s.free.push({x:f.x+w,y:f.y,w:rw,h});if(rh>0)s.free.push({x:f.x,y:f.y+h,w:f.w,h:rh})}
+    else{if(rw>0)s.free.push({x:f.x+w,y:f.y,w:rw,h:f.h});if(rh>0)s.free.push({x:f.x,y:f.y+h,w,h:rh})}
+    s.items.push({...r,w,h,x:f.x,y:f.y})};
+  for(const r of list){let ok=false;for(const s of sheets){const b=lugar(s,r);if(b){poner(s,r,b);ok=true;break}}
+    if(ok)continue;const s={free:[{x:0,y:0,w:W,h:H}],items:[]};const b=lugar(s,r);if(b)poner(s,r,b);else s.items.push({...r,over:true});sheets.push(s)}
+  for(const s of sheets)unirSobrantes(s);
+  return sheets}
+/* Une sobrantes vecinos que forman un rectángulo más grande */
+function unirSobrantes(s){let cambio=true;while(cambio){cambio=false;const F=s.free;
+  for(let a=0;a<F.length&&!cambio;a++)for(let b=0;b<F.length&&!cambio;b++){if(a===b)continue;const p=F[a],q=F[b];
+    if(Math.abs(p.y-q.y)<1e-6&&Math.abs(p.h-q.h)<1e-6&&Math.abs(p.x+p.w-q.x)<1e-6){F.splice(Math.max(a,b),1);F.splice(Math.min(a,b),1);F.push({x:p.x,y:p.y,w:p.w+q.w,h:p.h});cambio=true}
+    else if(Math.abs(p.x-q.x)<1e-6&&Math.abs(p.w-q.w)<1e-6&&Math.abs(p.y+p.h-q.y)<1e-6){F.splice(Math.max(a,b),1);F.splice(Math.min(a,b),1);F.push({x:p.x,y:p.y,w:p.w,h:p.h+q.h});cambio=true}}}}
+const sobranteMayor=s=>s.free.reduce((m,f)=>f.w*f.h>(m?m.w*m.h:0)?f:m,null);
+function packRects(rects,W,H){if(!rects.length)return [];
+  const ordenes=[(a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h,(a,b)=>b.w*b.h-a.w*a.h,(a,b)=>b.h-a.h||b.w-a.w,(a,b)=>b.w-a.w||b.h-a.h,(a,b)=>(b.w+b.h)-(a.w+a.h),(a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h)||Math.max(b.w,b.h)-Math.max(a.w,a.h)];
+  let mejor=null,mejorSc=null;
+  for(const o of ordenes)for(const e of ["primero","area","corto","abajo"])for(const p of ["corto","largo","area","vertical"]){
+    const sh=packUna(rects,W,H,o,e,p),fuera=sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);
+    // menos láminas; luego el sobrante más grande en cada lámina; luego la última lámina más compacta
+    const ult=sh[sh.length-1],usoUlt=ult.items.reduce((a,r)=>a+r.w*r.h,0),bb=ult.items.reduce((m,r)=>Math.max(m,r.y+r.h),0);
+    const sob=sh.reduce((a,x)=>{const f=sobranteMayor(x);return a+(f?f.w*f.h:0)},0);
+    const sc=[fuera,sh.length,-Math.round(sob/100),bb];
+    const menor=(x,y)=>{for(let k=0;k<x.length;k++){if(x[k]<y[k])return true;if(x[k]>y[k])return false}return false};
+    if(!mejorSc||menor(sc,mejorSc)){mejor=sh;mejorSc=sc}}
+  return mejor}
 /* Cuántas tiras salen para una lista de cortes (primero el más largo) */
 function tirasNecesarias(list,L){const k=S.cfg.sierra||0,bins=[];
   for(const l of list.slice().sort((a,b)=>b-a)){if(l>L){bins.push(L);continue}const i=bins.findIndex(u=>u+k+l<=L);if(i<0)bins.push(l);else bins[i]+=k+l}
@@ -1057,8 +1084,9 @@ function vCortes(){
    <div class="tbl-wrap"><table><thead><tr><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>
    ${res.pvc.map(p=>`<tr><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}
    </tbody></table></div>
-   <div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${mm.alto*10} ${mm.ancho*10}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}</svg></div>`).join("")}</div>
-   <span class="small muted">Medidas en cm. Distribución sugerida para cortar.</span></div>`:""}
+   <div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${mm.alto*10} ${mm.ancho*10}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
+      return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>
+   <span class="small muted">Medidas en cm. Distribución sugerida para cortar; en cobre, el sobrante más grande de cada lámina.</span></div>`:""}
   ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
    <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th><th class="n">m²</th></tr></thead><tbody>
    ${res.vid.map(v=>`<tr><td>${esc(v.vidrio)}${v.nota?`<div class="small muted">${esc(v.nota)}</div>`:""}</td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="n">${v.cant}</td><td class="n">${(v.ancho*v.alto*v.cant/1e6).toFixed(2).replace(".",",")}</td></tr>`).join("")}
