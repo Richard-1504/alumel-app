@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.18.0";
+const APP_VER="1.18.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -441,7 +441,7 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
   else for(const [k,A] of tramosCocina(it).entries()){const g=gabinete(A,false,puertasTramo(it,k));
     marco(300,A,2);            // superior e inferior: 30 × ancho
     marco(300,585,2);          // laterales: 30 × 58,5
-    marco(585,220,g.divisores);// divisores: 58,5 × 22
+    marco(585,260,g.divisores);// divisores: 58,5 × 26
     marco(585,A-30,1);         // espaldar: 58,5 × (ancho − 3)
     marco(g.puerta,605,g.N);   // puertas: ancho × 60,5
     puertas+=g.N;
