@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.22.0";
+const APP_VER="1.22.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1462,9 +1462,15 @@ function pdfCortes(sel){if(!window.jspdf){toast("No cargó el generador de PDF. 
     doc.setFont("helvetica","normal");doc.setFontSize(9);
     const cl=doc.splitTextToSize("Cortes: "+p.cortes.map(c=>c.cant+" × "+cm(c.largo)+(angs.length>1?" a "+angCorte(p,c)+"°":"")).join("   "),184);nl(cl.length*4);doc.text(cl,16,y);y+=cl.length*4+1;
     const ol=doc.splitTextToSize("Orden de corte: "+orden.map(([l,n])=>cm(l)+" x"+n).join(" > "),184);nl(ol.length*4);doc.text(ol,16,y);y+=ol.length*4+2;
-    for(const [i,b] of bs.entries()){nl(8);doc.setFontSize(8);doc.text("Tira "+(i+1),16,y+3.5);let x=30;const W=150,esc2=W/D.L;
-      for(const l of b.cuts){const w=Math.min(W,l*esc2);doc.setDrawColor(40,34,30);doc.setFillColor(255,255,255);doc.rect(x,y,w,5,"FD");if(w>9)doc.text(cm(l),x+w/2,y+3.5,{align:"center"});x+=w+(S.cfg.sierra||4)*esc2}
-      doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+3.5,{align:"right"});y+=7}
+    for(const [i,b] of bs.entries()){nl(9);doc.setFontSize(8);doc.text("Tira "+(i+1),16,y+4);let x=30;const W=150,esc2=W/D.L,BH=6;
+      for(const l of b.cuts){const w=Math.min(W,l*esc2),t=cm(l);doc.setDrawColor(40,34,30);doc.setFillColor(255,255,255);doc.rect(x,y,w,BH,"FD");
+        // la medida siempre va: se achica hasta caber; si el corte es muy angosto, va vertical
+        let fs=7.5;doc.setFontSize(fs);while(fs>2.2&&doc.getTextWidth(t)>w-0.6){fs-=0.25;doc.setFontSize(fs)}
+        if(doc.getTextWidth(t)<=w-0.4)doc.text(t,x+w/2,y+BH/2+fs*0.12,{align:"center"});
+        else{fs=6;doc.setFontSize(fs);while(fs>2.2&&(doc.getTextWidth(t)>BH-0.6||fs*0.3528>w-0.3)){fs-=0.25;doc.setFontSize(fs)}
+          doc.text(t,x+w/2+fs*0.12,y+BH/2+doc.getTextWidth(t)/2,{angle:90})}
+        x+=w+(S.cfg.sierra||4)*esc2}
+      doc.setFontSize(8);doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+4,{align:"right"});y+=BH+2.5}
     y+=3}
   if(D.res.pvc.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("PVC marmolizado · "+D.lam+" lámina"+(D.lam===1?"":"s")+" de "+D.mm.ancho+" × "+D.mm.alto,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const x of D.res.pvc){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto),20,y);y+=4.5}y+=3}
