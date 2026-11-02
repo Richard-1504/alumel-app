@@ -226,7 +226,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.16.1";
+const APP_VER="1.16.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -279,7 +279,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
+  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
   desc:{
@@ -414,6 +414,7 @@ function vidriosDivision(it){const dv=S.cfg.division||{},A=it.ancho||0,H=it.alto
 const precioDivM2=r=>r.modo==="especial"?(+S.cfg.division.especialM2||0):(+S.cfg.division.templadoM2||0);
 /* ===== Cocina · gabinete superior (todo en nave de ducha, cortes a 45°) =====
    Puertas de máximo 32 cm, en pares y la sola al final. Descuentos: 2 cm en cada extremo, 3,8 entre pares, 2,5 entre un par y la sola. */
+const recCocina=it=>it.recargo!=null&&it.recargo!==""?+it.recargo:(+S.cfg.cocina?.recargo||0);
 function tramosCocina(it){const f=it.forma||"recta";return [it.ancho,f!=="recta"?it.ancho2:0,f==="U"?it.ancho3:0].filter(a=>+a>0)}
 function gabinete(A){const max=(+S.cfg.cocina?.maxPuerta||32)*10,N=Math.max(1,Math.ceil(A/max-1e-9)),P=Math.floor(N/2),sola=N%2,
   gPar=Math.max(0,P-1),gSola=P>0&&sola?1:0,puerta=(A-40-38*gPar-25*gSola)/N;return {N,P,sola,divisores:gPar+gSola,puerta}}
@@ -561,7 +562,7 @@ function calcCot(items,opts){opts=opts||{};
   const r=cfg.redondeo||1,mg=1+(cfg.margen||0)/100;let R={perfiles:0,vidrio:0,tableros:0,accesorios:0,instalacion:0,manual:0,ajuste:0,total:0};
   const lineas=items.map((it,i)=>{const q=it.cant||1,L=lin[i];
     if(L.manual){const t=it.precioManual*q;R.manual+=t;R.total+=t;return {unit:it.precioManual,total:t,manual:true}}
-    const base=L.perf+L.vid+L.tab+L.acc+L.inst,conMg=it.tipo==="division"?base+L.inst*(mg-1):it.tipo==="pasamanos"?base:base*mg,unit=Math.ceil(conMg/q/r-1e-9)*r,t=unit*q;
+    const base=L.perf+L.vid+L.tab+L.acc+L.inst,conMg=it.tipo==="division"?base+L.inst*(mg-1):it.tipo==="pasamanos"?base:it.tipo==="cocina"?(base-L.inst)*(1+recCocina(it)/100)+L.inst:base*mg,unit=Math.ceil(conMg/q/r-1e-9)*r,t=unit*q;
     R.perfiles+=L.perf;R.vidrio+=L.vid;R.tableros+=L.tab;R.accesorios+=L.acc;R.instalacion+=L.inst;R.ajuste+=t-base;R.total+=t;
     return {unit,total:t,perf:L.perf,vid:L.vid,tab:L.tab,acc:L.acc,inst:L.inst,m2:L.m2}});
   return {lineas,materiales,tableros,vidLam,resumen:R};
@@ -962,7 +963,9 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
     <div class="field"><label>Alto</label><input value="${String(S.cfg.cocina?.alto||61.5).replace(".",",")} cm" disabled></div>
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     <div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>
-    <div class="field full"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>
+    <div class="field"><label for="it-rec">Recargo (%)</label><input id="it-rec" inputmode="decimal" data-it="recargo" value="${String(recCocina(it)).replace(".",",")}"></div>
+    <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
+    <span class="hint full">El recargo se suma a los materiales; la instalación va aparte. Ambos quedan para la próxima cocina.</span></div>
   <div class="sketch">${sketch(it)}</div>`}
 function pasaCampos(it){return `<div class="fgrid">
     <div class="field full"><label for="it-pdesc">Descripción</label><textarea id="it-pdesc" data-it="desc" placeholder="Ej: Pasamanos en acero inoxidable con vidrio templado 10 mm, 4,5 m lineales, escalera">${esc(it.desc||"")}</textarea></div>
@@ -982,7 +985,7 @@ function calcHtml(it){
   const c=calcCot([{...it,precioManual:0}]),L=c.lineas[0]||{},dp=despiece({...it,cant:1}),q=it.cant||1,pta=TIPOS[it.tipo]?.puerta;
   return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
   ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
-  <div class="small muted num">Perfilería ${money(L.perf/q)} · ${pta?`Tablero PVC ${money(L.tab/q)} · `:it.tipo==="cocina"?"":`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)} · `}Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
+  <div class="small muted num">Perfilería ${money(L.perf/q)} · ${pta||it.tipo==="cocina"?`${pta?"Tablero ":""}PVC ${money(L.tab/q)} · `:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)} · `}Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${it.tipo==="cocina"?" · Recargo "+String(recCocina(it)).replace(".",",")+" %":S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
   ${pta?ptaInfo(it,c):""}
   ${it.tipo==="cocina"?cocinaInfo(it):""}
   ${it.tipo==="division"&&it.ancho>0?divInfo(it):""}
@@ -1441,6 +1444,7 @@ document.addEventListener("click",async ev=>{
     case"it-dist":S.itemTmp.dist=b.dataset.v;refreshSheet();break;
     case"it-rod":S.itemTmp.rod=b.dataset.v;refreshSheet();break;
     case"guardar-item":{const it=S.itemTmp;if(it.tipo==="cocina"&&((it.forma==="L"||it.forma==="U")&&!(it.ancho2>0)||it.forma==="U"&&!(it.ancho3>0))){toast("Escribe el ancho de cada tramo");return}if(it.tipo==="pasamanos"){if(!(+it.acero>0||+it.vidrioTpl>0||+it.precioManual>0)){toast("Escribe el precio del acero");return}}else if(!(it.ancho>0&&it.alto>0)){toast("Escribe ancho y alto");return}
+      if(it.tipo==="cocina"&&it.recargo!=null&&it.recargo!==""&&+it.recargo!==+S.cfg.cocina.recargo&&!S.readonly){const c=clone(S.cfg);c.cocina.recargo=+it.recargo;guardarCfg(c).catch(()=>{})}
       if(it.instalacion!=null&&it.instalacion!==""&&+it.instalacion!==instDe(it.tipo)&&!S.readonly){const c=clone(S.cfg);c.instalacionTipo={...(c.instalacionTipo||{}),[it.tipo]:+it.instalacion};guardarCfg(c).catch(()=>{})}
       it.cant=Math.max(1,Math.round(it.cant||1));delete it.precioCalc;
       if(S.itemIdx!=null)S.draft.items[S.itemIdx]=it;else S.draft.items.push(it);closeSheet();break}
@@ -1511,7 +1515,7 @@ document.addEventListener("input",ev=>{
     const h=$("#d-cli-hint");if(h)h.textContent=cliHint(S.draft);return}
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
-    if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl")v=Math.round(num(v));
+    if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl")v=Math.round(num(v));else if(k==="recargo")v=num(v);
     S.itemTmp[k]=v;const it=S.itemTmp;
     const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);
     const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
