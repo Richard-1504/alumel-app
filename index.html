@@ -253,7 +253,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.41.0";
+const APP_VER="1.42.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -860,15 +860,23 @@ const PERFIL_FORMAS={
   tuboAlto:[[[3,0.5],[7,0.5],[7,9.5],[3,9.5]],[[4.1,1.6],[5.9,1.6],[5.9,8.4],[4.1,8.4]]],
   tablero:[[[0.5,3.6],[9.5,3.6],[9.5,6.4],[0.5,6.4]],[[0.5,5],[9.5,5]]],
   generico:[[[1.5,2],[8.5,2],[8.5,8],[1.5,8]],[[1.5,5],[8.5,5]],[[5,2],[5,8]]]};
+/* Planos de los perfiles (catálogo Ventanas y Puertas) que vienen con la app; una foto subida en Ajustes los reemplaza */
+const PERFIL_DEF={"Nave de ducha": "nave-ducha", "T78": "t78", "A15": "a15", "U66": "u66", "T77": "t77", "T166": "t166", "A61": "a61", "U78": "u78", "T87": "t87", "T244": "t244", "S343": "s343", "U71": "u71", "S344": "s344", "F06": "f06", "Serie 744 · Traslape": "744-traslape", "Serie 744 · Superior": "744-superior", "Serie 744 · Sillar": "744-sillar", "Serie 744 · Jamba": "744-jamba", "Serie 744 · Inferior": "744-inferior", "Serie 744 · Enganche": "744-enganche"};
+const perfilDef=key=>PERFIL_DEF[key]?"perfiles/"+PERFIL_DEF[key]+".jpg":null;
+S.perfilData={};
+async function cargarPerfilesDef(){for(const [k,f] of Object.entries(PERFIL_DEF)){try{const r=await fetch("perfiles/"+f+".jpg");if(!r.ok)continue;const b=await r.blob();
+  S.perfilData[k]=await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(fr.result);fr.readAsDataURL(b)})}catch(e){}}}
+setTimeout(cargarPerfilesDef,1500);
 function formaPerfil(key){const r=String(key).replace(/^.* · /,"").replace(/\s*\(.*\)$/,"").trim();
   if(/^U\d/.test(r))return "U";if(/^A\d/.test(r))return "L";if(r==="T87")return "tubo";if(r==="T244")return "tuboAlto";if(/^F\d/.test(r))return "tablero";return "generico"}
-function perfilIcon(key,px){px=px||34;const img=(S.cfg.perfilImg||{})[key];
+function perfilIcon(key,px){px=px||34;const img=(S.cfg.perfilImg||{})[key]||perfilDef(key);
   if(img)return `<img src="${img}" alt="" style="width:${px}px;height:${px}px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;flex:none">`;
   const F=PERFIL_FORMAS[formaPerfil(key)];
   return `<svg viewBox="0 0 10 10" width="${px}" height="${px}" style="flex:none;background:var(--surface-2);border:1px solid var(--line);border-radius:6px" aria-hidden="true">${F.map(pl=>pl.length===2?`<line x1="${pl[0][0]}" y1="${pl[0][1]}" x2="${pl[1][0]}" y2="${pl[1][1]}" stroke="currentColor" stroke-width=".5"/>`:`<polygon points="${pl.map(q=>q.join(",")).join(" ")}" fill="var(--accent)" fill-opacity=".25" stroke="currentColor" stroke-width=".5" stroke-linejoin="round"/>`).join("")}</svg>`}
 /* El mismo croquis en el PDF */
-function pdfPerfilIcon(doc,key,x,y,sz){const img=(S.cfg.perfilImg||{})[key];doc.setDrawColor(150);doc.setFillColor(255,255,255);doc.rect(x,y,sz,sz,"FD");
-  if(img){try{doc.addImage(img,img.startsWith("data:image/png")?"PNG":"JPEG",x+0.3,y+0.3,sz-0.6,sz-0.6);return}catch(e){}}
+function pdfPerfilIcon(doc,key,x,y,sz){const img=(S.cfg.perfilImg||{})[key]||S.perfilData[key];doc.setDrawColor(150);doc.setFillColor(255,255,255);doc.rect(x,y,sz,sz,"FD");
+  if(img){try{const p=doc.getImageProperties?doc.getImageProperties(img):null,r=p?p.width/p.height:1,w=r>=1?sz-0.8:(sz-0.8)*r,h=r>=1?(sz-0.8)/r:sz-0.8;
+    doc.addImage(img,img.startsWith("data:image/png")?"PNG":"JPEG",x+(sz-w)/2,y+(sz-h)/2,w,h);return}catch(e){}}
   const F=PERFIL_FORMAS[formaPerfil(key)],k=sz/10;doc.setDrawColor(40,34,30);
   for(const pl of F){const n=pl.length===2?1:pl.length;for(let i=0;i<n;i++){const a=pl[i],b=pl[(i+1)%pl.length];doc.line(x+a[0]*k,y+a[1]*k,x+b[0]*k,y+b[1]*k)}}}
 function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T244","T166","U66","U78","U71","F06"];
@@ -1429,7 +1437,7 @@ function vCortes(){
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p));totalBarras+=bs.length;
-    return `<div class="panel"><div class="row sp"><div class="row" style="gap:10px;flex-wrap:nowrap">${perfilIcon(angKey(p.sistema,p.nombre),44)}<div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} ${angsPerfil(p).map(a=>`<span class="pill ${a===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${a}°</span>`).join(" ")}</h3></div></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
+    return `<div class="panel"><div class="row sp"><div class="row" style="gap:10px;flex-wrap:nowrap"><button class="linkish" data-act="ver-perfil" data-k="${esc(angKey(p.sistema,p.nombre))}" aria-label="Ver perfil en grande" style="padding:0">${perfilIcon(angKey(p.sistema,p.nombre),60)}</button><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} ${angsPerfil(p).map(a=>`<span class="pill ${a===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${a}°</span>`).join(" ")}</h3></div></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
       ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
       <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm${angsPerfil(p).length>1?" a "+angCorte(p,c)+"°":""}`).join(" · ")}</div>
       ${(()=>{const ot=ordenTope(bs);return `<div class="small"><b>Orden de corte</b> · ${ot.length} tope${ot.length===1?"":"s"}: <span class="mono">${ot.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}</span></div>`})()}
@@ -1576,7 +1584,7 @@ function vAjustes(){
   const B=c.barra/1000,inp=(path,val,lbl,w,dec)=>`<input class="cin" aria-label="${esc(lbl)}" inputmode="${dec?"decimal":"numeric"}" data-cfg="${path}" value="${dec?String(val??0).replace(".",","):(val??0)}" style="width:${w||96}px;text-align:right">`;
   const fld=(id,lbl,path,val,hint,dec)=>`<div class="field"><label for="${id}">${lbl}</label><input id="${id}" inputmode="${dec?"decimal":"numeric"}" data-cfg="${path}" value="${dec?String(val??0).replace(".",","):(val??0)}">${hint?`<span class="hint">${hint}</span>`:""}</div>`;
   const ang=r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<div class="seg" style="justify-content:flex-end;flex-wrap:nowrap">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:46px;padding:6px 8px">${a}°</button>`).join("")}</div>`};
-  const pfFoto=key=>{const tiene=(c.perfilImg||{})[key];return `<label class="pf-foto" title="Foto o dibujo del perfil" style="cursor:pointer;position:relative">${perfilIcon(key,40)}<input type="file" accept="image/*" data-perfimg="${esc(key)}" hidden><span class="pf-foto-t">${tiene?"Cambiar":"Foto"}</span></label>${tiene?`<button class="btn sm" data-act="perfimg-quitar" data-k="${esc(key)}" aria-label="Quitar foto" style="padding:4px 8px">✕</button>`:""}`};
+  const pfFoto=key=>{const tiene=(c.perfilImg||{})[key];const def=!tiene&&perfilDef(key);return `<label class="pf-foto" title="Foto o dibujo del perfil" style="cursor:pointer;position:relative">${perfilIcon(key,40)}<input type="file" accept="image/*" data-perfimg="${esc(key)}" hidden><span class="pf-foto-t">${tiene||def?"Cambiar":"Foto"}</span></label>${tiene?`<button class="btn sm" data-act="perfimg-quitar" data-k="${esc(key)}" aria-label="Quitar foto" style="padding:4px 8px">✕</button>`:""}`};
   const sec=(id,titulo,sub,body)=>`<details class="panel aj" id="${id}" data-aj="${id}" ${S.ajOpen?.has(id)?"open":""}><summary><div><h2>${titulo}</h2><span class="small muted">${sub}</span></div><span class="aj-chev" aria-hidden="true">▾</span></summary><div class="stack">${body}</div></details>`;
   // perfiles de aluminio sueltos (puertas, cocinas y demás): referencia, uso, precio por tira, cobro y ángulo
   const refs=[["Nave de ducha","Marcos de gabinete y puertas de cocina","cocina.naveDucha",c.cocina.naveDucha,"cocina.cobro",c.cocina.cobro||"tira"],
@@ -1813,9 +1821,9 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
   const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase(),selPrev=S.cortesSel;S.cortesSel=sel;if(!ext)pdfHeader(doc,"LISTA DE CORTES",(o.numero?"COT-"+pad(o.numero)+" · ":"")+fechaCorta(hoy()));
   let y=ext?ext.y:40;const nl=n=>{if(y+n>262){doc.addPage();y=20}};nl(16);doc.setFontSize(ext?12:10);doc.setFont("helvetica","bold");doc.text(ext?"Cortes":o.nombre||"Cotización en curso",16,y);doc.setFont("helvetica","normal");doc.setFontSize(10);
   doc.text("Medidas en cm",200,y,{align:"right"});y+=8;
-  for(const {p,bs,angs} of D.per){const C=p.cortes,col=4,filas=Math.ceil(C.length/col);nl(16+filas*8);
-    doc.setFillColor(236,230,223);doc.rect(14,y-6,188,10,"F");pdfPerfilIcon(doc,angKey(p.sistema,p.nombre),15,y-5.5,9);y+=0.5;doc.setFont("helvetica","bold");doc.setFontSize(11);
-    doc.text(p.sistema+" · "+p.nombre+(p.color?" · "+p.color:""),27,y);doc.setFontSize(10);doc.text(bs.length+" tira"+(bs.length===1?"":"s")+" · corte "+angs.join("°/")+"°",200,y,{align:"right"});y+=8;
+  for(const {p,bs,angs} of D.per){const C=p.cortes,col=4,filas=Math.ceil(C.length/col);nl(20+filas*8);
+    doc.setFillColor(236,230,223);doc.rect(14,y-6,188,15,"F");pdfPerfilIcon(doc,angKey(p.sistema,p.nombre),15,y-5.5,14);y+=2;doc.setFont("helvetica","bold");doc.setFontSize(11);
+    doc.text(p.sistema+" · "+p.nombre+(p.color?" · "+p.color:""),32,y);doc.setFontSize(10);doc.text(bs.length+" tira"+(bs.length===1?"":"s")+" · corte "+angs.join("°/")+"°",200,y,{align:"right"});y+=13;
     C.forEach((c,k)=>{const x=16+(k%col)*47;if(k&&k%col===0)y+=8;doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text(String(c.cant),x+8,y,{align:"right"});
       doc.setFont("helvetica","normal");doc.setFontSize(13);doc.text("x  "+cm(c.largo)+(angs.length>1?"  ("+angCorte(p,c)+"°)":""),x+11,y)});
     y+=5;doc.setFont("helvetica","normal");
@@ -2034,6 +2042,8 @@ document.addEventListener("click",async ev=>{
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
     case"it-lote":S.itemTmp.loteOn=b.dataset.v==="1";if(S.itemTmp.loteOn&&!S.itemTmp.lote?.length)S.itemTmp.lote=[...(S.itemTmp.ancho>0&&S.itemTmp.alto>0?[{a:S.itemTmp.ancho,h:S.itemTmp.alto,c:S.itemTmp.cant||1,u:S.itemTmp.ubicacion||""}]:[]),{a:0,h:0,c:1,u:""}];refreshSheet();break;
+    case"ver-perfil":{const k=b.dataset.k,img=(S.cfg.perfilImg||{})[k]||perfilDef(k);openSheet(()=>`<div class="sheet-h"><h2>${esc(k)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+      ${img?`<img src="${img}" alt="Perfil ${esc(k)}" style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">`:perfilIcon(k,240)}<span class="small muted">Medidas del plano en mm. La imagen se cambia en Ajustes → Perfiles de aluminio.</span>`);break}
     case"perfimg-quitar":{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const m={...(c.perfilImg||{})};delete m[b.dataset.k];c.perfilImg=m;S.cfg.perfilImg=m;autoGuardarCfg();render();break}
     case"lote-d":{const it=S.itemTmp,DS=distsLote(it),r=it.lote[+b.dataset.i],cur=r.d||((it.dist==="FC"?"FI":it.dist)||"FI"),k=DS.findIndex(x=>x[0]===cur);r.d=DS[(k+1)%DS.length][0];refreshSheet();break}
     case"lote-del":S.itemTmp.lote.splice(+b.dataset.i,1);refreshSheet();break;

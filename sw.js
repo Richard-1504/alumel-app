@@ -1,6 +1,6 @@
 // Alumel: guarda la app y sus librerías para que abra sin internet.
-const VERSION = "alumel-1.41.0";
-const LOCAL = ["./", "index.html", "firebase-config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "logo-marca.png", "logo-doc.jpg"];
+const VERSION = "alumel-1.42.0";
+const LOCAL = ["./", "index.html", "firebase-config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "logo-marca.png", "logo-doc.jpg", "perfiles/nave-ducha.jpg", "perfiles/t78.jpg", "perfiles/a15.jpg", "perfiles/u66.jpg", "perfiles/t77.jpg", "perfiles/t166.jpg", "perfiles/a61.jpg", "perfiles/u78.jpg", "perfiles/t87.jpg", "perfiles/t244.jpg", "perfiles/s343.jpg", "perfiles/u71.jpg", "perfiles/s344.jpg", "perfiles/f06.jpg", "perfiles/744-traslape.jpg", "perfiles/744-superior.jpg", "perfiles/744-sillar.jpg", "perfiles/744-jamba.jpg", "perfiles/744-inferior.jpg", "perfiles/744-enganche.jpg"];
 const CDN = [
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
   "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",
