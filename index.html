@@ -246,7 +246,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.38.0";
+const APP_VER="1.38.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1742,7 +1742,7 @@ function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&
   if(D.res.vid.length)t+=`\n*Vidrios*\n`+D.res.vid.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
 /* Plano de corte de láminas en el PDF (misma forma que escogiste en Cortes) */
-function pdfLaminas(doc,y,nl,titulo,key,rects,W,H,k){const O=opcionesLam(rects,W,H,k);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){doc.addPage();y=20}};const O=opcionesLam(rects,W,H,k);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   const sc=Math.min(184/H,95/W),dw=H*sc,dh=W*sc;
   nl(dh+18);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(titulo+" · plano de corte ("+sel.t.toLowerCase()+")",16,y);doc.setFont("helvetica","normal");doc.setFontSize(8);
   doc.text("Lámina "+cm(W)+" × "+cm(H)+" cm"+(k?" · sierra "+k+" mm":""),200,y,{align:"right"});y+=4;
