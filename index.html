@@ -202,6 +202,10 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 .kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:14px}
 .cin{border:1px solid var(--line);border-radius:6px;padding:7px;background:var(--surface);font-size:16px;min-height:38px}
 a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}a.btn:not(.pri):not(.dark){color:inherit}
+.lote{display:grid;gap:6px}
+.lote-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px minmax(0,1.3fr) 34px;gap:5px;align-items:center}
+.lote-r .cin{width:100%;min-width:0;padding:8px 6px}.lote-r .btn{padding:6px 0;min-height:36px}
+.lote-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .lamopc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .lamopc-b{display:flex;flex-direction:column;gap:2px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;font-size:12px;color:inherit;cursor:pointer}
 .lamopc-b b{font-size:13px}.lamopc-b span{color:var(--muted)}
@@ -246,7 +250,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.39.1";
+const APP_VER="1.40.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1149,7 +1153,10 @@ function resumenHtml(calc,total,items){const F=faltanItems(items);if(F.length)re
 }
 
 /* --- Cotizar --- */
-function guardarItemTmp(){const it=S.itemTmp;if(it.tipo==="cocina"&&((it.forma==="L"||it.forma==="U")&&!(it.ancho2>0)||it.forma==="U"&&!(it.ancho3>0))){toast("Escribe el ancho de cada tramo");return false}if(it.tipo==="pasamanos"){if(!(+it.acero>0||+it.vidrioTpl>0||+it.precioManual>0)){toast("Escribe el precio del acero");return false}}else if(!(it.ancho>0&&it.alto>0)){toast("Escribe ancho y alto");return false}
+function guardarItemTmp(){const it=S.itemTmp;
+  if(it.loteOn&&puedeLote(it)){const L=loteItems(it);if(!L.length){toast("Escribe al menos una medida (ancho y alto)");return false}
+    if(it.instalacion!=null&&it.instalacion!==""&&+it.instalacion!==instDe(it.tipo)&&!S.readonly){const c=clone(S.cfg);c.instalacionTipo={...(c.instalacionTipo||{}),[it.tipo]:+it.instalacion};guardarCfg(c).catch(()=>{})}
+    L.forEach(x=>{delete x.precioCalc;S.draft.items.push(x)});toast(L.length+" ítem(s) agregados");return true}if(it.tipo==="cocina"&&((it.forma==="L"||it.forma==="U")&&!(it.ancho2>0)||it.forma==="U"&&!(it.ancho3>0))){toast("Escribe el ancho de cada tramo");return false}if(it.tipo==="pasamanos"){if(!(+it.acero>0||+it.vidrioTpl>0||+it.precioManual>0)){toast("Escribe el precio del acero");return false}}else if(!(it.ancho>0&&it.alto>0)){toast("Escribe ancho y alto");return false}
       if(it.tipo==="cocina"&&it.recargo!=null&&it.recargo!==""&&+it.recargo!==+S.cfg.cocina.recargo&&!S.readonly){const c=clone(S.cfg);c.cocina.recargo=+it.recargo;guardarCfg(c).catch(()=>{})}
       if(it.instalacion!=null&&it.instalacion!==""&&+it.instalacion!==instDe(it.tipo)&&!S.readonly){const c=clone(S.cfg);c.instalacionTipo={...(c.instalacionTipo||{}),[it.tipo]:+it.instalacion};guardarCfg(c).catch(()=>{})}
       it.cant=Math.max(1,Math.round(it.cant||1));delete it.precioCalc;
@@ -1249,7 +1256,9 @@ function itemSheetHtml(){
   ${TIPOS[it.tipo]?.puerta?ptaOpciones(it):""}
   ${it.tipo==="division"?`<div class="field"><label>Vidrios</label><div class="seg"><button data-act="it-set" data-k="divModo" data-v="estandar" aria-pressed="${it.divModo!=="especial"}">Estándar (inventario)</button><button data-act="it-set" data-k="divModo" data-v="especial" aria-pressed="${it.divModo==="especial"}">Mandar a hacer · ${money(S.cfg.division.especialM2)}/m²</button></div></div>`:""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
-  ${it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
+  ${puedeLote(it)?`<div class="field"><label>Medidas</label><div class="seg"><button data-act="it-lote" data-v="0" aria-pressed="${!it.loteOn}">Una medida</button><button data-act="it-lote" data-v="1" aria-pressed="${!!it.loteOn}">Varias medidas</button></div>
+    ${it.loteOn?`<span class="hint">Todas con la misma referencia, color, vidrio e instalación de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.</span>`:""}</div>`:""}
+  ${it.loteOn&&puedeLote(it)?loteHtml(it):it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
     <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
     ${it.tipo==="division"&&it.divModo!=="especial"?`<div class="field"><label>Alto (cm)</label><div class="seg">${[1800,1900].map(v=>`<button data-act="it-alto" data-v="${v}" aria-pressed="${it.alto===v}" style="min-height:44px">${v/10}</button>`).join("")}</div></div>`
      :`<div class="field"><label for="it-alto">Alto (cm)</label><input id="it-alto" inputmode="decimal" data-it="alto" value="${cm(it.alto)}"></div>`}
@@ -1262,11 +1271,29 @@ function itemSheetHtml(){
   </div>
   <div class="sketch">${sketch(it)}</div>
 `}
-  <div class="panel" id="it-calc">${calcHtml(it)}</div>
-  <div class="field"><label for="it-manual">Precio unitario manual (opcional)</label><input id="it-manual" inputmode="numeric" data-it="precioManual" value="${it.precioManual||""}" placeholder="Déjalo vacío para usar el calculado"></div>
-  <div class="row"><button class="btn pri grow" data-act="guardar-item">${S.itemIdx!=null?"Guardar ítem":"Agregar a la cotización"}</button>${S.itemIdx!=null?`<button class="btn danger" data-act="quitar-item">Quitar</button>`:""}</div>
-  <button class="btn block" data-act="dup-item">${S.itemIdx!=null?"Guardar y duplicar":"Agregar y hacer otro igual"}</button>`;
+  ${it.loteOn&&puedeLote(it)?"":`<div class="panel" id="it-calc">${calcHtml(it)}</div>
+  <div class="field"><label for="it-manual">Precio unitario manual (opcional)</label><input id="it-manual" inputmode="numeric" data-it="precioManual" value="${it.precioManual||""}" placeholder="Déjalo vacío para usar el calculado"></div>`}
+  <div class="row"><button class="btn pri grow" data-act="guardar-item">${it.loteOn&&puedeLote(it)?"Agregar "+loteItems(it).length+" ítem(s) a la cotización":S.itemIdx!=null?"Guardar ítem":"Agregar a la cotización"}</button>${S.itemIdx!=null?`<button class="btn danger" data-act="quitar-item">Quitar</button>`:""}</div>
+  ${it.loteOn&&puedeLote(it)?"":`<button class="btn block" data-act="dup-item">${S.itemIdx!=null?"Guardar y duplicar":"Agregar y hacer otro igual"}</button>`}`;
 }
+/* Varias medidas de la misma referencia en una sola pantalla */
+const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina","division"].includes(it.tipo);
+function loteItems(it){const base={...it};delete base.lote;delete base.loteOn;
+  return (it.lote||[]).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||""}))}
+function loteRes(it){const L=loteItems(it);if(!L.length)return `<span class="small muted">Escribe ancho y alto en cm.</span>`;const F=faltanItems(L);
+  const und=L.reduce((a,x)=>a+x.cant,0);return `<div class="row sp"><span><b>${L.length}</b> medida(s) · <b>${und}</b> unidad(es)</span><b class="num">${F.length?"Falta precio":money(calcCot(L).resumen.total)}</b></div>${F.length?`<span class="small" style="color:var(--warn)">Falta: ${esc(F.join(", "))}</span>`:""}`}
+function loteHtml(it){if(!it.lote||!it.lote.length)it.lote=[{a:0,h:0,c:1,u:""}];const L=it.lote;
+  return `<div class="lote"><div class="lote-r lote-h"><span>Ancho</span><span>Alto</span><span>Cant</span><span>Ubicación</span><span></span></div>
+   ${L.map((r,i)=>`<div class="lote-r"><input id="lt-${i}-a" class="cin" inputmode="decimal" data-lote="${i}.a" value="${r.a?cm(r.a):""}" placeholder="cm" aria-label="Ancho ${i+1}">
+    <input id="lt-${i}-h" class="cin" inputmode="decimal" data-lote="${i}.h" value="${r.h?cm(r.h):""}" placeholder="cm" aria-label="Alto ${i+1}">
+    <input id="lt-${i}-c" class="cin" inputmode="numeric" data-lote="${i}.c" value="${r.c||1}" aria-label="Cantidad ${i+1}">
+    <input id="lt-${i}-u" class="cin" data-lote="${i}.u" value="${esc(r.u||"")}" placeholder="Sala…" aria-label="Ubicación ${i+1}">
+    ${i<L.length-1?`<button class="btn sm" data-act="lote-del" data-i="${i}" aria-label="Quitar fila">✕</button>`:"<span></span>"}</div>`).join("")}</div>
+  <div class="panel" id="lote-res" style="gap:4px">${loteRes(it)}</div>
+  <div class="fgrid">
+    ${`<div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>`}
+    ${TIPOS[it.tipo]?.puerta?"":`<div class="field"><label for="it-vidrio">Vidrio</label><select id="it-vidrio" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)}</option>`).join("")}</select></div>`}
+    <div class="field full"><label for="it-inst">Instalación por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>`}
 function ptaOpciones(it){
   const seg=(lbl,k,opts,def)=>`<div class="field"><label>${lbl}</label><div class="seg">${opts.map(([v,t])=>`<button data-act="it-set" data-k="${k}" data-v="${v}" aria-pressed="${(it[k]||def)===v}">${t}</button>`).join("")}</div></div>`;
   let h=it.tipo==="p1"?seg("Tablero","tab1",[["f06","F06"],["marmo","PVC marmolizado"],["cielo","PVC cielorraso"]],"f06")
@@ -1978,6 +2005,8 @@ document.addEventListener("click",async ev=>{
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
+    case"it-lote":S.itemTmp.loteOn=b.dataset.v==="1";if(S.itemTmp.loteOn&&!S.itemTmp.lote?.length)S.itemTmp.lote=[...(S.itemTmp.ancho>0&&S.itemTmp.alto>0?[{a:S.itemTmp.ancho,h:S.itemTmp.alto,c:S.itemTmp.cant||1,u:S.itemTmp.ubicacion||""}]:[]),{a:0,h:0,c:1,u:""}];refreshSheet();break;
+    case"lote-del":S.itemTmp.lote.splice(+b.dataset.i,1);refreshSheet();break;
     case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;if(b.dataset.k==="mat"||(b.dataset.k==="parte"&&esMel(S.itemTmp))){const d=S.itemTmp;if(esMel(d)){const inf=d.parte==="inferior";d.alto=inf?800:615;d.fondo=inf?550:300;if(d.espaldar==null)d.espaldar=true;d.canto=d.canto||"flex"}else{d.alto=d.parte==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10)}refreshSheet();break}if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
     case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"FI":n===3?"FI":"FCCF";refreshSheet();break}
@@ -2064,11 +2093,15 @@ document.addEventListener("input",ev=>{
     if(c){S.draft.clienteId=c.id;S.draft.clienteNombre="";if(!S.draft.direccion&&c.direccion){S.draft.direccion=c.direccion;const di=$("#d-dir");if(di)di.value=c.direccion}}else{S.draft.clienteId="";S.draft.clienteNombre=v}
     const h=$("#d-cli-hint");if(h)h.textContent=cliHint(S.draft);return}
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
+  if(t.dataset.lote&&S.itemTmp?.lote){const [i,f]=t.dataset.lote.split("."),L=S.itemTmp.lote,r=L[+i];if(!r)return;
+    r[f]=f==="u"?t.value:f==="c"?Math.round(num(t.value)):Math.round(num(t.value)*10);
+    if(+i===L.length-1&&(r.a>0||r.h>0)){L.push({a:0,h:0,c:1,u:""});refreshSheet()}
+    else{const e=$("#lote-res");if(e)e.innerHTML=loteRes(S.itemTmp);const g=$('[data-act="guardar-item"]');if(g)g.textContent="Agregar "+loteItems(S.itemTmp).length+" ítem(s) a la cotización"}return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
     if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3"||k==="fondo")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl"||/^np\d$/.test(k))v=Math.round(num(v));else if(k==="recargo")v=num(v);
     S.itemTmp[k]=v;const it=S.itemTmp;
     const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);
-    const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
+    const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);const lr=$("#lote-res");if(lr&&it.loteOn)lr.innerHTML=loteRes(it);return}
   if(t.dataset.cfg&&S.cfgEdit){const path=t.dataset.cfg.split(".");let o=S.cfgEdit;for(let i=0;i<path.length-1;i++)o=o[path[i]];const k=path[path.length-1];
     o[k]=(typeof o[k]==="number")?num(t.value):t.value;autoGuardarCfg();return}
   if(t.id==="cb-valor"){const h=$("#cb-letras");if(h){const v=Math.round(num(t.value));h.textContent=v?letras(v)+" PESOS M/CTE":""}return}
