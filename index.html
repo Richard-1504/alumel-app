@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.3";
+const APP_VER="1.27.4";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -470,10 +470,12 @@ function gabinete(A,inf,nElegido){const N=nElegido>0?Math.round(nElegido):puerta
 const esMel=it=>it.tipo==="cocina"&&it.mat==="melamina";
 const melColores=()=>{const c=S.cfg.melamina?.colores;return c&&c.length?c:[{nombre:"Blanco",precio:0}]};
 const colorEst=it=>it.melColor||melColores()[0].nombre,colorPta=it=>it.melColorP||colorEst(it);
+/* Medida de la lámina de cada color (si el color no tiene, usa la general) */
+const medidaMel=nombre=>{const c=melColores().find(x=>x.nombre===nombre),ml=S.cfg.melamina||{};return {W:+(c&&+c.ancho>0?c.ancho:ml.ancho)||183,H:+(c&&+c.alto>0?c.alto:ml.alto)||244}};
 const precioMel=nombre=>{const c=melColores().find(x=>x.nombre===nombre);return +(c&&+c.precio>0?c.precio:S.cfg.melamina?.precio)||0};
 /* Grupos de lámina presentes en un despiece: melamina por color y fondo de 3 mm */
 function gruposLam(mel){const ml=S.cfg.melamina,g=[...new Set(mel.map(x=>x.g))].sort((a,b)=>a==="fon"?1:b==="fon"?-1:a.localeCompare(b));
-  return g.map(k=>k==="fon"?{g:k,t:"Fondo 3 mm (espaldar)",W:ml.fondoAncho,H:ml.fondoAlto,precio:+ml.fondoPrecio||0}:{g:k,t:"Melamina 15 mm · "+k.slice(4),W:ml.ancho,H:ml.alto,precio:precioMel(k.slice(4))})}
+  return g.map(k=>k==="fon"?{g:k,t:"Fondo 3 mm (espaldar)",W:ml.fondoAncho,H:ml.fondoAlto,precio:+ml.fondoPrecio||0}:{g:k,t:"Melamina 15 mm · "+k.slice(4),W:medidaMel(k.slice(4)).W,H:medidaMel(k.slice(4)).H,precio:precioMel(k.slice(4))})}
 function despieceMelamina(it,M,F,acc){const H=it.alto||0,FD=it.fondo||0,esp=it.espaldar!==false;let canto=0,puertas=0;
   const pz=(n,w,h,c,cw)=>{if(w>0&&h>0&&c>0){M.push({pieza:n,ancho:Math.round(w),alto:Math.round(h),cant:c,color:n==="Puertas"?colorPta(it):colorEst(it)});canto+=(cw||0)*c}};
   const inf=esInf(it);
@@ -648,7 +650,7 @@ function calcCot(items,opts){opts=opts||{};
     const L=laminasMarmo(rects,marmoMedia),valor=L.laminas*(+m.precio||0),tot=marmo.reduce((s,p)=>s+p.w*p.h*p.cant,0);
     marmo.forEach(p=>lin[p.i].tab+=tot?valor*p.w*p.h*p.cant/tot:0);
     tableros.push({nombre:"PVC marmolizado",detalle:rects.length+" tableros · lámina "+m.ancho+" × "+m.alto+" cm",cobrado:String(L.laminas).replace(".",",")+(L.laminas===1?" lámina":" láminas")+(L.media?" (incluye media)":""),valor})}
-  {const ml=cfg.melamina||{};for(const col of [...new Set(melP.map(p=>p.color))])laminasDe(melP.filter(p=>p.color===col),ml.ancho,ml.alto,precioMel(col),"Melamina 15 mm · "+col,ml.ancho+" × "+ml.alto+" cm");laminasDe(fonP,ml.fondoAncho,ml.fondoAlto,ml.fondoPrecio,"Fondo 3 mm",ml.fondoAncho+" × "+ml.fondoAlto+" cm")}
+  {const ml=cfg.melamina||{};for(const col of [...new Set(melP.map(p=>p.color))]){const md=medidaMel(col);laminasDe(melP.filter(p=>p.color===col),md.W,md.H,precioMel(col),"Melamina 15 mm · "+col,md.W+" × "+md.H+" cm")}laminasDe(fonP,ml.fondoAncho,ml.fondoAlto,ml.fondoPrecio,"Fondo 3 mm",ml.fondoAncho+" × "+ml.fondoAlto+" cm")}
   const r=cfg.redondeo||1,mg=1+(cfg.margen||0)/100;let R={perfiles:0,vidrio:0,tableros:0,accesorios:0,instalacion:0,manual:0,ajuste:0,total:0};
   const lineas=items.map((it,i)=>{const q=it.cant||1,L=lin[i];
     if(L.manual){const t=it.precioManual*q;R.manual+=t;R.total+=t;return {unit:it.precioManual,total:t,manual:true}}
@@ -1360,7 +1362,7 @@ const selModo=(path,val,lbl)=>`<select aria-label="Forma de cobro ${esc(lbl)}" d
 function vAjustes(){
   const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const e=c.empresa;
   c.instalacionTipo=c.instalacionTipo||{};for(const k of Object.keys(TIPOS))if(c.instalacionTipo[k]==null||c.instalacionTipo[k]==="")c.instalacionTipo[k]=instDe(k);
-  c.division.vidrios=c.division.vidrios||[];c.melamina.colores=c.melamina.colores&&c.melamina.colores.length?c.melamina.colores:[{nombre:"Blanco",precio:0}];
+  c.division.vidrios=c.division.vidrios||[];c.melamina.colores=c.melamina.colores&&c.melamina.colores.length?c.melamina.colores:[{nombre:"Blanco",precio:0}];c.melamina.colores.forEach(x=>{if(x.ancho==null)x.ancho=+c.melamina.ancho||183;if(x.alto==null)x.alto=+c.melamina.alto||244});
   c.vidrios.forEach(v=>{if(v.lam==null)v.lam=0;if(v.lamA==null)v.lamA=+c.laminaVidrio?.ancho||330;if(v.lamH==null)v.lamH=+c.laminaVidrio?.alto||214});
   if(!(+c.puertas.acc.chapa>0))c.puertas.acc.chapa=precioAccPta("chapa");
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
@@ -1441,10 +1443,14 @@ function vAjustes(){
   <div class="panel"><h2>Ángulo de corte por perfil</h2><span class="small muted">Se muestra en Cortes para saber si el perfil va a 45° (marcos y naves) o recto a 90°.</span>
    <div class="tbl-wrap"><table><tbody>${refsAngulo().map(r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<tr><td>${esc(r)}</td><td class="n"><div class="seg" style="justify-content:flex-end">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:56px">${a}°</button>`).join("")}</div></td></tr>`}).join("")}</tbody></table></div></div>
   <div class="panel"><h2>Cocina en melamina 15 mm</h2><div class="fgrid">
-   <div class="field"><label>Lámina de melamina (cm)</label><div class="row"><input aria-label="Ancho lámina melamina" inputmode="numeric" data-cfg="melamina.ancho" value="${c.melamina.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina melamina" inputmode="numeric" data-cfg="melamina.alto" value="${c.melamina.alto}" class="cin" style="width:70px;text-align:right"></div></div>
-   <div class="field full"><div class="row sp"><label>Colores de melamina · $ por lámina</label><button class="btn sm" data-act="add-melcolor">+ Color</button></div>
-    ${(c.melamina.colores||[]).map((v,i)=>`<div class="row" style="margin-top:6px"><input class="cin grow" aria-label="Color" data-cfg="melamina.colores.${i}.nombre" value="${esc(v.nombre)}"><input class="cin" aria-label="Precio ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.precio" value="${v.precio}" style="width:110px;text-align:right"><button class="btn sm danger" data-act="del-melcolor" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}
-    <span class="hint">Si un color tiene precio 0, usa el precio general de abajo.</span></div>
+   <div class="field"><label>Lámina general de melamina (cm)</label><div class="row"><input aria-label="Ancho lámina melamina" inputmode="numeric" data-cfg="melamina.ancho" value="${c.melamina.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina melamina" inputmode="numeric" data-cfg="melamina.alto" value="${c.melamina.alto}" class="cin" style="width:70px;text-align:right"></div></div>
+   <div class="field full"><div class="row sp"><label>Colores de melamina</label><button class="btn sm" data-act="add-melcolor">+ Color</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Color</th><th class="n">Lámina (cm)</th><th class="n">$ lámina</th><th></th></tr></thead><tbody>
+    ${(c.melamina.colores||[]).map((v,i)=>`<tr><td><input class="cin" aria-label="Color" data-cfg="melamina.colores.${i}.nombre" value="${esc(v.nombre)}" style="width:100%;min-width:100px"></td>
+     <td class="n" style="white-space:nowrap"><input class="cin" aria-label="Ancho lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.ancho" value="${v.ancho}" style="width:58px;text-align:right"> × <input class="cin" aria-label="Alto lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.alto" value="${v.alto}" style="width:58px;text-align:right"></td>
+     <td class="n"><input class="cin" aria-label="Precio ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.precio" value="${v.precio}" style="width:100px;text-align:right"></td>
+     <td class="n"><button class="btn sm danger" data-act="del-melcolor" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>
+    <span class="hint">Cada color con su medida y su precio. Si el precio está en 0, usa el precio general de abajo.</span></div>
    <div class="field"><label for="ml-p">Precio general lámina melamina $</label><input id="ml-p" inputmode="numeric" data-cfg="melamina.precio" value="${c.melamina.precio}"></div>
    <div class="field"><label>Lámina fondo 3 mm (cm)</label><div class="row"><input aria-label="Ancho lámina fondo" inputmode="numeric" data-cfg="melamina.fondoAncho" value="${c.melamina.fondoAncho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina fondo" inputmode="numeric" data-cfg="melamina.fondoAlto" value="${c.melamina.fondoAlto}" class="cin" style="width:70px;text-align:right"></div></div>
    <div class="field"><label for="ml-fp">Precio lámina fondo $</label><input id="ml-fp" inputmode="numeric" data-cfg="melamina.fondoPrecio" value="${c.melamina.fondoPrecio}"></div>
@@ -1829,7 +1835,7 @@ document.addEventListener("click",async ev=>{
     case"enviar-materiales":compartirTexto(S.matTxt||"");break;
     case"copiar-materiales":copiar(S.matTxt||"");break;
     case"ang-set":{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));c.angulos={...(c.angulos||{}),[b.dataset.k]:+b.dataset.v};autoGuardarCfg();render();break}
-    case"add-melcolor":{const c=S.cfgEdit;c.melamina.colores=c.melamina.colores||[];c.melamina.colores.push({nombre:"Nuevo color",precio:0});autoGuardarCfg();render();break}
+    case"add-melcolor":{const c=S.cfgEdit;c.melamina.colores=c.melamina.colores||[];c.melamina.colores.push({nombre:"Nuevo color",ancho:+c.melamina.ancho||183,alto:+c.melamina.alto||244,precio:0});autoGuardarCfg();render();break}
     case"del-melcolor":{const c=S.cfgEdit;if((c.melamina.colores||[]).length>1){c.melamina.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break}
     case"firma-dibujar":firmaSheet();break;
     case"firma-limpiar":{const cv=$("#firma-pad");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);S.firmaTrazo=false;break}
