@@ -242,7 +242,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.34.0";
+const APP_VER="1.35.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -299,7 +299,7 @@ const DEFAULT_CFG = {
   },
   rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{colores:[{nombre:"Blanco",precio:0}],ancho:183,alto:244,precio:0,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
-  barra:6000, sierra:4, cobroInicio:1, reciboInicio:1,
+  barra:6000, sierra:4, sierra45:4, cobroInicio:1, reciboInicio:1,
   desc:{
     corrediza:{traslape:30,hojaA:15,hojaH:40,vidA:50,vidH:65},
     proyectante:{hoja:30,vid:60},
@@ -763,8 +763,10 @@ function ordenarCortes(bars){const rest=bars.map(b=>{const c={};b.cuts.forEach(l
     const cuts=[];for(const l of orden)for(let n=0;n<b.cnt[l];n++)cuts.push(l);out.push({cuts,used:b.used,over:b.over});ult=cuts[cuts.length-1]}
   let cambios=0;const seq=out.flatMap(b=>b.cuts);for(let i=1;i<seq.length;i++)if(seq[i]!==seq[i-1])cambios++;
   return {bars:out,cambios}}
-function barras(cortes){
-  const L=S.cfg.barra||6000,k=S.cfg.sierra||4,list=[];
+/* Ancho de corte: si el perfil se corta en diagonal (45°) se gasta más, se usa el corte diagonal de Ajustes */
+function kerfDe(p){const k=+S.cfg.sierra||4,k45=+S.cfg.sierra45||k;return p&&angsPerfil(p).includes(45)?Math.max(k,k45):k}
+function barras(cortes,kk){
+  const L=S.cfg.barra||6000,k=kk!=null?kk:(S.cfg.sierra||4),list=[];
   cortes.forEach(c=>{for(let i=0;i<c.cant;i++)list.push(c.largo)});
   if(!list.length){const b=[];b.cambios=0;return b}
   // mínimo teórico de tiras (no se puede gastar menos)
@@ -793,14 +795,14 @@ function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T2
   for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])r.push(TIPOS[k].corto+" · "+p.nombre);return r}
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
 function sumarDespiece(items){
-  const per={},vid={},acc={},pvc={},melC={};
+  const per={},vid={},acc={},pvc={},melC={};let esc=0;
   for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
-    for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang}
+    for(const p of dp.perfiles){if(p.ref==="a15"){esc+=p.cant*4;continue}const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const gg=g==="mel"?"mel|"+(t.color||"Blanco"):g,key=gg+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g:gg,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
-  return {mel:Object.values(melC),pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:Object.entries(acc)};
+  return {mel:Object.values(melC),pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:[...(esc?[["Escuadras A15 (4 por marco)",Math.round(esc)]]:[]),...Object.entries(acc)],esc:Math.round(esc)};
 }
 
 /* Dibujo de la ventana */
@@ -1319,7 +1321,7 @@ function vCortes(){
   const res=sumarDespiece(items);
   const L=S.cfg.barra;
   let totalBarras=0;
-  const perfHtml=res.per.map(p=>{const bs=barras(p.cortes);totalBarras+=bs.length;
+  const perfHtml=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p));totalBarras+=bs.length;
     return `<div class="panel"><div class="row sp"><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} ${angsPerfil(p).map(a=>`<span class="pill ${a===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${a}°</span>`).join(" ")}</h3></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
       ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
       <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm${angsPerfil(p).length>1?" a "+angCorte(p,c)+"°":""}`).join(" · ")}</div>
@@ -1330,7 +1332,7 @@ function vCortes(){
   const nPvc=rects.length,hojas=nPvc?packRects(rects,mm.ancho*10,mm.alto*10):[],L2=nPvc?laminasMarmo(rects,true):null;
   return `
   ${backBtn()}
-  <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm</div><h1>Cortes</h1></div></div>
+  <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)</div><h1>Cortes</h1></div></div>
   <div class="field"><label for="c-obra">Obra</label><select id="c-obra" data-act-change="cortes-obra">
     ${S.draft&&S.draft.items.length?`<option value="__draft" ${sel==="__draft"?"selected":""}>Cotización en curso (sin guardar)</option>`:""}
     ${obras.map(o=>`<option value="${o.id}" ${o.id===sel?"selected":""}>COT-${pad(o.numero||0)} · ${esc(o.nombre||"Sin nombre")}</option>`).join("")}</select></div>
@@ -1566,7 +1568,7 @@ function vAjustes(){
    <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-acc","Accesorios $/división","division.accesorios",c.division.accesorios)}</div>`)}
 
   ${sec("aj-fabricacion","Medidas de fabricación","Descuentos, anchos útiles, tiras y sierra",`
-   <div class="fgrid">${fld("c-barra","Largo de tira (mm)","barra",c.barra)}${fld("c-sierra","Corte de sierra (mm)","sierra",c.sierra)}</div>
+   <div class="fgrid">${fld("c-barra","Largo de tira (mm)","barra",c.barra)}${fld("c-sierra","Corte de sierra recto 90° (mm)","sierra",c.sierra)}${fld("c-s45","Corte de sierra diagonal 45° (mm)","sierra45",c.sierra45??c.sierra,"Lo que se pierde en cada corte de perfiles a 45°. Súbelo si el diagonal te consume más.")}</div>
    ${Object.entries(c.series).map(([k,sc])=>`<h3>${TIPOS[k].nombre}</h3>
     <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th></tr></thead><tbody>
     ${sc.perfiles.map((p,i)=>`<tr><td>${esc(p.nombre)}</td><td><select aria-label="Medida ${esc(p.nombre)}" data-cfg="series.${k}.perfiles.${i}.base" class="cin" style="max-width:104px;padding-left:4px;padding-right:2px">${[["A","Ancho total"],["A2","Ancho total ÷ 2"],["H","Alto total"],["AN","Ancho de nave"],["HN","Alto de nave"],["ANF","Ancho nave fija"]].map(([v,t])=>`<option value="${v}" ${p.base===v?"selected":""}>${t}</option>`).join("")}</select></td>
@@ -1579,7 +1581,7 @@ function vAjustes(){
    <h3>Puertas</h3><div class="fgrid">${fld("pt-f06","Ancho útil F06 (cm)","puertas.utilF06",c.puertas.utilF06,"",true)}${fld("pt-t166","Ancho útil T166 (cm)","puertas.utilT166",c.puertas.utilT166,"",true)}</div>
    <h3>Cocinas en aluminio</h3><div class="fgrid">
    ${fld("cc-al","Alto del gabinete superior (cm)","cocina.alto",c.cocina.alto,"",true)}${fld("cc-ai","Alto inicial puertas inferiores (cm)","cocina.altoInf",c.cocina.altoInf,"",true)}
-   ${fld("cc-esc","A15 por marco (cm)","cocina.escuadra",c.cocina.escuadra,"",true)}${fld("cc-dp","Lámina PVC: menos por medida (cm)","cocina.descPvc",c.cocina.descPvc,"",true)}</div>
+   ${fld("cc-esc","A15 por marco para cotizar (cm)","cocina.escuadra",c.cocina.escuadra,"Cada marco lleva 4 escuadras; en cortes solo sale la cantidad de escuadras.",true)}${fld("cc-dp","Lámina PVC: menos por medida (cm)","cocina.descPvc",c.cocina.descPvc,"",true)}</div>
    <h3>Descuentos de despiece (mm)</h3><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
    ${Object.keys(c.desc).filter(k=>TIPOS[k]&&!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3 class="small">${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}
    <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
@@ -1641,7 +1643,7 @@ function firmaSheet(){openSheet(()=>`<div class="sheet-h"><h2>Dibuja tu firma</h
 const mts=mm=>(Math.round(mm/10)/100).toFixed(2).replace(".",",")+" m";
 function listaMateriales(items){const res=sumarDespiece(items),L=S.cfg.barra||6000,G=[];
   // Perfiles: tiras completas + lo que se usa de la última
-  const per=res.per.filter(p=>p.nombre!=="PVC cielorraso").map(p=>{const bs=barras(p.cortes),llenas=bs.filter(b=>!b.over).length-1,ult=bs[bs.length-1];
+  const per=res.per.filter(p=>p.nombre!=="PVC cielorraso").map(p=>{const bs=barras(p.cortes,kerfDe(p)),llenas=bs.filter(b=>!b.over).length-1,ult=bs[bs.length-1];
     const n=Math.max(0,llenas),resto=ult&&!ult.over?ult.used:0,lleno=resto>L*0.98;
     return {t:p.nombre+(p.color?" · "+p.color:""),g:p.sistema,v:(lleno?n+1:n)?((lleno?n+1:n)+" tira"+((lleno?n+1:n)===1?"":"s")+(lleno?"":" + "+mts(resto))):mts(resto),tiras:bs.length}}).sort((a,b)=>a.g.localeCompare(b.g)||a.t.localeCompare(b.t));
   if(per.length)G.push({h:"Perfiles",filas:per.map(p=>[p.g+" · "+p.t,p.v,p.tiras+" tira"+(p.tiras===1?"":"s")+" para cortar"])});
@@ -1671,23 +1673,24 @@ function textoMateriales(o,G){return `*Materiales — ${S.cfg.empresa.nombre}*\n
 
 /* ============ Enviar lista de cortes ============ */
 function datosCortes(sel){const o=sel==="__draft"?S.draft:obra(sel),items=o?.items||[],res=sumarDespiece(items),L=S.cfg.barra||6000;
-  const per=res.per.map(p=>{const bs=barras(p.cortes),angs=angsPerfil(p);return {p,bs,angs,orden:ordenTope(bs)}});
+  const per=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p)),angs=angsPerfil(p);return {p,bs,angs,orden:ordenTope(bs)}});
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(x=>{for(let k=0;k<x.cant;k++)rects.push({w:x.ancho,h:x.alto})});
   return {o,res,per,L,lam:rects.length?laminasMarmo(rects,false).laminas:0,mm}}
 function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&x;
-  let t=`*Lista de cortes — ${S.cfg.empresa.nombre}*\n${o.numero?"COT-"+pad(o.numero)+" · ":""}${o.nombre||"Cotización en curso"}\nTiras de ${cm(D.L)} cm · sierra ${S.cfg.sierra} mm\n`;
+  let t=`*Lista de cortes — ${S.cfg.empresa.nombre}*\n${o.numero?"COT-"+pad(o.numero)+" · ":""}${o.nombre||"Cotización en curso"}\nTiras de ${cm(D.L)} cm · sierra ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)\n`;
   for(const {p,bs,angs,orden} of D.per){t+=`\n*${p.sistema} · ${p.nombre}${p.color?" · "+p.color:""}* — ${bs.length} tira${bs.length===1?"":"s"} · corte ${angs.join("°/")}°\n`;
     if(angs.length>1)t+=p.cortes.map(c=>`   ${c.cant} × ${cm(c.largo)} a ${angCorte(p,c)}°`).join("\n")+"\n";
     t+=`   Orden: ${orden.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}\n`;
     t+=bs.map((b,i)=>`   Tira ${i+1}: ${ordenTope([b]).map(([l,n])=>n>1?n+"×"+cm(l):cm(l)).join(" + ")}${b.over?" (más larga que la tira)":" · sobra "+cm(D.L-b.used)}`).join("\n")+"\n"}
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(L.length)t+=`\n*${tt}*\n`+L.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)} · ${x.pieza}`).join("\n")+"\n"}
   if(D.res.pvc.length)t+=`\n*PVC marmolizado* — ${D.lam} lámina${D.lam===1?"":"s"} de ${D.mm.ancho} × ${D.mm.alto}\n`+D.res.pvc.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)}`).join("\n")+"\n";
+  if(D.res.esc)t+=`\n*Escuadras A15* — ${D.res.esc} unidades (4 por marco)\n`;
   if(D.res.vid.length)t+=`\n*Vidrios*\n`+D.res.vid.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
 function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase();if(!ext)pdfHeader(doc,"LISTA DE CORTES",(o.numero?"COT-"+pad(o.numero)+" · ":"")+fechaCorta(hoy()));
   let y=ext?ext.y:40;const nl=n=>{if(y+n>262){doc.addPage();y=20}};nl(16);doc.setFontSize(ext?12:10);doc.setFont("helvetica","bold");doc.text(ext?"Cortes":o.nombre||"Cotización en curso",16,y);doc.setFont("helvetica","normal");doc.setFontSize(10);
-  doc.text("Tiras de "+cm(D.L)+" cm · sierra "+S.cfg.sierra+" mm · medidas en cm",200,y,{align:"right"});y+=8;
+  doc.text("Tiras de "+cm(D.L)+" cm · sierra "+S.cfg.sierra+" mm (diagonal "+(S.cfg.sierra45??S.cfg.sierra)+") · medidas en cm",200,y,{align:"right"});y+=8;
   for(const {p,bs,angs,orden} of D.per){nl(22);doc.setFillColor(236,230,223);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(10);
     doc.text(p.sistema+" · "+p.nombre+(p.color?" · "+p.color:""),16,y);doc.text(bs.length+" tira"+(bs.length===1?"":"s")+" · corte "+angs.join("°/")+"°",200,y,{align:"right"});y+=6;
     doc.setFont("helvetica","normal");doc.setFontSize(9);
@@ -1700,13 +1703,14 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
         if(doc.getTextWidth(t)<=w-0.4)doc.text(t,x+w/2,y+BH/2+fs*0.12,{align:"center"});
         else{fs=6;doc.setFontSize(fs);while(fs>2.2&&(doc.getTextWidth(t)>BH-0.6||fs*0.3528>w-0.3)){fs-=0.25;doc.setFontSize(fs)}
           doc.text(t,x+w/2+fs*0.12,y+BH/2+doc.getTextWidth(t)/2,{angle:90})}
-        x+=w+(S.cfg.sierra||4)*esc2}
+        x+=w+kerfDe(p)*esc2}
       doc.setFontSize(8);doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+4,{align:"right"});y+=BH+2.5}
     y+=3}
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(tt,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const x of L){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto)+"  ·  "+x.pieza,20,y);y+=4.5}y+=3}
   if(D.res.pvc.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("PVC marmolizado · "+D.lam+" lámina"+(D.lam===1?"":"s")+" de "+D.mm.ancho+" × "+D.mm.alto,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const x of D.res.pvc){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto),20,y);y+=4.5}y+=3}
+  if(D.res.esc){nl(10);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Escuadras A15: "+D.res.esc+" unidades (4 por marco)",16,y);doc.setFont("helvetica","normal");y+=7}
   if(D.res.vid.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Vidrios",16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const v of D.res.vid){nl(5);doc.text(v.cant+" × "+cm(v.ancho)+" × "+cm(v.alto)+" · "+v.vidrio+(v.nota?" ("+v.nota+")":""),20,y);y+=4.5}}
   if(ext)return y;
