@@ -201,6 +201,18 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 @media (max-width:700px){.cols2{grid-template-columns:1fr}}
 .kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:14px}
 .cin{border:1px solid var(--line);border-radius:6px;padding:7px;background:var(--surface);font-size:16px;min-height:38px}
+details.aj{padding:0;gap:0}
+details.aj>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px}
+details.aj>summary::-webkit-details-marker{display:none}
+details.aj>summary h2{margin-bottom:2px}
+details.aj>.stack{padding:0 16px 16px}
+.pf{display:grid;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+.pf-c,.pf-h{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 100px;gap:6px;align-items:center}
+.pf-c .cin,.pf-c select{width:100%!important;min-width:0}
+.pf-h{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.pf-h span:last-child{text-align:center}
+details.aj td,details.aj th{padding:8px 3px}details.aj td .cin{padding:6px 4px}details.aj td:first-child,details.aj th:first-child{padding-left:8px}
+.aj-chev{font-size:18px;color:var(--muted);transition:transform .15s}
+details.aj[open] .aj-chev{transform:rotate(180deg)}
 .kv dt{color:var(--muted)} .kv dd{margin:0;word-break:break-word}
 </style>
 
@@ -229,7 +241,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.29.0";
+const APP_VER="1.30.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -873,7 +885,8 @@ function softRender(){const a=document.activeElement;if(a&&(a.tagName==="INPUT"|
 
 /* ============ Render ============ */
 /* Historial de pantallas para el botón "Atrás" (y el atrás del navegador) */
-S.hist=[];
+S.hist=[];S.ajOpen=new Set();
+document.addEventListener("toggle",e=>{const d=e.target;if(d.matches&&d.matches("details[data-aj]")){if(d.open)S.ajOpen.add(d.dataset.aj);else S.ajOpen.delete(d.dataset.aj)}},true);
 function go(v,param,{sinHist}={}){if(S.view==="login")return;
   if(!sinHist&&S.view&&S.view!=="cargando"&&(S.view!==v||S.param!==(param??null))){S.hist.push([S.view,S.param]);if(S.hist.length>40)S.hist.shift();try{history.pushState({v},"")}catch(e){}}
   S.view=v;S.param=param??null;if(v==="cotizar"&&!S.draft)S.draft=nuevoDraft();render();
@@ -999,11 +1012,12 @@ function faltanItem(it){if(!it||it.precioManual>0)return [];const F=new Set(),cf
   else if(it.tipo==="division"){const r=vidriosDivision(it);if(z(precioDivM2(r)))F.add(r.modo==="especial"?"Vidrio templado a la medida (m²)":"Vidrio templado (m²)");if(z(cfg.division.accesorios))F.add("Accesorios división")}
   return [...F]}
 function faltanItems(items){const F=new Set();for(const it of items||[])faltanItem(it).forEach(x=>F.add(x));return [...F]}
-function seccionFalta(f){if(/melamina|fondo 3|Canto/i.test(f))return "aj-melamina";if(/^Vidrio templado|Accesorios división/.test(f))return "aj-division";
-  if(/^(Serie 744|Rodamiento.*744)/.test(f))return "aj-s744";if(/^(Serie 8025|Rodamiento.*8025)/.test(f))return "aj-s8025";if(/^Vidrio |^Empaque$/.test(f))return /^Empaque$/.test(f)?"aj-accesorios":"aj-vidrios";
-  if(/^(Nave de ducha|A15|T78|Losero|Vidrios de entrepaño|Bisagras \(par\)|Manijas|Empaque PVC)/.test(f))return "aj-cocina";return "aj-puertas"}
+function seccionFalta(f){if(/melamina|fondo 3|Canto/i.test(f))return "aj-melamina";if(/^Vidrio templado/.test(f))return "aj-templados";
+  if(/PVC marmolizado|cielorraso/i.test(f))return "aj-pvc";if(/^Vidrio /.test(f))return "aj-vidrios";
+  // lo que es una referencia de perfil va a Perfiles; todo lo demás (chapas, bisagras, empaques…) a Accesorios
+  return /^[A-Z]{1,2}\d+$|^Nave de ducha$| · /.test(f)?"aj-perfiles":"aj-accesorios"}
 function avisoFaltan(F){const sec=[...new Set(F.map(seccionFalta))];
-  return `<div class="note"><b>Faltan precios</b>, por eso no se muestra el total: ${esc(F.join(", "))}.<div class="row" style="margin-top:6px;gap:8px">${sec.map(x=>`<button class="btn sm pri" data-act="ir-precios" data-v="${x}">Poner precio · ${esc(({"aj-melamina":"Melamina","aj-division":"División de baño","aj-s744":"Serie 744","aj-s8025":"Serie 8025","aj-vidrios":"Vidrios","aj-accesorios":"Accesorios","aj-cocina":"Cocina aluminio","aj-puertas":"Puertas y PVC"})[x])}</button>`).join("")}</div></div>`}
+  return `<div class="note"><b>Faltan precios</b>, por eso no se muestra el total: ${esc(F.join(", "))}.<div class="row" style="margin-top:6px;gap:8px">${sec.map(x=>`<button class="btn sm pri" data-act="ir-precios" data-v="${x}">Poner precio · ${esc(({"aj-melamina":"Melamina","aj-templados":"Vidrios templados","aj-pvc":"PVC","aj-vidrios":"Vidrios","aj-accesorios":"Accesorios","aj-perfiles":"Perfiles de aluminio"})[x])}</button>`).join("")}</div></div>`}
 function tablaItems(items,calc,editable){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
   return `<div class="tbl-wrap"><table><thead><tr><th>Ítem</th><th class="n">Medida (cm)</th><th class="n">Cant</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
@@ -1389,16 +1403,25 @@ function vAjustes(){
   c.vidrios.forEach(v=>{if(v.lam==null)v.lam=0;if(v.lamA==null)v.lamA=+c.laminaVidrio?.ancho||330;if(v.lamH==null)v.lamH=+c.laminaVidrio?.alto||214});
   if(!(+c.puertas.acc.chapa>0))c.puertas.acc.chapa=precioAccPta("chapa");
   const dl=(t,k)=>Object.entries(c.desc[k]).map(([kk,v])=>`<div class="field"><label for="d-${k}-${kk}">${({traslape:"Traslape",hojaA:"Desc. ancho hoja",hojaH:"Desc. alto hoja",vidA:"Desc. ancho vidrio",vidH:"Desc. alto vidrio",hoja:"Desc. hoja",vid:"Desc. vidrio",alto:"Desc. alto corredizo",borde:"Perforación desde borde",diam:"Diámetro perforación"})[kk]||kk} (mm)</label><input id="d-${k}-${kk}" inputmode="numeric" data-cfg="desc.${k}.${kk}" value="${v}"></div>`).join("");
+  const B=c.barra/1000,inp=(path,val,lbl,w,dec)=>`<input class="cin" aria-label="${esc(lbl)}" inputmode="${dec?"decimal":"numeric"}" data-cfg="${path}" value="${dec?String(val??0).replace(".",","):(val??0)}" style="width:${w||96}px;text-align:right">`;
+  const fld=(id,lbl,path,val,hint,dec)=>`<div class="field"><label for="${id}">${lbl}</label><input id="${id}" inputmode="${dec?"decimal":"numeric"}" data-cfg="${path}" value="${dec?String(val??0).replace(".",","):(val??0)}">${hint?`<span class="hint">${hint}</span>`:""}</div>`;
+  const ang=r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<div class="seg" style="justify-content:flex-end;flex-wrap:nowrap">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:46px;padding:6px 8px">${a}°</button>`).join("")}</div>`};
+  const sec=(id,titulo,sub,body)=>`<details class="panel aj" id="${id}" data-aj="${id}" ${S.ajOpen?.has(id)?"open":""}><summary><div><h2>${titulo}</h2><span class="small muted">${sub}</span></div><span class="aj-chev" aria-hidden="true">▾</span></summary><div class="stack">${body}</div></details>`;
+  // perfiles de aluminio sueltos (puertas, cocinas y demás): referencia, uso, precio por tira, cobro y ángulo
+  const refs=[["Nave de ducha","Marcos de gabinete y puertas de cocina","cocina.naveDucha",c.cocina.naveDucha,"cocina.cobro",c.cocina.cobro||"tira"],
+    ["T78","Divisores de cocina","cocina.t78",c.cocina.t78,"cocina.cobroT78",c.cocina.cobroT78||"metro"],
+    ["A15","Escuadras (crudo, sin color)","cocina.a15",c.cocina.a15,"cocina.cobroA15",c.cocina.cobroA15||"metro"],
+    ...PTA_REFS.map(([r,u])=>[r,u,"puertas.perfiles."+r,c.puertas.perfiles[r],"puertas.cobro."+r,(c.puertas.cobro||{})[r]||"metro"])];
   return `${backBtn()}
-  <div class="head"><div><div class="eyebrow">Configuración compartida</div><h1>Ajustes</h1></div></div>
+  <div class="head"><div><div class="eyebrow">Configuración compartida</div><h1>Ajustes</h1></div><button class="btn sm" data-act="aj-todo">${S.ajOpen?.size?"Cerrar todo":"Abrir todo"}</button></div>
   <div class="note info">Los cambios se guardan solos mientras escribes. <b id="cfg-estado"></b>${S.offline?"<br>Ojo: la base de datos en la nube no está conectada, así que estos ajustes quedan solo en este equipo y en este navegador.":""}</div>
-  <div class="panel"><h2>Firma</h2>
-   ${e.firma?`<div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;justify-content:center"><img src="${e.firma}" alt="Tu firma" style="max-height:90px;max-width:100%"></div>
-    <span class="small muted">Sale en cotizaciones, cuentas de cobro, recibos de abono y estados de cuenta.</span>`:`<span class="small muted">Aún no hay firma. Dibújala con el dedo o sube una foto de tu firma hecha en papel blanco.</span>`}
+  ${sec("aj-empresa","Empresa y firma","Datos que salen en cotizaciones, cuentas de cobro y recibos",`
+   <h3>Firma</h3>
+   ${e.firma?`<div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;justify-content:center"><img src="${e.firma}" alt="Tu firma" style="max-height:90px;max-width:100%"></div>`:`<span class="small muted">Aún no hay firma. Dibújala con el dedo o sube una foto de tu firma hecha en papel blanco.</span>`}
    <div class="fgrid"><button class="btn" data-act="firma-dibujar">${e.firma?"Dibujar otra":"Dibujar firma"}</button>
     <label class="btn" for="firma-file" style="cursor:pointer">Subir foto<input id="firma-file" type="file" accept="image/*" hidden></label>
-    ${e.firma?`<button class="btn danger full" data-act="firma-quitar">Quitar firma</button>`:""}</div></div>
-  <div class="panel"><h2>Empresa</h2><div class="fgrid">
+    ${e.firma?`<button class="btn danger full" data-act="firma-quitar">Quitar firma</button>`:""}</div>
+   <h3>Empresa</h3><div class="fgrid">
    <div class="field full"><label for="e-nom">Nombre comercial</label><input id="e-nom" data-cfg="empresa.nombre" value="${esc(e.nombre)}"></div>
    <div class="field full"><label for="e-prop">Propietario (quien cobra)</label><input id="e-prop" data-cfg="empresa.propietario" value="${esc(e.propietario)}"></div>
    <div class="field"><label for="e-cc">C.C. o NIT</label><input id="e-cc" data-cfg="empresa.cc" value="${esc(e.cc)}"></div>
@@ -1406,124 +1429,109 @@ function vAjustes(){
    <div class="field full"><label for="e-ciu">Ciudad</label><input id="e-ciu" data-cfg="empresa.ciudad" value="${esc(e.ciudad)}"></div>
    <div class="field full"><label for="e-banco">Cuenta para pagos</label><input id="e-banco" data-cfg="empresa.banco" value="${esc(e.banco)}" placeholder="Ej: Ahorros Bancolombia No. ..."></div>
    <div class="field full"><label for="e-nota">Nota en cuentas de cobro</label><input id="e-nota" data-cfg="empresa.nota" value="${esc(e.nota)}"></div>
-   <div class="field"><label for="e-cobro">Siguiente No. de cuenta de cobro</label><input id="e-cobro" inputmode="numeric" data-cfg="cobroInicio" value="${c.cobroInicio}"><span class="hint">Si ya llevas una numeración, pon aquí el número que sigue.</span></div>
-   <div class="field"><label for="e-rc">Siguiente No. de recibo de abono</label><input id="e-rc" inputmode="numeric" data-cfg="reciboInicio" value="${c.reciboInicio}"><span class="hint">Los recibos se numeran RC-0001, RC-0002…</span></div>
-  </div></div>
-  <div class="panel" id="aj-vidrios"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
-   <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina entera</th><th class="n">Lámina (cm)</th><th></th></tr></thead><tbody>
-   ${c.vidrios.map((v,i)=>`<tr><td><input class="cin" aria-label="Nombre vidrio" data-cfg="vidrios.${i}.nombre" value="${esc(v.nombre)}" style="width:100%;min-width:130px"></td>
-    <td class="n"><input class="cin" aria-label="Precio m² ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.m2" value="${v.m2}" style="width:100px;text-align:right"></td>
-    <td class="n"><input class="cin" aria-label="Precio lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.lam" value="${v.lam}" style="width:100px;text-align:right"></td>
-    <td class="n" style="white-space:nowrap"><input class="cin" aria-label="Ancho lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.lamA" value="${v.lamA}" style="width:62px;text-align:right"> × <input class="cin" aria-label="Alto lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="vidrios.${i}.lamH" value="${v.lamH}" style="width:62px;text-align:right"></td>
-    <td class="n"><button class="btn sm danger" data-act="del-vidrio" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}
-   </tbody></table></div>
-   <div class="field"><span class="hint">Cada vidrio tiene su medida de lámina (ancho × alto en cm). Cuando en una cotización activas "Cobrar vidrio por láminas", se acomodan los vidrios en láminas. Si lo que sale de una lámina cobrado por m² supera el valor de la lámina, se cobra la lámina; si no, se cobra por m².</span></div></div>
-  ${Object.entries(c.series).map(([k,sc])=>`<div class="panel" id="aj-${k}"><h2>${TIPOS[k].nombre}</h2>
-   <h3>Rodamientos ${TIPOS[k].corto}</h3><div class="fgrid">
-    <div class="field"><label for="rn-${k}">Rodamiento nylon ${TIPOS[k].corto} $/unidad</label><input id="rn-${k}" inputmode="numeric" data-cfg="series.${k}.rod.nylon" value="${sc.rod?.nylon??0}"></div>
-    <div class="field"><label for="ra-${k}">Rodamiento ABB ${TIPOS[k].corto} $/unidad</label><input id="ra-${k}" inputmode="numeric" data-cfg="series.${k}.rod.abb" value="${sc.rod?.abb??0}"></div></div>
-   <span class="small muted">Cada nave corrediza lleva 2 rodamientos.</span>
-   <span class="small muted">${MODOS_AYUDA}</span>
-   <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th><th>Cobro</th></tr></thead><tbody>
-   ${sc.perfiles.map((p,i)=>`<tr><td><input aria-label="Nombre perfil" data-cfg="series.${k}.perfiles.${i}.nombre" value="${esc(p.nombre)}" class="cin" style="width:130px"></td>
-     <td class="n"><input aria-label="Precio ${esc(p.nombre)}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.precio" value="${p.precio}" class="cin" style="width:96px;text-align:right"></td>
-     <td><select aria-label="Medida ${esc(p.nombre)}" data-cfg="series.${k}.perfiles.${i}.base" class="cin">${[["A","Ancho total"],["A2","Ancho total ÷ 2"],["H","Alto total"],["AN","Ancho de nave"],["HN","Alto de nave"],["ANF","Ancho nave fija"]].map(([v,t])=>`<option value="${v}" ${p.base===v?"selected":""}>${t}</option>`).join("")}</select></td>
-     ${["c2","c3","c4"].map(cc=>`<td class="n"><input aria-label="Cantidad ${cc}" inputmode="numeric" data-cfg="series.${k}.perfiles.${i}.${cc}" value="${p[cc]}" class="cin" style="width:48px;text-align:right"></td>`).join("")}
-     <td>${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}</td></tr>`).join("")}
-   </tbody></table></div>
-   <span class="small muted">2N, 3N y 4N: cuántas piezas lleva cada ventana según sus naves. "Ancho nave fija" se multiplica por las naves fijas.</span>
-   <h3>Vidrio (descuentos en cm)</h3>
-   <div class="tbl-wrap"><table><thead><tr><th>Naves</th><th class="n">Desc. ancho total</th><th class="n">Desc. alto corrediza</th><th class="n">Desc. alto fija</th></tr></thead><tbody>
-   ${["2","3","4"].map(n=>`<tr><td>${n} naves</td>${["dA","hC","hF"].map(f=>`<td class="n"><input aria-label="${f} ${n} naves" inputmode="decimal" data-cfg="series.${k}.vid.${n}.${f}" value="${String(sc.vid[n][f]).replace(".",",")}" class="cin" style="width:70px;text-align:right"></td>`).join("")}</tr>`).join("")}
-   </tbody></table></div>
-   <span class="small muted">Ancho de cada vidrio = (ancho de la ventana − descuento) ÷ número de naves.</span></div>`).join("")}
-  <div class="panel" id="aj-puertas"><h2>Puertas 1″ y 1½″</h2>
-   <span class="small muted">${MODOS_AYUDA} Se suma cada referencia en todo el pedido.</span>
-   <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th>Uso</th><th class="n">$/tira ${String(c.barra/1000).replace(".",",")} m</th><th>Cobro</th></tr></thead><tbody>
-   ${PTA_REFS.map(([r,u])=>`<tr><td class="mono">${r}</td><td class="small">${esc(u)}</td><td class="n"><input aria-label="Precio ${r}" inputmode="numeric" data-cfg="puertas.perfiles.${r}" value="${c.puertas.perfiles[r]??0}" class="cin" style="width:100px;text-align:right"></td><td>${selModo("puertas.cobro."+r,c.puertas.cobro[r]||"metro",r)}</td></tr>`).join("")}
-   </tbody></table></div>
-   <h3>Accesorios de puerta</h3><div class="fgrid">
-   ${PTA_ACC.map(([k,t,u])=>`<div class="field"><label for="pa-${k}">${esc(t)} $/${u}</label><input id="pa-${k}" inputmode="numeric" data-cfg="puertas.acc.${k}" value="${c.puertas.acc[k]??0}"></div>`).join("")}</div>
-   <span class="small muted">Puerta 1″: 1 chapa y 3 bisagras de 3″. Puerta 1½″: 1 chapa, 4 bisagras, tornillería y silicona; 2 varillas de 3/8″ hasta 110 cm de ancho; empaque cuña alrededor del tablero si es F06.</span>
-   <h3>Tableros</h3><div class="fgrid">
-    <div class="field"><label for="pt-f06">Ancho útil F06 (cm)</label><input id="pt-f06" inputmode="decimal" data-cfg="puertas.utilF06" value="${String(c.puertas.utilF06).replace(".",",")}"></div>
-    <div class="field"><label for="pt-t166">Ancho útil T166 (cm)</label><input id="pt-t166" inputmode="decimal" data-cfg="puertas.utilT166" value="${String(c.puertas.utilT166).replace(".",",")}"></div>
-    <div class="field"><label for="pt-mp">Lámina PVC marmolizado $</label><input id="pt-mp" inputmode="numeric" data-cfg="puertas.marmo.precio" value="${c.puertas.marmo.precio}"></div>
-    <div class="field"><label>Medida lámina marmolizado (cm)</label><div class="row"><input aria-label="Ancho lámina" inputmode="numeric" data-cfg="puertas.marmo.ancho" value="${c.puertas.marmo.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina" inputmode="numeric" data-cfg="puertas.marmo.alto" value="${c.puertas.marmo.alto}" class="cin" style="width:70px;text-align:right"></div></div>
-    <div class="field"><label for="pt-cp">Tira PVC cielorraso $</label><input id="pt-cp" inputmode="numeric" data-cfg="puertas.cielo.precio" value="${c.puertas.cielo.precio}"></div>
-    <div class="field"><label>Tira cielorraso: útil × largo (cm)</label><div class="row"><input aria-label="Ancho útil cielorraso" inputmode="numeric" data-cfg="puertas.cielo.ancho" value="${c.puertas.cielo.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Largo tira cielorraso" inputmode="numeric" data-cfg="puertas.cielo.largo" value="${c.puertas.cielo.largo}" class="cin" style="width:70px;text-align:right"></div></div></div>
-   <span class="small muted">El marmolizado se cobra por lámina entera, o media lámina cuando lo que sobra cabe en la mitad. El cielorraso se cobra por tira entera.</span></div>
-  <div class="panel" id="aj-accesorios"><h2>Accesorios y vidrio</h2><div class="fgrid">
-   <div class="field"><label for="emp">Empaque $/metro</label><input id="emp" inputmode="numeric" data-cfg="empaqueMl" value="${c.empaqueMl}"><span class="hint">Se calcula con el perímetro de todos los vidrios.</span></div>
-   <div class="field"><label for="rv">Redondeo de vidrio (cm)</label><input id="rv" inputmode="numeric" data-cfg="redondeoVidrio" value="${c.redondeoVidrio}"><span class="hint">Cada medida se cobra al siguiente múltiplo.</span></div></div></div>
-  <div class="panel"><h2>Otros tipos</h2>
-   <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th class="n">Perfil $/metro</th><th class="n">Otros accesorios $/unidad</th></tr></thead><tbody>
-   ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto&&!t.puerta&&!t.div&&!t.coc).map(([k,t])=>`<tr><td>${t.corto}</td><td class="n">${t.serie?`<span class="small muted">por referencia</span>`:`<input aria-label="Perfil ${t.corto}" inputmode="numeric" data-cfg="perfilMl.${k}" value="${c.perfilMl[k]}" class="cin" style="width:100px;text-align:right">`}</td><td class="n"><input aria-label="Accesorios ${t.corto}" inputmode="numeric" data-cfg="accesorios.${k}" value="${c.accesorios[k]??0}" class="cin" style="width:100px;text-align:right"></td></tr>`).join("")}
-   </tbody></table></div></div>
-  <div class="panel"><div class="row sp"><h2>Colores · recargo</h2><button class="btn sm" data-act="add-color">+ Color</button></div>
-   ${c.colores.map((v,i)=>`<div class="row"><input class="grow" aria-label="Color" data-cfg="colores.${i}.nombre" value="${esc(v.nombre)}" style="border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px"><input aria-label="Factor" inputmode="decimal" data-cfg="colores.${i}.factor" value="${v.factor}" style="width:90px;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;background:var(--surface);font-size:16px;text-align:right"><button class="btn sm danger" data-act="del-color" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}
-   <span class="hint small muted">Factor 1 = precio base del perfil. 1,15 = 15% más caro.</span></div>
-  <div class="panel"><h2>Ángulo de corte por perfil</h2><span class="small muted">Se muestra en Cortes para saber si el perfil va a 45° (marcos y naves) o recto a 90°.</span>
-   <div class="tbl-wrap"><table><tbody>${refsAngulo().map(r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<tr><td>${esc(r)}</td><td class="n"><div class="seg" style="justify-content:flex-end">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:56px">${a}°</button>`).join("")}</div></td></tr>`}).join("")}</tbody></table></div></div>
-  <div class="panel" id="aj-melamina"><h2>Cocina en melamina 15 mm</h2><div class="fgrid">
-   <div class="field"><label>Lámina general de melamina (cm)</label><div class="row"><input aria-label="Ancho lámina melamina" inputmode="numeric" data-cfg="melamina.ancho" value="${c.melamina.ancho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina melamina" inputmode="numeric" data-cfg="melamina.alto" value="${c.melamina.alto}" class="cin" style="width:70px;text-align:right"></div></div>
-   <div class="field full"><div class="row sp"><label>Colores de melamina</label><button class="btn sm" data-act="add-melcolor">+ Color</button></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Color</th><th class="n">Lámina (cm)</th><th class="n">$ lámina</th><th class="n">Vende media</th><th></th></tr></thead><tbody>
+   ${fld("e-cobro","Siguiente No. de cuenta de cobro","cobroInicio",c.cobroInicio,"Si ya llevas una numeración, pon aquí el número que sigue.")}
+   ${fld("e-rc","Siguiente No. de recibo de abono","reciboInicio",c.reciboInicio,"Los recibos se numeran RC-0001, RC-0002…")}</div>`)}
+
+  ${sec("aj-perfiles","Perfiles de aluminio","Precio por tira de "+String(B).replace(".",",")+" m, forma de cobro y ángulo de corte",`
+   <span class="small muted">${MODOS_AYUDA} Cada referencia se suma en todo el pedido, sin importar si es de puerta, cocina u otro trabajo.</span>
+   <div class="pf-h"><span>$ tira</span><span>Cobro</span><span>Corte</span></div>
+   ${refs.map(([r,u,pp,v,pc,vc])=>`<div class="pf"><div><b class="mono">${esc(r)}</b> <span class="small muted">${esc(u)}</span></div><div class="pf-c">${inp(pp,v,"Precio "+r)}${selModo(pc,vc,r)}${ang(r)}</div></div>`).join("")}
+   ${Object.entries(c.series).map(([k,sc])=>`<h3>${TIPOS[k].nombre}</h3>
+    <div class="pf-h"><span>$ tira</span><span>Cobro</span><span>Corte</span></div>
+    ${sc.perfiles.map((p,i)=>`<div class="pf"><input aria-label="Nombre perfil" data-cfg="series.${k}.perfiles.${i}.nombre" value="${esc(p.nombre)}" class="cin" style="width:100%;font-weight:700"><div class="pf-c">${inp("series."+k+".perfiles."+i+".precio",p.precio,"Precio "+p.nombre)}${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}${ang(TIPOS[k].corto+" · "+p.nombre)}</div></div>`).join("")}`).join("")}
+   ${(()=>{const ot=Object.entries(TIPOS).filter(([k,t])=>!t.oculto&&!t.puerta&&!t.div&&!t.coc&&!t.serie&&k in c.perfilMl);return ot.length?`<h3>Otros trabajos · perfil por metro</h3><div class="fgrid">${ot.map(([k,t])=>fld("pm-"+k,esc(t.corto)+" $/metro","perfilMl."+k,c.perfilMl[k])).join("")}</div>`:""})()}
+   <div class="row sp"><h3>Colores de aluminio · recargo</h3><button class="btn sm" data-act="add-color">+ Color</button></div>
+   ${c.colores.map((v,i)=>`<div class="row"><input class="cin grow" aria-label="Color" data-cfg="colores.${i}.nombre" value="${esc(v.nombre)}">${inp("colores."+i+".factor",v.factor,"Factor "+v.nombre,80,true)}<button class="btn sm danger" data-act="del-color" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}
+   <span class="hint small muted">Factor 1 = precio base del perfil. 1,15 = 15 % más caro.</span>`)}
+
+  ${sec("aj-pvc","PVC","Lámina marmolizada y tira de cielorraso",`<div class="fgrid">
+   ${fld("pt-mp","Lámina PVC marmolizado $","puertas.marmo.precio",c.puertas.marmo.precio)}
+   <div class="field full"><label>Medida lámina marmolizado (cm)</label><div class="row">${inp("puertas.marmo.ancho",c.puertas.marmo.ancho,"Ancho lámina",70)}×${inp("puertas.marmo.alto",c.puertas.marmo.alto,"Alto lámina",70)}</div></div>
+   ${fld("pt-cp","Tira PVC cielorraso $","puertas.cielo.precio",c.puertas.cielo.precio)}
+   <div class="field full"><label>Tira cielorraso: útil × largo (cm)</label><div class="row">${inp("puertas.cielo.ancho",c.puertas.cielo.ancho,"Ancho útil cielorraso",70)}×${inp("puertas.cielo.largo",c.puertas.cielo.largo,"Largo tira cielorraso",70)}</div></div></div>
+   <span class="small muted">El marmolizado se usa en puertas y cocinas de aluminio; se cobra por lámina entera, o media cuando lo eliges en la cotización. El cielorraso se cobra por tira entera.</span>`)}
+
+  ${sec("aj-melamina","Melamina 15 mm y fondo","Colores con su lámina y precio, fondo de 3 mm y canto",`
+   <div class="row sp"><h3>Colores de melamina</h3><button class="btn sm" data-act="add-melcolor">+ Color</button></div>
+   <div class="tbl-wrap"><table><thead><tr><th>Color</th><th class="n">Lámina (cm)</th><th class="n">$ lámina</th><th class="n">Vende media</th><th></th></tr></thead><tbody>
     ${(c.melamina.colores||[]).map((v,i)=>`<tr><td><input class="cin" aria-label="Color" data-cfg="melamina.colores.${i}.nombre" value="${esc(v.nombre)}" style="width:100%;min-width:100px"></td>
-     <td class="n" style="white-space:nowrap"><input class="cin" aria-label="Ancho lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.ancho" value="${v.ancho}" style="width:58px;text-align:right"> × <input class="cin" aria-label="Alto lámina ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.alto" value="${v.alto}" style="width:58px;text-align:right"></td>
-     <td class="n"><input class="cin" aria-label="Precio ${esc(v.nombre)}" inputmode="numeric" data-cfg="melamina.colores.${i}.precio" value="${v.precio}" style="width:100px;text-align:right"></td>
+     <td class="n" style="white-space:nowrap">${inp("melamina.colores."+i+".ancho",v.ancho,"Ancho lámina "+v.nombre,58)} × ${inp("melamina.colores."+i+".alto",v.alto,"Alto lámina "+v.nombre,58)}</td>
+     <td class="n">${inp("melamina.colores."+i+".precio",v.precio,"Precio "+v.nombre,100)}</td>
      <td class="n"><input type="checkbox" aria-label="Vende media lámina ${esc(v.nombre)}" data-act="melmedia" data-i="${i}" ${v.media?"checked":""} style="width:22px;height:22px"></td>
      <td class="n"><button class="btn sm danger" data-act="del-melcolor" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>
-    <span class="hint">Cada color con su medida y su precio. Si el precio está en 0, usa el precio general de abajo. "Vende media": la última lámina se cobra como media (partida por el lado largo) cuando alcanza.</span></div>
-   <div class="field"><label for="ml-p">Precio general lámina melamina $</label><input id="ml-p" inputmode="numeric" data-cfg="melamina.precio" value="${c.melamina.precio}"></div>
-   <div class="field"><label>Lámina fondo 3 mm (cm)</label><div class="row"><input aria-label="Ancho lámina fondo" inputmode="numeric" data-cfg="melamina.fondoAncho" value="${c.melamina.fondoAncho}" class="cin" style="width:70px;text-align:right">×<input aria-label="Alto lámina fondo" inputmode="numeric" data-cfg="melamina.fondoAlto" value="${c.melamina.fondoAlto}" class="cin" style="width:70px;text-align:right"></div></div>
-   <div class="field"><label for="ml-fp">Precio lámina fondo $</label><input id="ml-fp" inputmode="numeric" data-cfg="melamina.fondoPrecio" value="${c.melamina.fondoPrecio}"></div>
-   <div class="field"><label for="ml-cf">Canto flex $/metro</label><input id="ml-cf" inputmode="numeric" data-cfg="melamina.cantoFlex" value="${c.melamina.cantoFlex}"></div>
-   <div class="field"><label for="ml-cr">Canto rígido $/metro</label><input id="ml-cr" inputmode="numeric" data-cfg="melamina.cantoRigido" value="${c.melamina.cantoRigido}"></div></div>
-   <span class="small muted">Bisagras y manijas usan los precios de la cocina en aluminio. Las láminas se cobran enteras.</span></div>
-  <div class="panel" id="aj-cocina"><h2>Cocina · gabinete superior y puertas inferiores</h2><div class="fgrid">
-   <div class="field"><label for="cc-nd">Nave de ducha $/tira ${String(c.barra/1000).replace(".",",")} m</label><input id="cc-nd" inputmode="numeric" data-cfg="cocina.naveDucha" value="${c.cocina.naveDucha}"></div>
-   <div class="field"><label for="cc-cb">Cobro</label>${selModo("cocina.cobro",c.cocina.cobro||"tira","nave de ducha")}</div>
-   <div class="field"><label for="cc-t78">T78 $/tira (divisores inferiores)</label><input id="cc-t78" inputmode="numeric" data-cfg="cocina.t78" value="${c.cocina.t78}"><span class="hint">El T77 del marco usa el precio de Puertas.</span></div>
-   <div class="field"><label>Cobro T78</label>${selModo("cocina.cobroT78",c.cocina.cobroT78||"metro","T78")}</div>
-   <div class="field"><label for="cc-ai">Alto inicial puertas inferiores (cm)</label><input id="cc-ai" inputmode="decimal" data-cfg="cocina.altoInf" value="${c.cocina.altoInf}"></div>
-   <div class="field"><label for="cc-a15">Perfil A15 $/tira (escuadras)</label><input id="cc-a15" inputmode="numeric" data-cfg="cocina.a15" value="${c.cocina.a15}"></div>
-   <div class="field"><label>Cobro A15</label>${selModo("cocina.cobroA15",c.cocina.cobroA15||"metro","A15")}</div>
-   <div class="field"><label for="cc-esc">A15 por marco (cm)</label><input id="cc-esc" inputmode="decimal" data-cfg="cocina.escuadra" value="${c.cocina.escuadra}"></div>
-   <div class="field"><label for="cc-dp">Lámina PVC: menos por lado (cm)</label><input id="cc-dp" inputmode="decimal" data-cfg="cocina.descPvc" value="${String(c.cocina.descPvc).replace(".",",")}"></div>
-   <div class="field"><label for="cc-lo">Losero $</label><input id="cc-lo" inputmode="numeric" data-cfg="cocina.losero" value="${c.cocina.losero}"></div>
-   <div class="field"><label for="cc-vh">Vidrio por hueco $</label><input id="cc-vh" inputmode="numeric" data-cfg="cocina.vidrioHueco" value="${c.cocina.vidrioHueco}"><span class="hint">El A61 se cobra con el precio de Puertas.</span></div>
-   <div class="field"><label for="cc-bi">Bisagras $/par</label><input id="cc-bi" inputmode="numeric" data-cfg="cocina.bisagra" value="${c.cocina.bisagra}"></div>
-   <div class="field"><label for="cc-ma">Manija $/unidad</label><input id="cc-ma" inputmode="numeric" data-cfg="cocina.manija" value="${c.cocina.manija}"></div>
-   <div class="field"><label for="cc-em">Empaque $/metro</label><input id="cc-em" inputmode="numeric" data-cfg="cocina.empaque" value="${c.cocina.empaque}"></div>
-   <div class="field"><label for="cc-al">Alto del mueble (cm)</label><input id="cc-al" inputmode="decimal" data-cfg="cocina.alto" value="${String(c.cocina.alto).replace(".",",")}"></div></div></div>
-  <div class="panel" id="aj-division"><h2>División de baño · vidrio templado</h2><div class="fgrid">
+   <span class="hint small muted">Si un color tiene precio 0, usa el precio general. "Vende media": la última lámina se cobra como media (partida por el lado largo) cuando alcanza.</span>
+   <div class="fgrid">
+   <div class="field full"><label>Lámina general (cm)</label><div class="row">${inp("melamina.ancho",c.melamina.ancho,"Ancho lámina melamina",70)}×${inp("melamina.alto",c.melamina.alto,"Alto lámina melamina",70)}</div></div>
+   ${fld("ml-p","Precio general lámina $","melamina.precio",c.melamina.precio)}
+   <div class="field full"><label>Lámina fondo 3 mm (cm)</label><div class="row">${inp("melamina.fondoAncho",c.melamina.fondoAncho,"Ancho lámina fondo",70)}×${inp("melamina.fondoAlto",c.melamina.fondoAlto,"Alto lámina fondo",70)}</div></div>
+   ${fld("ml-fp","Precio lámina fondo $","melamina.fondoPrecio",c.melamina.fondoPrecio)}
+   ${fld("ml-cf","Canto flex $/metro","melamina.cantoFlex",c.melamina.cantoFlex)}
+   ${fld("ml-cr","Canto rígido $/metro","melamina.cantoRigido",c.melamina.cantoRigido)}</div>`)}
+
+  ${sec("aj-vidrios","Vidrios","Precio por m² y por lámina de cada referencia",`
+   <div class="row sp"><span></span><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
+   <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina</th><th class="n">Lámina (cm)</th><th></th></tr></thead><tbody>
+   ${c.vidrios.map((v,i)=>`<tr><td><input class="cin" aria-label="Nombre vidrio" data-cfg="vidrios.${i}.nombre" value="${esc(v.nombre)}" style="width:100%;min-width:120px"></td>
+    <td class="n">${inp("vidrios."+i+".m2",v.m2,"Precio m² "+v.nombre,96)}</td><td class="n">${inp("vidrios."+i+".lam",v.lam,"Precio lámina "+v.nombre,96)}</td>
+    <td class="n" style="white-space:nowrap">${inp("vidrios."+i+".lamA",v.lamA,"Ancho lámina "+v.nombre,58)} × ${inp("vidrios."+i+".lamH",v.lamH,"Alto lámina "+v.nombre,58)}</td>
+    <td class="n"><button class="btn sm danger" data-act="del-vidrio" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}
+   </tbody></table></div>
+   <div class="fgrid">${fld("rv","Redondeo para cobrar (cm)","redondeoVidrio",c.redondeoVidrio,"Cada medida se cobra al siguiente múltiplo.")}</div>
+   <span class="small muted">Con "Cobrar vidrio por láminas" en la cotización, se cobra la lámina cuando lo que sale de ella por m² vale más que la lámina.</span>`)}
+
+  ${sec("aj-templados","Vidrios templados · divisiones","Precio por m², mandado a hacer e inventario",`<div class="fgrid">
    <div class="field"><label for="dv-esp2">Espesor del vidrio</label><input id="dv-esp2" data-cfg="division.espesor" value="${esc(c.division.espesor||"8 mm")}"></div>
-   <div class="field"><label for="dv-m2">Vidrio templado $/m²</label><input id="dv-m2" inputmode="numeric" data-cfg="division.templadoM2" value="${c.division.templadoM2}"></div>
-   <div class="field"><label for="dv-acc">Accesorios $/división</label><input id="dv-acc" inputmode="numeric" data-cfg="division.accesorios" value="${c.division.accesorios}"></div>
-   <div class="field"><label for="dv-paso">Medidas del vidrio de cada (cm)</label><input id="dv-paso" inputmode="numeric" data-cfg="division.paso" value="${c.division.paso}"></div>
-   <div class="field"><label for="dv-tr">Traslape mínimo (cm)</label><input id="dv-tr" inputmode="decimal" data-cfg="division.traslape" value="${c.division.traslape}"></div></div>
-   <div class="field"><label for="dv-esp">Vidrio mandado a hacer $/m²</label><input id="dv-esp" inputmode="numeric" data-cfg="division.especialM2" value="${c.division.especialM2}"></div>
-   <span class="small muted">La mano de obra está en "Instalación y ganancia". El m² se cobra con la medida real de cada vidrio.</span>
+   ${fld("dv-m2","Templado estándar $/m²","division.templadoM2",c.division.templadoM2)}
+   ${fld("dv-esp","Mandado a hacer $/m²","division.especialM2",c.division.especialM2)}</div>
    <div class="row sp"><h3>Inventario de vidrios templados</h3><button class="btn sm" data-act="add-vtemp">+ Medida</button></div>
    ${c.division.vidrios.length?`<div class="tbl-wrap"><table><thead><tr><th class="n">Ancho (cm)</th><th class="n">Alto (cm)</th><th class="n">En stock</th><th></th></tr></thead><tbody>
-   ${c.division.vidrios.map((v,i)=>`<tr><td class="n"><input class="cin" aria-label="Ancho" inputmode="decimal" data-cfg="division.vidrios.${i}.ancho" value="${v.ancho}" style="width:70px;text-align:right"></td>
-    <td class="n"><input class="cin" aria-label="Alto" inputmode="decimal" data-cfg="division.vidrios.${i}.alto" value="${v.alto}" style="width:70px;text-align:right"></td>
-    <td class="n"><input class="cin" aria-label="Stock" inputmode="numeric" data-cfg="division.vidrios.${i}.stock" value="${v.stock}" style="width:60px;text-align:right"></td>
-    <td class="n"><button class="btn sm danger" data-act="del-vtemp" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>`
-    :`<span class="small muted">Agrega las medidas estándar que manejas (ancho × alto) y cuántas tienes. Mientras la lista esté vacía, se usan vidrios de ${c.division.paso} en ${c.division.paso} cm.</span>`}
-   <span class="small muted">Al aprobar una cotización se descuentan del stock los vidrios estándar que usa; si la anulas, se devuelven.</span></div>
-  <div class="panel"><h2>Instalación y ganancia</h2><div class="fgrid">
-   <div class="full"><div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Instalación $/unidad</th></tr></thead><tbody>
-   ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto).map(([k,t])=>`<tr><td>${esc(t.corto)}</td><td class="n"><input aria-label="Instalación ${esc(t.corto)}" inputmode="numeric" data-cfg="instalacionTipo.${k}" value="${c.instalacionTipo[k]}" class="cin" style="width:110px;text-align:right"></td></tr>`).join("")}
-   </tbody></table></div><span class="small muted">Es el valor que aparece al agregar cada ítem. En cada ítem lo puedes cambiar.</span></div>
-   <div class="field"><label for="c-mg">Margen de ganancia %</label><input id="c-mg" inputmode="decimal" data-cfg="margen" value="${c.margen}"><span class="hint">En divisiones de baño se aplica solo a la mano de obra; a pasamanos no se aplica (usan su recargo).</span></div>
-   <div class="field"><label for="c-pr">Recargo pasamanos %</label><input id="c-pr" inputmode="decimal" data-cfg="pasamanosRecargo" value="${c.pasamanosRecargo}"><span class="hint">Se suma al acero y los vidrios; la instalación va aparte.</span></div>
-   <div class="field"><label for="c-red">Redondear a ($)</label><input id="c-red" inputmode="numeric" data-cfg="redondeo" value="${c.redondeo}"></div></div></div>
-  <div class="panel"><h2>Descuentos de despiece</h2><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
-   <div class="field"><label for="c-barra">Largo de barra (mm)</label><input id="c-barra" inputmode="numeric" data-cfg="barra" value="${c.barra}"></div>
-   <div class="field"><label for="c-sierra">Grosor del corte de sierra (mm)</label><input id="c-sierra" inputmode="numeric" data-cfg="sierra" value="${c.sierra}"></div>
-   ${Object.keys(c.desc).filter(k=>!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3>${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}</div>
+   ${c.division.vidrios.map((v,i)=>`<tr><td class="n">${inp("division.vidrios."+i+".ancho",v.ancho,"Ancho",70,true)}</td><td class="n">${inp("division.vidrios."+i+".alto",v.alto,"Alto",70,true)}</td>
+    <td class="n">${inp("division.vidrios."+i+".stock",v.stock,"Stock",60)}</td><td class="n"><button class="btn sm danger" data-act="del-vtemp" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>`
+    :`<span class="small muted">Agrega las medidas estándar que manejas (ancho × alto) y cuántas tienes.</span>`}
+   <span class="small muted">Al aprobar una cotización se descuentan del stock los vidrios estándar que usa; si cancelas la aprobación, se devuelven.</span>`)}
+
+  ${sec("aj-accesorios","Accesorios","Rodamientos, empaques, chapas, bisagras, manijas y demás",`
+   <h3>Ventanas</h3><div class="fgrid">
+   ${Object.entries(c.series).map(([k,sc])=>fld("rn-"+k,"Rodamiento nylon "+TIPOS[k].corto+" $","series."+k+".rod.nylon",sc.rod?.nylon)+fld("ra-"+k,"Rodamiento ABB "+TIPOS[k].corto+" $","series."+k+".rod.abb",sc.rod?.abb)).join("")}
+   ${fld("emp","Empaque de vidrio $/metro","empaqueMl",c.empaqueMl,"Perímetro de los vidrios.")}
+   ${Object.keys(c.series).map(k=>fld("ac-"+k,"Otros accesorios "+TIPOS[k].corto+" $/ventana","accesorios."+k,c.accesorios[k]??0)).join("")}</div>
+   <h3>Puertas</h3><div class="fgrid">${PTA_ACC.map(([k,t,u])=>fld("pa-"+k,esc(t)+" $/"+u,"puertas.acc."+k,c.puertas.acc[k]??0)).join("")}</div>
+   <h3>Cocinas</h3><div class="fgrid">
+   ${fld("cc-bi","Bisagras $/par","cocina.bisagra",c.cocina.bisagra)}${fld("cc-ma","Manija $/unidad","cocina.manija",c.cocina.manija)}
+   ${fld("cc-em","Empaque PVC $/metro","cocina.empaque",c.cocina.empaque)}${fld("cc-lo","Losero $","cocina.losero",c.cocina.losero)}
+   ${fld("cc-vh","Vidrio por hueco $","cocina.vidrioHueco",c.cocina.vidrioHueco)}</div>
+   ${(()=>{const ot=Object.entries(TIPOS).filter(([k,t])=>!t.oculto&&!t.puerta&&!t.div&&!t.coc&&!t.serie);return ot.length?`<h3>Otros trabajos</h3><div class="fgrid">${ot.map(([k,t])=>fld("ao-"+k,"Accesorios "+esc(t.corto)+" $/unidad","accesorios."+k,c.accesorios[k]??0)).join("")}</div>`:""})()}
+   <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-acc","Accesorios $/división","division.accesorios",c.division.accesorios)}</div>`)}
+
+  ${sec("aj-fabricacion","Medidas de fabricación","Descuentos, anchos útiles, tiras y sierra",`
+   <div class="fgrid">${fld("c-barra","Largo de tira (mm)","barra",c.barra)}${fld("c-sierra","Corte de sierra (mm)","sierra",c.sierra)}</div>
+   ${Object.entries(c.series).map(([k,sc])=>`<h3>${TIPOS[k].nombre}</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Perfil</th><th>Medida</th><th class="n">2N</th><th class="n">3N</th><th class="n">4N</th></tr></thead><tbody>
+    ${sc.perfiles.map((p,i)=>`<tr><td>${esc(p.nombre)}</td><td><select aria-label="Medida ${esc(p.nombre)}" data-cfg="series.${k}.perfiles.${i}.base" class="cin" style="max-width:104px;padding-left:4px;padding-right:2px">${[["A","Ancho total"],["A2","Ancho total ÷ 2"],["H","Alto total"],["AN","Ancho de nave"],["HN","Alto de nave"],["ANF","Ancho nave fija"]].map(([v,t])=>`<option value="${v}" ${p.base===v?"selected":""}>${t}</option>`).join("")}</select></td>
+     ${["c2","c3","c4"].map(cc=>`<td class="n">${inp("series."+k+".perfiles."+i+"."+cc,p[cc],"Cantidad "+cc,40)}</td>`).join("")}</tr>`).join("")}
+    </tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Desc. vidrio (cm)</th><th class="n">Ancho</th><th class="n">Alto corr.</th><th class="n">Alto fija</th></tr></thead><tbody>
+    ${["2","3","4"].map(n=>`<tr><td>${n} naves</td>${["dA","hC","hF"].map(f=>`<td class="n">${inp("series."+k+".vid."+n+"."+f,sc.vid[n][f],f+" "+n+" naves",54,true)}</td>`).join("")}</tr>`).join("")}
+    </tbody></table></div>`).join("")}
+   <span class="small muted">2N, 3N y 4N: piezas por ventana según sus naves. Ancho de cada vidrio = (ancho de la ventana − descuento) ÷ naves.</span>
+   <h3>Puertas</h3><div class="fgrid">${fld("pt-f06","Ancho útil F06 (cm)","puertas.utilF06",c.puertas.utilF06,"",true)}${fld("pt-t166","Ancho útil T166 (cm)","puertas.utilT166",c.puertas.utilT166,"",true)}</div>
+   <h3>Cocinas en aluminio</h3><div class="fgrid">
+   ${fld("cc-al","Alto del gabinete superior (cm)","cocina.alto",c.cocina.alto,"",true)}${fld("cc-ai","Alto inicial puertas inferiores (cm)","cocina.altoInf",c.cocina.altoInf,"",true)}
+   ${fld("cc-esc","A15 por marco (cm)","cocina.escuadra",c.cocina.escuadra,"",true)}${fld("cc-dp","Lámina PVC: menos por medida (cm)","cocina.descPvc",c.cocina.descPvc,"",true)}</div>
+   <h3>Descuentos de despiece (mm)</h3><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
+   ${Object.keys(c.desc).filter(k=>TIPOS[k]&&!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3 class="small">${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}
+   <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
+
+  ${sec("aj-instalacion","Instalación y ganancia","Instalación por sistema, margen, recargos y redondeo",`
+   <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Instalación $/unidad</th></tr></thead><tbody>
+   ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto).map(([k,t])=>`<tr><td>${esc(t.corto)}</td><td class="n">${inp("instalacionTipo."+k,c.instalacionTipo[k],"Instalación "+t.corto,110)}</td></tr>`).join("")}
+   </tbody></table></div><span class="small muted">Es el valor que aparece al agregar cada ítem; en cada ítem lo puedes cambiar y queda el último usado.</span>
+   <div class="fgrid">
+   ${fld("c-mg","Margen de ganancia %","margen",c.margen,"Ventanas y puertas. En divisiones solo a la mano de obra; pasamanos y cocinas usan su recargo.",true)}
+   ${fld("c-pr","Recargo pasamanos %","pasamanosRecargo",c.pasamanosRecargo,"Sobre acero y vidrios.",true)}
+   ${fld("c-rc","Recargo cocinas %","cocina.recargo",c.cocina.recargo,"Valor inicial; se cambia en cada cocina.",true)}
+   ${fld("c-red","Redondear precios a ($)","redondeo",c.redondeo)}</div>`)}
+
   <button class="btn pri block" data-act="guardar-cfg" ${S.readonly?"disabled":""}>Guardar ajustes</button>
   <div class="panel"><h2>Cuenta y respaldo</h2>
    ${S.user?`<span class="small">Conectado como <b>${esc(S.user.email)}</b>.</span>`:`<div class="note">La base de datos en la nube no está conectada. Los datos quedan solo en este equipo.</div>`}
@@ -1750,8 +1758,9 @@ document.addEventListener("click",async ev=>{
   switch(a){
     case"go":await guardarCfgYa();S.cfgEdit=null;if(b.classList.contains("tab")){S.hist=[]}go(b.dataset.v);break;
     case"ir-precios":{if(sheetFn&&S.itemTmp&&S.view==="cotizar")S.reabrir={tmp:clone(S.itemTmp),idx:S.itemIdx,sheetScroll:$(".sheet")?.scrollTop||0,scroll:window.scrollY};
-      sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";go("ajustes");const el=document.getElementById(b.dataset.v);
+      sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";S.ajOpen.add(b.dataset.v);go("ajustes");const el=document.getElementById(b.dataset.v);
       if(el){el.scrollIntoView({block:"start"});window.scrollBy(0,-70);el.style.transition="box-shadow .3s";el.style.boxShadow="0 0 0 3px var(--accent)";setTimeout(()=>{el.style.boxShadow=""},2500)}break}
+    case"aj-todo":{const ids=[...document.querySelectorAll("details[data-aj]")].map(d=>d.dataset.aj);if(S.ajOpen.size)S.ajOpen.clear();else ids.forEach(x=>S.ajOpen.add(x));render();break}
     case"atras":await guardarCfgYa();S.cfgEdit=null;if(S.hist.length&&history.state&&history.state.v)history.back();else atras();break;
     case"filtro-obras":S.filtroObras=b.dataset.v;render();break;
     case"filtro-cobros":S.filtroCobros=b.dataset.v;render();break;
