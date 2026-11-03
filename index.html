@@ -205,6 +205,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .lote{display:grid;gap:6px}
 .lote-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px minmax(0,1.3fr) 34px;gap:5px;align-items:center}
 .lote-r .cin{width:100%;min-width:0;padding:8px 6px}.lote-r .btn{padding:6px 0;min-height:36px}
+.lote.con-d .lote-r{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px 50px minmax(0,1.2fr) 32px}
+.lote-d{padding:6px 2px!important;font-size:13px}
 .lote-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .lamopc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .lamopc-b{display:flex;flex-direction:column;gap:2px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;font-size:12px;color:inherit;cursor:pointer}
@@ -250,7 +252,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.40.0";
+const APP_VER="1.40.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1257,7 +1259,7 @@ function itemSheetHtml(){
   ${it.tipo==="division"?`<div class="field"><label>Vidrios</label><div class="seg"><button data-act="it-set" data-k="divModo" data-v="estandar" aria-pressed="${it.divModo!=="especial"}">Estándar (inventario)</button><button data-act="it-set" data-k="divModo" data-v="especial" aria-pressed="${it.divModo==="especial"}">Mandar a hacer · ${money(S.cfg.division.especialM2)}/m²</button></div></div>`:""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
   ${puedeLote(it)?`<div class="field"><label>Medidas</label><div class="seg"><button data-act="it-lote" data-v="0" aria-pressed="${!it.loteOn}">Una medida</button><button data-act="it-lote" data-v="1" aria-pressed="${!!it.loteOn}">Varias medidas</button></div>
-    ${it.loteOn?`<span class="hint">Todas con la misma referencia, color, vidrio e instalación de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.</span>`:""}</div>`:""}
+    ${it.loteOn?`<span class="hint">Todas con la misma referencia, color, vidrio e instalación de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.${distsLote(it).length?" En <b>Fija</b> tocas para cambiar el lado de cada ventana (Izq / Der"+((it.naves||2)===2?" / Corr = ambas corredizas":"")+").":""}</span>`:""}</div>`:""}
   ${it.loteOn&&puedeLote(it)?loteHtml(it):it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
     <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
     ${it.tipo==="division"&&it.divModo!=="especial"?`<div class="field"><label>Alto (cm)</label><div class="seg">${[1800,1900].map(v=>`<button data-act="it-alto" data-v="${v}" aria-pressed="${it.alto===v}" style="min-height:44px">${v/10}</button>`).join("")}</div></div>`
@@ -1279,14 +1281,18 @@ function itemSheetHtml(){
 /* Varias medidas de la misma referencia en una sola pantalla */
 const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina","division"].includes(it.tipo);
 function loteItems(it){const base={...it};delete base.lote;delete base.loteOn;
-  return (it.lote||[]).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||""}))}
+  return (it.lote||[]).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||"",...(r.d&&TIPOS[it.tipo]?.serie?{dist:r.d}:{})}))}
+/* Lado de la fija por fila: depende de las naves */
+function distsLote(it){const n=it.naves||2;return !TIPOS[it.tipo]?.serie||n===4?[]:n===2?[["FI","Izq"],["FD","Der"],["CC","Corr"]]:[["FI","Izq"],["FD","Der"]]}
 function loteRes(it){const L=loteItems(it);if(!L.length)return `<span class="small muted">Escribe ancho y alto en cm.</span>`;const F=faltanItems(L);
   const und=L.reduce((a,x)=>a+x.cant,0);return `<div class="row sp"><span><b>${L.length}</b> medida(s) · <b>${und}</b> unidad(es)</span><b class="num">${F.length?"Falta precio":money(calcCot(L).resumen.total)}</b></div>${F.length?`<span class="small" style="color:var(--warn)">Falta: ${esc(F.join(", "))}</span>`:""}`}
-function loteHtml(it){if(!it.lote||!it.lote.length)it.lote=[{a:0,h:0,c:1,u:""}];const L=it.lote;
-  return `<div class="lote"><div class="lote-r lote-h"><span>Ancho</span><span>Alto</span><span>Cant</span><span>Ubicación</span><span></span></div>
+function loteHtml(it){if(!it.lote||!it.lote.length)it.lote=[{a:0,h:0,c:1,u:""}];const L=it.lote,DS=distsLote(it),dd=(it.dist==="FC"?"FI":it.dist)||"FI";
+  const dOf=r=>{const v=r.d||dd;return DS.find(x=>x[0]===v)||DS[0]};
+  return `<div class="lote${DS.length?" con-d":""}"><div class="lote-r lote-h"><span>Ancho</span><span>Alto</span><span>Cant</span>${DS.length?"<span>Fija</span>":""}<span>Ubicación</span><span></span></div>
    ${L.map((r,i)=>`<div class="lote-r"><input id="lt-${i}-a" class="cin" inputmode="decimal" data-lote="${i}.a" value="${r.a?cm(r.a):""}" placeholder="cm" aria-label="Ancho ${i+1}">
     <input id="lt-${i}-h" class="cin" inputmode="decimal" data-lote="${i}.h" value="${r.h?cm(r.h):""}" placeholder="cm" aria-label="Alto ${i+1}">
     <input id="lt-${i}-c" class="cin" inputmode="numeric" data-lote="${i}.c" value="${r.c||1}" aria-label="Cantidad ${i+1}">
+    ${DS.length?`<button class="btn sm lote-d" data-act="lote-d" data-i="${i}" aria-label="Lado de la fija, fila ${i+1}">${dOf(r)[1]}</button>`:""}
     <input id="lt-${i}-u" class="cin" data-lote="${i}.u" value="${esc(r.u||"")}" placeholder="Sala…" aria-label="Ubicación ${i+1}">
     ${i<L.length-1?`<button class="btn sm" data-act="lote-del" data-i="${i}" aria-label="Quitar fila">✕</button>`:"<span></span>"}</div>`).join("")}</div>
   <div class="panel" id="lote-res" style="gap:4px">${loteRes(it)}</div>
@@ -2006,6 +2012,7 @@ document.addEventListener("click",async ev=>{
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
     case"it-lote":S.itemTmp.loteOn=b.dataset.v==="1";if(S.itemTmp.loteOn&&!S.itemTmp.lote?.length)S.itemTmp.lote=[...(S.itemTmp.ancho>0&&S.itemTmp.alto>0?[{a:S.itemTmp.ancho,h:S.itemTmp.alto,c:S.itemTmp.cant||1,u:S.itemTmp.ubicacion||""}]:[]),{a:0,h:0,c:1,u:""}];refreshSheet();break;
+    case"lote-d":{const it=S.itemTmp,DS=distsLote(it),r=it.lote[+b.dataset.i],cur=r.d||((it.dist==="FC"?"FI":it.dist)||"FI"),k=DS.findIndex(x=>x[0]===cur);r.d=DS[(k+1)%DS.length][0];refreshSheet();break}
     case"lote-del":S.itemTmp.lote.splice(+b.dataset.i,1);refreshSheet();break;
     case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;if(b.dataset.k==="mat"||(b.dataset.k==="parte"&&esMel(S.itemTmp))){const d=S.itemTmp;if(esMel(d)){const inf=d.parte==="inferior";d.alto=inf?800:615;d.fondo=inf?550:300;if(d.espaldar==null)d.espaldar=true;d.canto=d.canto||"flex"}else{d.alto=d.parte==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10)}refreshSheet();break}if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
@@ -2095,7 +2102,7 @@ document.addEventListener("input",ev=>{
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
   if(t.dataset.lote&&S.itemTmp?.lote){const [i,f]=t.dataset.lote.split("."),L=S.itemTmp.lote,r=L[+i];if(!r)return;
     r[f]=f==="u"?t.value:f==="c"?Math.round(num(t.value)):Math.round(num(t.value)*10);
-    if(+i===L.length-1&&(r.a>0||r.h>0)){L.push({a:0,h:0,c:1,u:""});refreshSheet()}
+    if(+i===L.length-1&&(r.a>0||r.h>0)){L.push({a:0,h:0,c:1,u:"",...(r.d?{d:r.d}:{})});refreshSheet()}
     else{const e=$("#lote-res");if(e)e.innerHTML=loteRes(S.itemTmp);const g=$('[data-act="guardar-item"]');if(g)g.textContent="Agregar "+loteItems(S.itemTmp).length+" ítem(s) a la cotización"}return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
     if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3"||k==="fondo")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl"||/^np\d$/.test(k))v=Math.round(num(v));else if(k==="recargo")v=num(v);
