@@ -246,7 +246,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.36.0";
+const APP_VER="1.37.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -301,7 +301,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{colores:[{nombre:"Blanco",precio:0}],ancho:183,alto:244,precio:0,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
+  rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{colores:[{nombre:"Blanco",precio:0}],ancho:183,alto:244,precio:0,sierra:4,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, sierra45:4, cobroInicio:1, reciboInicio:1,
   desc:{
@@ -453,7 +453,7 @@ function packFranjasUna(rects,SL,ST,orden,acost,mejorFr){const list=rects.slice(
     s.free=F;delete s.strips;delete s.y;unirSobrantes(s)}
   return sheets}
 /* Varias formas de cortar las láminas para que el usuario escoja */
-function opcionesLam(rects,W,H){if(!rects.length)return [];
+function opcionesLam(rects0,W0,H0,k){k=k||0;if(!rects0.length)return [];const area=rects0.reduce((a,r)=>a+r.w*r.h,0),W=W0+k,H=H0+k;let rects=inflar(rects0,k);
   rects=rects.flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
   const tr=sh=>sh.map(x=>({items:x.items.map(r=>({...r,x:r.y,y:r.x,w:r.h,h:r.w})),free:x.free.map(f=>({x:f.y,y:f.x,w:f.h,h:f.w}))}));
   const Lg=Math.max(W,H),Ct=Math.min(W,H),largo=packFranjas(rects,Lg,Ct),ancho=packFranjas(rects,Ct,Lg);
@@ -461,14 +461,14 @@ function opcionesLam(rects,W,H){if(!rects.length)return [];
   const O=[{id:"optimo",t:"Óptimo",d:"El sobrante más grande posible",sh:packRects(rects,W,H)},
     {id:"largo",t:"Cortes a lo largo",d:"Franjas a lo largo de la lámina",sh:W>=H?largo:tr(largo)},
     {id:"ancho",t:"Cortes a lo ancho",d:"Franjas a lo ancho de la lámina",sh:W<=H?ancho:tr(ancho)}];
-  const area=rects.reduce((a,r)=>a+r.w*r.h,0);
-  for(const o of O){o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W*H)}
+  for(const o of O){o.sh=desinflar(o.sh,k);o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W0*H0)}
   return O}
 function lamOpcSel(key){const o=S.cortesSel==="__draft"?S.draft:obra(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
-function opcionesLamHtml(key,rects,W,H,cotizadas){const O=opcionesLam(rects,W,H);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+function opcionesLamHtml(key,rects,W,H,cotizadas,k){const O=opcionesLam(rects,W,H,k);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   return `<div class="small" style="font-weight:600;margin-top:4px">Forma de cortar · escoge la que más te sirva</div>
    <div class="lamopc">${O.map(o=>`<button class="lamopc-b" data-act="lam-opc" data-k="${esc(key)}" data-v="${o.id}" aria-pressed="${o===sel}"><b>${o.t}</b><span>${o.n} lámina${o.n===1?"":"s"}${o.fuera?" · "+o.fuera+" no caben":""}</span><span>${o.sob?"Sobra "+cm(o.sob.h)+"×"+cm(o.sob.w):"Sin sobrante"}</span><span style="white-space:nowrap">Usa ${Math.round(o.uso*100)} %</span></button>`).join("")}</div>
    ${cotizadas&&sel.n>Math.ceil(cotizadas)?`<div class="note" style="border-color:var(--warn)">Esta forma usa ${sel.n} láminas y en la cotización se cobraron ${String(cotizadas).replace(".",",")}.</div>`:""}
+   ${k?`<span class="small muted">Incluye ${k} mm de corte de sierra entre piezas.</span>`:""}
    ${dibujoLaminas(sel.sh,W,H)}`}
 /* Cuántas tiras salen para una lista de cortes (primero el más largo) */
 function tirasNecesarias(list,L){const k=S.cfg.sierra||0,bins=[];
@@ -544,9 +544,13 @@ const colorEst=it=>it.melColor||melColores()[0].nombre,colorPta=it=>it.melColorP
 const medidaMel=nombre=>{const c=melColores().find(x=>x.nombre===nombre),ml=S.cfg.melamina||{};return {W:+(c&&+c.ancho>0?c.ancho:ml.ancho)||183,H:+(c&&+c.alto>0?c.alto:ml.alto)||244}};
 const mediaMel=nombre=>!!(melColores().find(x=>x.nombre===nombre)?.media);
 /* Cuenta láminas; si se permite media, la última se cobra como media cuando lo usado cabe en la mitad partida por el lado largo */
-function contarLaminas(rects,W,H,media){if(!rects.length)return {n:0,media:false,hojas:[]};const hojas=packRects(rects,W,H);let m=false;
-  if(media){const ult=hojas[hojas.length-1],hw=W>=H?W/2:W,hh=W>=H?H:H/2,ph=packRects(ult.items.map(r=>({...r})),hw,hh);if(ph.length===1&&!ph[0].items.some(r=>r.over))m=true}
-  return {n:hojas.length-(m?0.5:0),media:m,hojas}}
+/* Grosor de sierra en láminas (solo melamina): cada pieza ocupa su medida + el corte; la lámina gana un corte al final */
+const kerfMel=()=>Math.max(0,+S.cfg.melamina?.sierra||0);
+const inflar=(rects,k)=>k?rects.map(r=>({...r,w:r.w+k,h:r.h+k})):rects;
+const desinflar=(sh,k)=>k?sh.map(x=>({...x,items:x.items.map(r=>r.over?r:{...r,w:r.w-k,h:r.h-k})})):sh;
+function contarLaminas(rects,W,H,media,k){k=k||0;if(!rects.length)return {n:0,media:false,hojas:[]};const R=inflar(rects,k),hojas=packRects(R,W+k,H+k);let m=false;
+  if(media){const ult=hojas[hojas.length-1],hw=(W>=H?W/2:W)+k,hh=(W>=H?H:H/2)+k,ph=packRects(ult.items.map(r=>({...r})),hw,hh);if(ph.length===1&&!ph[0].items.some(r=>r.over))m=true}
+  return {n:hojas.length-(m?0.5:0),media:m,hojas:desinflar(hojas,k)}}
 const txtLam=n=>n===0.5?"Media lámina":String(n).replace(".",",")+(n===1?" lámina":" láminas");
 const precioMel=nombre=>{const c=melColores().find(x=>x.nombre===nombre);return +(c&&+c.precio>0?c.precio:S.cfg.melamina?.precio)||0};
 /* Grupos de lámina presentes en un despiece: melamina por color y fondo de 3 mm */
@@ -714,7 +718,7 @@ function calcCot(items,opts){opts=opts||{};
       vidLam.push({nombre:vv.nombre,medida:la+" × "+lh+" cm",piezas:pz.length,laminas:sh.length,comoLamina:nLam,sinPrecio:!(lam>0),valor})}}
   /* Láminas de melamina y de fondo: se suman en todo el pedido y se cobran láminas enteras */
   const laminasDe=(arr,W,H,precio,nombre,medida,media)=>{if(!arr.length)return;const rects=[];arr.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.w,h:p.h})});
-    const cl=contarLaminas(rects,W*10,H*10,media),n=cl.n,valor=n*(+precio||0),tot=arr.reduce((s,p)=>s+p.w*p.h*p.cant,0);arr.forEach(p=>lin[p.i].tab+=tot?valor*p.w*p.h*p.cant/tot:0);
+    const cl=contarLaminas(rects,W*10,H*10,media,kerfMel()),n=cl.n,valor=n*(+precio||0),tot=arr.reduce((s,p)=>s+p.w*p.h*p.cant,0);arr.forEach(p=>lin[p.i].tab+=tot?valor*p.w*p.h*p.cant/tot:0);
     tableros.push({nombre,detalle:rects.length+(rects.length===1?" pieza":" piezas")+" · lámina "+medida,cobrado:txtLam(n)+(cl.media&&n>0.5?" (incluye media)":""),valor})};
   /* Tableros de PVC de puertas: se suman en todo el pedido */
   const tableros=[];
@@ -1360,10 +1364,10 @@ function calcHtml(it){const F=faltanItem({...it,precioManual:0});
 function dibujoLaminas(hojas,W,H){return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
       return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>`}
 function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const L=mel.filter(x=>x.g===g);if(!L.length)return "";
-  const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media),hojas=cl.hojas;
+  const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media,kerfMel()),hojas=cl.hojas;
   return `<div class="panel"><div class="row sp"><h2>${t}</h2><span class="pill st-apr">${txtLam(cl.n)}</span></div><span class="small muted">Lámina de ${W} × ${H} cm${cl.media?` · la última es media lámina (${W>=H?cm(W*5)+" × "+H:W+" × "+cm(H*5)} cm)`:""}</span>
    <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td>${esc(p.pieza)}${partesPieza(p.ancho,p.alto,W*10,H*10)>1?`<div class="small" style="color:var(--warn)">Más larga que la lámina: se corta en ${partesPieza(p.ancho,p.alto,W*10,H*10)} partes de ${cm(Math.max(p.ancho,p.alto)/partesPieza(p.ancho,p.alto,W*10,H*10))} y se unen</div>`:""}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
-   ${opcionesLamHtml(g,r,W*10,H*10,cl.n)}</div>`}).join("")}
+   ${opcionesLamHtml(g,r,W*10,H*10,cl.n,kerfMel())}</div>`}).join("")}
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada").sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
@@ -1579,7 +1583,8 @@ function vAjustes(){
    <div class="field full"><label>Lámina fondo 3 mm (cm)</label><div class="row">${inp("melamina.fondoAncho",c.melamina.fondoAncho,"Ancho lámina fondo",70)}×${inp("melamina.fondoAlto",c.melamina.fondoAlto,"Alto lámina fondo",70)}</div></div>
    ${fld("ml-fp","Precio lámina fondo $","melamina.fondoPrecio",c.melamina.fondoPrecio)}
    ${fld("ml-cf","Canto flex $/metro","melamina.cantoFlex",c.melamina.cantoFlex)}
-   ${fld("ml-cr","Canto rígido $/metro","melamina.cantoRigido",c.melamina.cantoRigido)}</div>`)}
+   ${fld("ml-cr","Canto rígido $/metro","melamina.cantoRigido",c.melamina.cantoRigido)}
+   ${fld("ml-sie","Corte de sierra en láminas (mm)","melamina.sierra",c.melamina.sierra??4,"Lo que se pierde entre piezas al cortar la melamina y el fondo. El PVC no lleva.")}</div>`)}
 
   ${sec("aj-vidrios","Vidrios","Precio por m² y por lámina de cada referencia",`
    <div class="row sp"><span></span><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
@@ -1703,7 +1708,7 @@ function listaMateriales(items){const res=sumarDespiece(items),L=S.cfg.barra||60
     G.push({h:"PVC marmolizado",filas:[["Lámina "+m.ancho+" × "+m.alto+" cm",le.laminas+" lámina"+(le.laminas===1?"":"s"),(l.media?"(se usa "+String(l.laminas).replace(".",",")+") · ":"")+r.length+" piezas"]]})}
   // Melamina y fondo
   {for(const {g,t,W,H,media} of gruposLam(res.mel||[])){const L=(res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;
-    const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media),ent=Math.floor(cl.n);
+    const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media,kerfMel()),ent=Math.floor(cl.n);
     G.push({h:t,filas:[["Lámina "+W+" × "+H+" cm",cl.media?(ent?ent+" lámina"+(ent===1?"":"s")+" + media":"Media lámina"):txtLam(cl.n),r.length+" piezas"]]})}}
   // Vidrio
   if(res.vid.length){const by={};for(const v of res.vid){const k=v.vidrio;(by[k]=by[k]||{m2:0,n:0,l:{}});by[k].m2+=v.ancho*v.alto*v.cant/1e6;by[k].n+=v.cant;const z=cm(v.ancho)+" × "+cm(v.alto);by[k].l[z]=(by[k].l[z]||0)+v.cant}
