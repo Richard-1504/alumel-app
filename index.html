@@ -68,7 +68,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--metal);color:var(--metal-ink);
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px}
 .top-in{max-width:920px;margin:0 auto;display:flex;align-items:center;gap:12px}
-.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .brand-mark{height:38px;width:auto;flex:none}
 .brand-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
 .brand b{font:600 22px/1 var(--f-brand);letter-spacing:.14em;text-transform:uppercase;background:linear-gradient(180deg,#f3e3d0 0,#d4a373 55%,#b07a45 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -218,7 +218,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 
 <header class="top">
   <div class="top-in">
-    <div class="brand"><img class="brand-mark" src="logo-marca.png" alt=""><div class="brand-txt"><b>Alumel</b><span id="sub">Precisión que transforma espacios · v<span id="ver"></span></span></div></div>
+    <div class="brand" role="button" tabindex="0" data-act="inicio" aria-label="Ir al inicio" title="Ir al inicio"><img class="brand-mark" src="logo-marca.png" alt=""><div class="brand-txt"><b>Alumel</b><span id="sub">Precisión que transforma espacios · v<span id="ver"></span></span></div></div>
     <span class="sync" id="sync">Conectando…</span>
     <button class="icon-btn" data-act="go" data-v="ajustes" aria-label="Ajustes">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -241,7 +241,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.30.0";
+const APP_VER="1.31.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -310,7 +310,7 @@ const DEFAULT_CFG = {
 };
 
 /* ============ Estado ============ */
-const S = {cfg:clone(DEFAULT_CFG), cfgExists:false, clientes:[], obras:[], cobros:[], loaded:{}, view:"obras", param:null,
+const S = {cfg:clone(DEFAULT_CFG), cfgExists:false, clientes:[], obras:[], cobros:[], borradores:[], loaded:{}, view:"obras", param:null,
   filtroObras:"activas", filtroCobros:"pendientes", buscar:"", draft:null, cortesObra:"", db:null, dl:null, offline:false, readonly:false};
 function clone(o){return JSON.parse(JSON.stringify(o))}
 /* Ajusta configuraciones guardadas antes de las reglas nuevas de 744/8025 */
@@ -822,7 +822,7 @@ function sketch(it){
 }
 
 /* ============ Almacenamiento ============ */
-const COLS=["clientes","obras","cobros"];
+const COLS=["clientes","obras","cobros","borradores"];
 async function guardar(col,id,data){
   if(S.readonly){toast("No tienes permiso para guardar.");throw new Error("readonly")}
   data={...data,id,actualizado:new Date().toISOString(),por:S.user?.email||""};
@@ -839,8 +839,8 @@ function errGuardar(e){
   else toast("No se pudo guardar en la nube: "+(e?.message||"error"));
   setSync();
 }
-function saveLocal(){try{localStorage.setItem("alumel-local",JSON.stringify({cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros}))}catch(e){}}
-function loadLocal(){try{const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(d){S.cfg=migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg||{}));S.clientes=d.clientes||[];S.obras=d.obras||[];normEstados();S.cobros=d.cobros||[]}}catch(e){}}
+function saveLocal(){try{localStorage.setItem("alumel-local",JSON.stringify({cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros,borradores:S.borradores}))}catch(e){}}
+function loadLocal(){try{const d=JSON.parse(localStorage.getItem("alumel-local")||"null");if(d){S.cfg=migrarCfg(mergeCfg(DEFAULT_CFG,d.cfg||{}));S.clientes=d.clientes||[];S.obras=d.obras||[];normEstados();S.cobros=d.cobros||[];S.borradores=d.borradores||[]}}catch(e){}}
 function setSync(){const el=$("#sync");if(!el)return;
   if(S.offline){el.textContent="Solo este equipo";el.className="sync err";return}
   if(S.readonly){el.textContent="Sin permiso";el.className="sync err";return}
@@ -942,6 +942,7 @@ function vObras(){
     <button class="btn pri" data-act="nueva-cot">+ Nueva cotización</button></div>
   ${S.db&&!S.readonly&&datosLocales()?(()=>{const n=datosLocales().n;return `<div class="note info"><b>Este equipo tiene datos guardados solo aquí</b>: ${n.obras} cotizaciones/obras, ${n.clientes} clientes y ${n.cobros} cuentas de cobro, además de tus ajustes. Súbelos para verlos en todos tus equipos.
     <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="subir-locales">Subir a la nube</button><button class="btn sm" data-act="descartar-locales">No, ya los subí</button></div></div>`})():""}
+  ${panelBorradores()}
   <div class="stats">
     <button class="stat" data-act="filtro-obras" data-v="activas" aria-pressed="${f==="activas"}"><div class="eyebrow">En curso</div><div class="v">${act.length}</div></button>
     <button class="stat" data-act="filtro-obras" data-v="cotizacion" aria-pressed="${f==="cotizacion"}"><div class="eyebrow">Cotizaciones</div><div class="v">${cot.length}</div></button>
@@ -1052,6 +1053,21 @@ function resumenHtml(calc,total,items){const F=faltanItems(items);if(F.length)re
 }
 
 /* --- Cotizar --- */
+/* Cotización a medias: al tocar el logo se guarda como "pendiente de completar" */
+const draftConDatos=d=>!!d&&((d.items||[]).length>0||!!String(d.nombre||"").trim())&&JSON.stringify(d)!==S.draftBase;
+async function guardarBorrador(){const d=clone(S.draft),bid=d.borradorId||uid();const ed=d.id;delete d.id;delete d.borradorId;delete d.calc;
+  await guardar("borradores",bid,{...d,editaDe:ed||null,guardado:new Date().toISOString(),dia:hoy()});S.draft=null;S.draftBase=null}
+function continuarBorrador(id){const b=S.borradores.find(x=>x.id===id);if(!b)return;const d=clone(b),ed=d.editaDe&&obra(d.editaDe);
+  for(const k of ["editaDe","guardado","dia","actualizado","por","id"])delete d[k];d.borradorId=b.id;
+  if(ed){d.id=ed.id;d.estado=ed.estado;d.numero=ed.numero}else{d.id=null;d.estado="cotizacion";delete d.numero}
+  S.draft=d;S.draftBase=JSON.stringify(d);go("cotizar")}
+function panelBorradores(){const L=[...S.borradores].sort((a,b)=>(b.guardado||"").localeCompare(a.guardado||""));if(!L.length)return "";
+  return `<div class="panel" style="border-color:var(--warn)"><h2>Pendientes de completar (${L.length})</h2>
+  <div class="list">${L.map(b=>{const c=clienteDe(b),ed=b.editaDe&&obra(b.editaDe);return `<div class="li"><div class="grow">
+   <div class="eyebrow">${ed?"Cambios sin guardar · COT-"+pad(ed.numero||0):"Nueva cotización"} · ${fechaCorta(b.dia||b.fecha||"")}</div>
+   <div class="t">${esc(b.nombre||(b.items||[]).map(describeItem).slice(0,2).join(", ")||"Sin nombre")}</div>
+   <div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(b.items||[]).length} ítem(s)</div>
+   <div class="row" style="margin-top:8px;gap:8px"><button class="btn sm pri" data-act="continuar-borrador" data-id="${b.id}">Continuar</button><button class="btn sm danger" data-act="borrar-borrador" data-id="${b.id}">Descartar</button></div></div></div>`}).join("")}</div></div>`}
 function nuevoDraft(){return {id:null,clienteId:"",nombre:"",direccion:"",estado:"cotizacion",fecha:hoy(),notas:"",items:[]}}
 /* Vidrios estándar de divisiones que usa una obra: {"60x190":2,...} */
 function vidriosInvObra(o){const m={};for(const it of o.items||[]){if(it.tipo!=="division"||it.precioManual>0)continue;const r=vidriosDivision(it);
@@ -1767,10 +1783,15 @@ document.addEventListener("click",async ev=>{
     case"ver-obra":go("obra",id);break;
     case"ver-cobro":go("cobro",id);break;
     case"ver-cliente":go("cliente",id);break;
-    case"nueva-cot":S.draft=nuevoDraft();go("cotizar");break;
+    case"inicio":{if(S.view==="login")break;if(sheetFn){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow=""}
+      if(draftConDatos(S.draft)&&!S.readonly){try{await guardarBorrador();toast("La cotización quedó en Pendientes de completar")}catch(e){}}
+      await guardarCfgYa();S.cfgEdit=null;S.hist=[];go("obras",null,{sinHist:true});break}
+    case"continuar-borrador":continuarBorrador(id);break;
+    case"borrar-borrador":confirmar("Se borra esta cotización pendiente con sus ítems.","Descartar",async()=>{await borrar("borradores",id);if(S.draft?.borradorId===id)S.draft.borradorId=null;render()});break;
+    case"nueva-cot":S.draft=nuevoDraft();S.draftBase=null;go("cotizar");break;
     case"nueva-cot-cliente":S.draft={...nuevoDraft(),clienteId:id,direccion:cliente(id)?.direccion||""};go("cotizar");break;
-    case"editar-obra":S.draft=clone(obra(id));go("cotizar");break;
-    case"descartar":S.draft=nuevoDraft();render();break;
+    case"editar-obra":S.draft=clone(obra(id));S.draftBase=JSON.stringify(S.draft);go("cotizar");break;
+    case"descartar":{const bid=S.draft?.borradorId;S.draft=nuevoDraft();S.draftBase=null;if(bid)await borrar("borradores",bid);render();break}
     case"cortes-obra":S.cortesObra=id;go("cortes");break;
     case"aprobar-obra":{const F=faltanItems(obra(id)?.items);if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pagoSheet(id,"aprobar");break}
     case"abono-obra":pagoSheet(id,"pago");break;
@@ -1820,7 +1841,7 @@ document.addEventListener("click",async ev=>{
       if(!String(d.nombre||"").trim())d.nombre=nombreAuto(d);
       const id2=d.id||uid();const prev=d.id?obra(d.id):null;
       const numero=prev?.numero||Math.max(0,...S.obras.map(o=>o.numero||0))+1;
-      const calc=calcCot(d.items,d);try{await guardar("obras",id2,{...d,id:undefined,numero,calc,total:calc.resumen.total});toast("Cotización guardada");S.draft=nuevoDraft();go("obra",id2)}catch(e){}break}
+      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;go("obra",id2)}catch(e){}break}
     case"nuevo-cliente":clienteSheet(null,b.dataset.from,b.dataset.from==="cotizar"?S.draft?.clienteNombre:"");break;
     case"cliente-de-obra":{const o=obra(id);S.clienteObra=id;clienteSheet(null,"obra",o?.clienteNombre||"");break}
     case"editar-cliente":clienteSheet(id);break;
@@ -1849,7 +1870,7 @@ document.addEventListener("click",async ev=>{
       b.disabled=true;try{await S.auth.signInWithEmailAndPassword(m,p)}catch(e){b.disabled=false;er.textContent=({"auth/invalid-credential":"Correo o clave incorrectos.","auth/wrong-password":"Correo o clave incorrectos.","auth/user-not-found":"Ese correo no está registrado.","auth/too-many-requests":"Demasiados intentos. Espera unos minutos.","auth/network-request-failed":"Sin internet. La primera vez necesitas conexión para entrar."})[e.code]||e.message}break}
     case"olvide":{const m=$("#lg-mail").value.trim();if(!m){$("#lg-err").textContent="Escribe tu correo y vuelve a tocar 'Olvidé mi clave'.";return}try{await S.auth.sendPasswordResetEmail(m);toast("Te enviamos un correo para cambiar la clave")}catch(e){$("#lg-err").textContent="No se pudo enviar: "+e.message}break}
     case"logout":confirmar("Vas a cerrar sesión en este equipo.","Cerrar sesión",async()=>{await S.auth.signOut()});break;
-    case"exportar":{const data={app:"alumel",version:1,fecha:new Date().toISOString(),cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros};
+    case"exportar":{const data={app:"alumel",version:1,fecha:new Date().toISOString(),cfg:S.cfg,clientes:S.clientes,obras:S.obras,cobros:S.cobros,borradores:S.borradores};
       entregarArchivo("alumel-respaldo-"+hoy()+".json",new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));break}
     case"pdf-cot":{const F=faltanItems(obra(id)?.items);if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pdfCot(obra(id));break}
     case"pdf-cobro":pdfCobro(S.cobros.find(x=>x.id===id));break;
