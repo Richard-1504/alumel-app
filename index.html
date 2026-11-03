@@ -246,7 +246,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.38.1";
+const APP_VER="1.39.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1731,11 +1731,9 @@ function datosCortes(sel){const o=sel==="__draft"?S.draft:obra(sel),items=o?.ite
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(x=>{for(let k=0;k<x.cant;k++)rects.push({w:x.ancho,h:x.alto})});
   return {o,res,per,L,lam:rects.length?laminasMarmo(rects,false).laminas:0,mm}}
 function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&x;
-  let t=`*Lista de cortes — ${S.cfg.empresa.nombre}*\n${o.numero?"COT-"+pad(o.numero)+" · ":""}${o.nombre||"Cotización en curso"}\nTiras de ${cm(D.L)} cm · sierra ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)\n`;
-  for(const {p,bs,angs,orden} of D.per){t+=`\n*${p.sistema} · ${p.nombre}${p.color?" · "+p.color:""}* — ${bs.length} tira${bs.length===1?"":"s"} · corte ${angs.join("°/")}°\n`;
-    if(angs.length>1)t+=p.cortes.map(c=>`   ${c.cant} × ${cm(c.largo)} a ${angCorte(p,c)}°`).join("\n")+"\n";
-    t+=`   Orden: ${orden.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}\n`;
-    t+=bs.map((b,i)=>`   Tira ${i+1}: ${ordenTope([b]).map(([l,n])=>n>1?n+"×"+cm(l):cm(l)).join(" + ")}${b.over?" (más larga que la tira)":" · sobra "+cm(D.L-b.used)}`).join("\n")+"\n"}
+  let t=`*Lista de cortes — ${S.cfg.empresa.nombre}*\n${o.numero?"COT-"+pad(o.numero)+" · ":""}${o.nombre||"Cotización en curso"}\nMedidas en cm\n`;
+  for(const {p,bs,angs} of D.per){t+=`\n*${p.sistema} · ${p.nombre}${p.color?" · "+p.color:""}* (${angs.join("°/")}°)\n`;
+    t+=p.cortes.map(c=>`   ${c.cant} × ${cm(c.largo)}${angs.length>1?" a "+angCorte(p,c)+"°":""}`).join("\n")+"\n"}
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(L.length)t+=`\n*${tt}*\n`+L.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)} · ${x.pieza}`).join("\n")+"\n"}
   if(D.res.pvc.length)t+=`\n*PVC marmolizado* — ${D.lam} lámina${D.lam===1?"":"s"} de ${D.mm.ancho} × ${D.mm.alto}\n`+D.res.pvc.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)}`).join("\n")+"\n";
   if(D.res.esc)t+=`\n*Escuadras A15* — ${D.res.esc} unidades (4 por marco)\n`;
@@ -1759,22 +1757,13 @@ function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){d
 function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase(),selPrev=S.cortesSel;S.cortesSel=sel;if(!ext)pdfHeader(doc,"LISTA DE CORTES",(o.numero?"COT-"+pad(o.numero)+" · ":"")+fechaCorta(hoy()));
   let y=ext?ext.y:40;const nl=n=>{if(y+n>262){doc.addPage();y=20}};nl(16);doc.setFontSize(ext?12:10);doc.setFont("helvetica","bold");doc.text(ext?"Cortes":o.nombre||"Cotización en curso",16,y);doc.setFont("helvetica","normal");doc.setFontSize(10);
-  doc.text("Tiras de "+cm(D.L)+" cm · sierra "+S.cfg.sierra+" mm (diagonal "+(S.cfg.sierra45??S.cfg.sierra)+") · medidas en cm",200,y,{align:"right"});y+=8;
-  for(const {p,bs,angs,orden} of D.per){nl(22);doc.setFillColor(236,230,223);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(10);
-    doc.text(p.sistema+" · "+p.nombre+(p.color?" · "+p.color:""),16,y);doc.text(bs.length+" tira"+(bs.length===1?"":"s")+" · corte "+angs.join("°/")+"°",200,y,{align:"right"});y+=6;
-    doc.setFont("helvetica","normal");doc.setFontSize(9);
-    const cl=doc.splitTextToSize("Cortes: "+p.cortes.map(c=>c.cant+" × "+cm(c.largo)+(angs.length>1?" a "+angCorte(p,c)+"°":"")).join("   "),184);nl(cl.length*4);doc.text(cl,16,y);y+=cl.length*4+1;
-    const ol=doc.splitTextToSize("Orden de corte: "+orden.map(([l,n])=>cm(l)+" x"+n).join(" > "),184);nl(ol.length*4);doc.text(ol,16,y);y+=ol.length*4+2;
-    for(const [i,b] of bs.entries()){nl(9);doc.setFontSize(8);doc.text("Tira "+(i+1),16,y+4);let x=30;const W=150,esc2=W/D.L,BH=6;
-      for(const l of b.cuts){const w=Math.min(W,l*esc2),t=cm(l);doc.setDrawColor(40,34,30);doc.setFillColor(255,255,255);doc.rect(x,y,w,BH,"FD");
-        // la medida siempre va: se achica hasta caber; si el corte es muy angosto, va vertical
-        let fs=7.5;doc.setFontSize(fs);while(fs>2.2&&doc.getTextWidth(t)>w-0.6){fs-=0.25;doc.setFontSize(fs)}
-        if(doc.getTextWidth(t)<=w-0.4)doc.text(t,x+w/2,y+BH/2+fs*0.12,{align:"center"});
-        else{fs=6;doc.setFontSize(fs);while(fs>2.2&&(doc.getTextWidth(t)>BH-0.6||fs*0.3528>w-0.3)){fs-=0.25;doc.setFontSize(fs)}
-          doc.text(t,x+w/2+fs*0.12,y+BH/2+doc.getTextWidth(t)/2,{angle:90})}
-        x+=w+kerfDe(p)*esc2}
-      doc.setFontSize(8);doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+4,{align:"right"});y+=BH+2.5}
-    y+=3}
+  doc.text("Medidas en cm",200,y,{align:"right"});y+=8;
+  for(const {p,bs,angs} of D.per){const C=p.cortes,col=4,filas=Math.ceil(C.length/col);nl(10+filas*8);
+    doc.setFillColor(236,230,223);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(11);
+    doc.text(p.sistema+" · "+p.nombre+(p.color?" · "+p.color:""),16,y);doc.setFontSize(10);doc.text("Corte "+angs.join("°/")+"°",200,y,{align:"right"});y+=8;
+    C.forEach((c,k)=>{const x=16+(k%col)*47;if(k&&k%col===0)y+=8;doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text(String(c.cant),x+8,y,{align:"right"});
+      doc.setFont("helvetica","normal");doc.setFontSize(13);doc.text("x  "+cm(c.largo)+(angs.length>1?"  ("+angCorte(p,c)+"°)":""),x+11,y)});
+    y+=9}
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(tt,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const x of L){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto)+"  ·  "+x.pieza,20,y);y+=4.5}y+=3;
     {const Wl=gruposLam(D.res.mel).find(z=>z.g===g),rr=[];L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,tt,g,rr,Wl.W*10,Wl.H*10,kerfMel())}}
