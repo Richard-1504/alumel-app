@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.5";
+const APP_VER="1.27.6";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -388,7 +388,11 @@ function unirSobrantes(s){let cambio=true;while(cambio){cambio=false;const F=s.f
     if(Math.abs(p.y-q.y)<1e-6&&Math.abs(p.h-q.h)<1e-6&&Math.abs(p.x+p.w-q.x)<1e-6){F.splice(Math.max(a,b),1);F.splice(Math.min(a,b),1);F.push({x:p.x,y:p.y,w:p.w+q.w,h:p.h});cambio=true}
     else if(Math.abs(p.x-q.x)<1e-6&&Math.abs(p.w-q.w)<1e-6&&Math.abs(p.y+p.h-q.y)<1e-6){F.splice(Math.max(a,b),1);F.splice(Math.min(a,b),1);F.push({x:p.x,y:p.y,w:p.w,h:p.h+q.h});cambio=true}}}}
 const sobranteMayor=s=>s.free.reduce((m,f)=>f.w*f.h>(m?m.w*m.h:0)?f:m,null);
+/* Piezas más largas que la lámina: se dividen en partes iguales que sí caben (se unen en el armado) */
+function partesPieza(w,h,W,H){const cabe=(a,b)=>(a<=W+1e-6&&b<=H+1e-6)||(a<=H+1e-6&&b<=W+1e-6);if(cabe(w,h))return 1;
+  const lg=Math.max(w,h),ct=Math.min(w,h);if(ct>Math.min(W,H)+1e-6&&ct>Math.max(W,H)+1e-6)return 0;const lim=ct<=Math.min(W,H)+1e-6?Math.max(W,H):Math.min(W,H);return Math.ceil(lg/lim-1e-9)}
 function packRects(rects,W,H){if(!rects.length)return [];
+  rects=rects.flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
   const ordenes=[(a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h,(a,b)=>b.w*b.h-a.w*a.h,(a,b)=>b.h-a.h||b.w-a.w,(a,b)=>b.w-a.w||b.h-a.h,(a,b)=>(b.w+b.h)-(a.w+a.h),(a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h)||Math.max(b.w,b.h)-Math.max(a.w,a.h)];
   let mejor=null,mejorSc=null;
   for(const o of ordenes)for(const e of ["primero","area","corto","abajo"])for(const p of ["corto","largo","area","vertical"]){
@@ -1214,7 +1218,7 @@ function dibujoLaminas(hojas,W,H){return `<div class="stack" style="gap:8px">${h
 function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H})=>{const L=mel.filter(x=>x.g===g);if(!L.length)return "";
   const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const hojas=packRects(r,W*10,H*10);
   return `<div class="panel"><div class="row sp"><h2>${t}</h2><span class="pill st-apr">${hojas.length} lámina${hojas.length===1?"":"s"}</span></div><span class="small muted">Lámina de ${W} × ${H} cm</span>
-   <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td>${esc(p.pieza)}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
+   <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td>${esc(p.pieza)}${partesPieza(p.ancho,p.alto,W*10,H*10)>1?`<div class="small" style="color:var(--warn)">Más larga que la lámina: se corta en ${partesPieza(p.ancho,p.alto,W*10,H*10)} partes de ${cm(Math.max(p.ancho,p.alto)/partesPieza(p.ancho,p.alto,W*10,H*10))} y se unen</div>`:""}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
    ${dibujoLaminas(hojas,W*10,H*10)}</div>`}).join("")}
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada").sort((a,b)=>(b.numero||0)-(a.numero||0));
