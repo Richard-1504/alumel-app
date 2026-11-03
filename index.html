@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.6";
+const APP_VER="1.27.7";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -395,12 +395,15 @@ function packRects(rects,W,H){if(!rects.length)return [];
   rects=rects.flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
   const ordenes=[(a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h,(a,b)=>b.w*b.h-a.w*a.h,(a,b)=>b.h-a.h||b.w-a.w,(a,b)=>b.w-a.w||b.h-a.h,(a,b)=>(b.w+b.h)-(a.w+a.h),(a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h)||Math.max(b.w,b.h)-Math.max(a.w,a.h)];
   let mejor=null,mejorSc=null;
-  for(const o of ordenes)for(const e of ["primero","area","corto","abajo"])for(const p of ["corto","largo","area","vertical"]){
-    const sh=packUna(rects,W,H,o,e,p),fuera=sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);
+  // se prueba la lámina en sus dos posiciones (el acomodo cambia según hacia dónde se empiece) y se devuelve en la posición original
+  const girar=sh=>sh.map(x=>({items:x.items.map(r=>({...r,x:r.y,y:r.x,w:r.h,h:r.w})),free:x.free.map(f=>({x:f.y,y:f.x,w:f.h,h:f.w}))}));
+  for(const gir of [false,true])for(const o of ordenes)for(const e of ["primero","area","corto","abajo"])for(const p of ["corto","largo","area","vertical"]){
+    const sh=gir?girar(packUna(rects,H,W,o,e,p)):packUna(rects,W,H,o,e,p),fuera=sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);
     // menos láminas; luego el sobrante más grande en cada lámina; luego la última lámina más compacta
     const ult=sh[sh.length-1],usoUlt=ult.items.reduce((a,r)=>a+r.w*r.h,0),bb=ult.items.reduce((m,r)=>Math.max(m,r.y+r.h),0);
     const sob=sh.reduce((a,x)=>{const f=sobranteMayor(x);return a+(f?f.w*f.h:0)},0);
-    const sc=[fuera,sh.length,-Math.round(sob/100),bb];
+    const mx=sh.reduce((m,x)=>{const f=sobranteMayor(x);return Math.max(m,f?f.w*f.h:0)},0);
+    const sc=[fuera,sh.length,-Math.round(mx/1000),-Math.round(sob/1000),bb];   // primero el retazo más grande posible (una sola pieza aprovechable)
     const menor=(x,y)=>{for(let k=0;k<x.length;k++){if(x[k]<y[k])return true;if(x[k]>y[k])return false}return false};
     if(!mejorSc||menor(sc,mejorSc)){mejor=sh;mejorSc=sc}}
   return mejor}
