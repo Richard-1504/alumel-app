@@ -246,7 +246,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.37.0";
+const APP_VER="1.38.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -461,7 +461,7 @@ function opcionesLam(rects0,W0,H0,k){k=k||0;if(!rects0.length)return [];const ar
   const O=[{id:"optimo",t:"Óptimo",d:"El sobrante más grande posible",sh:packRects(rects,W,H)},
     {id:"largo",t:"Cortes a lo largo",d:"Franjas a lo largo de la lámina",sh:W>=H?largo:tr(largo)},
     {id:"ancho",t:"Cortes a lo ancho",d:"Franjas a lo ancho de la lámina",sh:W<=H?ancho:tr(ancho)}];
-  for(const o of O){o.sh=desinflar(o.sh,k);o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W0*H0)}
+  for(const o of O){o.sh=desinflar(o.sh,k,W0,H0);o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W0*H0)}
   return O}
 function lamOpcSel(key){const o=S.cortesSel==="__draft"?S.draft:obra(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
 function opcionesLamHtml(key,rects,W,H,cotizadas,k){const O=opcionesLam(rects,W,H,k);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
@@ -547,10 +547,10 @@ const mediaMel=nombre=>!!(melColores().find(x=>x.nombre===nombre)?.media);
 /* Grosor de sierra en láminas (solo melamina): cada pieza ocupa su medida + el corte; la lámina gana un corte al final */
 const kerfMel=()=>Math.max(0,+S.cfg.melamina?.sierra||0);
 const inflar=(rects,k)=>k?rects.map(r=>({...r,w:r.w+k,h:r.h+k})):rects;
-const desinflar=(sh,k)=>k?sh.map(x=>({...x,items:x.items.map(r=>r.over?r:{...r,w:r.w-k,h:r.h-k})})):sh;
+const desinflar=(sh,k,W,H)=>k?sh.map(x=>({...x,items:x.items.map(r=>r.over?r:{...r,w:r.w-k,h:r.h-k}),free:(x.free||[]).map(f=>({...f,w:Math.min(f.w,W-f.x),h:Math.min(f.h,H-f.y)})).filter(f=>f.w>0&&f.h>0)})):sh;
 function contarLaminas(rects,W,H,media,k){k=k||0;if(!rects.length)return {n:0,media:false,hojas:[]};const R=inflar(rects,k),hojas=packRects(R,W+k,H+k);let m=false;
   if(media){const ult=hojas[hojas.length-1],hw=(W>=H?W/2:W)+k,hh=(W>=H?H:H/2)+k,ph=packRects(ult.items.map(r=>({...r})),hw,hh);if(ph.length===1&&!ph[0].items.some(r=>r.over))m=true}
-  return {n:hojas.length-(m?0.5:0),media:m,hojas:desinflar(hojas,k)}}
+  return {n:hojas.length-(m?0.5:0),media:m,hojas:desinflar(hojas,k,W,H)}}
 const txtLam=n=>n===0.5?"Media lámina":String(n).replace(".",",")+(n===1?" lámina":" láminas");
 const precioMel=nombre=>{const c=melColores().find(x=>x.nombre===nombre);return +(c&&+c.precio>0?c.precio:S.cfg.melamina?.precio)||0};
 /* Grupos de lámina presentes en un despiece: melamina por color y fondo de 3 mm */
@@ -1741,8 +1741,23 @@ function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&
   if(D.res.esc)t+=`\n*Escuadras A15* — ${D.res.esc} unidades (4 por marco)\n`;
   if(D.res.vid.length)t+=`\n*Vidrios*\n`+D.res.vid.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
+/* Plano de corte de láminas en el PDF (misma forma que escogiste en Cortes) */
+function pdfLaminas(doc,y,nl,titulo,key,rects,W,H,k){const O=opcionesLam(rects,W,H,k);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+  const sc=Math.min(184/H,95/W),dw=H*sc,dh=W*sc;
+  nl(dh+18);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(titulo+" · plano de corte ("+sel.t.toLowerCase()+")",16,y);doc.setFont("helvetica","normal");doc.setFontSize(8);
+  doc.text("Lámina "+cm(W)+" × "+cm(H)+" cm"+(k?" · sierra "+k+" mm":""),200,y,{align:"right"});y+=4;
+  sel.sh.forEach((h,i)=>{nl(dh+9);doc.setFontSize(8);doc.setTextColor(106,95,88);doc.text("Lámina "+(i+1),16,y+3);doc.setTextColor(31,26,23);y+=4.5;const x0=16;
+    doc.setDrawColor(40,34,30);doc.setFillColor(236,230,223);doc.rect(x0,y,dw,dh,"FD");
+    const f=sobranteMayor(h);if(f&&f.w>=100&&f.h>=100){doc.setFillColor(246,232,214);doc.rect(x0+f.y*sc,y+f.x*sc,f.h*sc,f.w*sc,"F");doc.setTextColor(150,100,50);doc.setFontSize(7);
+      doc.text("Sobra "+cm(f.h)+"x"+cm(f.w),x0+(f.y+f.h/2)*sc,y+(f.x+f.w/2)*sc+1,{align:"center"});doc.setTextColor(31,26,23)}
+    for(const r of h.items.filter(r=>!r.over)){const rx=x0+r.y*sc,ry=y+r.x*sc,rw=r.h*sc,rh=r.w*sc;doc.setFillColor(255,255,255);doc.setDrawColor(40,34,30);doc.rect(rx,ry,rw,rh,"FD");
+      const t=cm(r.h)+"x"+cm(r.w);let fs=8;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rw-1){fs-=0.5;doc.setFontSize(fs)}
+      if(doc.getTextWidth(t)<=rw-0.5&&rh>fs*0.4)doc.text(t,rx+rw/2,ry+rh/2+fs*0.13,{align:"center"});
+      else{fs=7;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rh-1){fs-=0.5;doc.setFontSize(fs)}doc.text(t,rx+rw/2+fs*0.13,ry+rh/2+doc.getTextWidth(t)/2,{angle:90})}}
+    y+=dh+4});
+  return y+2}
 function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
-  const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase();if(!ext)pdfHeader(doc,"LISTA DE CORTES",(o.numero?"COT-"+pad(o.numero)+" · ":"")+fechaCorta(hoy()));
+  const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase(),selPrev=S.cortesSel;S.cortesSel=sel;if(!ext)pdfHeader(doc,"LISTA DE CORTES",(o.numero?"COT-"+pad(o.numero)+" · ":"")+fechaCorta(hoy()));
   let y=ext?ext.y:40;const nl=n=>{if(y+n>262){doc.addPage();y=20}};nl(16);doc.setFontSize(ext?12:10);doc.setFont("helvetica","bold");doc.text(ext?"Cortes":o.nombre||"Cotización en curso",16,y);doc.setFont("helvetica","normal");doc.setFontSize(10);
   doc.text("Tiras de "+cm(D.L)+" cm · sierra "+S.cfg.sierra+" mm (diagonal "+(S.cfg.sierra45??S.cfg.sierra)+") · medidas en cm",200,y,{align:"right"});y+=8;
   for(const {p,bs,angs,orden} of D.per){nl(22);doc.setFillColor(236,230,223);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(10);
@@ -1761,13 +1776,15 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
       doc.setFontSize(8);doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+4,{align:"right"});y+=BH+2.5}
     y+=3}
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(tt,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
-    for(const x of L){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto)+"  ·  "+x.pieza,20,y);y+=4.5}y+=3}
+    for(const x of L){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto)+"  ·  "+x.pieza,20,y);y+=4.5}y+=3;
+    {const Wl=gruposLam(D.res.mel).find(z=>z.g===g),rr=[];L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,tt,g,rr,Wl.W*10,Wl.H*10,kerfMel())}}
   if(D.res.pvc.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("PVC marmolizado · "+D.lam+" lámina"+(D.lam===1?"":"s")+" de "+D.mm.ancho+" × "+D.mm.alto,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
-    for(const x of D.res.pvc){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto),20,y);y+=4.5}y+=3}
+    for(const x of D.res.pvc){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto),20,y);y+=4.5}y+=3;
+    {const rr=[];D.res.pvc.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,"PVC marmolizado","pvc",rr,D.mm.ancho*10,D.mm.alto*10,0)}}
   if(D.res.esc){nl(10);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Escuadras A15: "+D.res.esc+" unidades (4 por marco)",16,y);doc.setFont("helvetica","normal");y+=7}
   if(D.res.vid.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Vidrios",16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const v of D.res.vid){nl(5);doc.text(v.cant+" × "+cm(v.ancho)+" × "+cm(v.alto)+" · "+v.vidrio+(v.nota?" ("+v.nota+")":""),20,y);y+=4.5}}
-  if(ext)return y;
+  S.cortesSel=selPrev;if(ext)return y;
   guardarArchivo("Cortes_"+(o.numero?"COT-"+pad(o.numero):"cotizacion")+".pdf",doc)}
 
 /* ============ Hoja de taller: todo lo que necesita el trabajador en un PDF ============ */
