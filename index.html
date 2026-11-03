@@ -202,6 +202,10 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 .kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:14px}
 .cin{border:1px solid var(--line);border-radius:6px;padding:7px;background:var(--surface);font-size:16px;min-height:38px}
 a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}a.btn:not(.pri):not(.dark){color:inherit}
+.lamopc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.lamopc-b{display:flex;flex-direction:column;gap:2px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;font-size:12px;color:inherit;cursor:pointer}
+.lamopc-b b{font-size:13px}.lamopc-b span{color:var(--muted)}
+.lamopc-b[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
 details.aj{padding:0;gap:0}
 details.aj>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px}
 details.aj>summary::-webkit-details-marker{display:none}
@@ -242,7 +246,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.35.0";
+const APP_VER="1.36.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -420,6 +424,52 @@ function packRects(rects,W,H){if(!rects.length)return [];
     const menor=(x,y)=>{for(let k=0;k<x.length;k++){if(x[k]<y[k])return true;if(x[k]>y[k])return false}return false};
     if(!mejorSc||menor(sc,mejorSc)){mejor=sh;mejorSc=sc}}
   return mejor}
+/* Corte por franjas (como en el taller): primero cortes de lado a lado que sacan franjas, luego cada franja se corta en piezas.
+   SL = largo de la franja, ST = lo que se va apilando. Devuelve láminas en esas coordenadas. */
+function packFranjas(rects,SL,ST){let mejor=null,msc=null;
+  const ords=[(a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||Math.min(b.w,b.h)-Math.min(a.w,a.h),(a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h)||Math.max(b.w,b.h)-Math.max(a.w,a.h),(a,b)=>b.w*b.h-a.w*a.h];
+  for(const o of ords)for(const acost of [true,false])for(const mejorFr of [false,true]){const sh=packFranjasUna(rects,SL,ST,o,acost,mejorFr);
+    const f=sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0),mx=sh.reduce((m,x)=>{const q=sobranteMayor(x);return Math.max(m,q?q.w*q.h:0)},0),sc=[f,sh.length,-Math.round(mx/1000)];
+    if(!msc||sc[0]<msc[0]||sc[0]===msc[0]&&(sc[1]<msc[1]||sc[1]===msc[1]&&sc[2]<msc[2])){mejor=sh;msc=sc}}
+  return mejor}
+function packFranjasUna(rects,SL,ST,orden,acost,mejorFr){const list=rects.slice().sort(orden),sheets=[];
+  const ori=r=>{const a=[[Math.max(r.w,r.h),Math.min(r.w,r.h)],[Math.min(r.w,r.h),Math.max(r.w,r.h)]];return (acost?a:a.reverse()).filter(([l,h])=>l<=SL+1e-6&&h<=ST+1e-6)};
+  for(const r of list){const O=ori(r);if(!O.length){sheets.push({strips:[],y:0,items:[{...r,over:true}]});continue}let ok=false;
+    // 1) en una franja que ya existe: encima de una pieza de la misma columna o al final de la franja
+    if(mejorFr){let b=null;for(const s of sheets)for(const st of s.strips||[])for(const [l,h] of O){if(h>st.h+1e-6)continue;const col=st.cols.find(c=>l<=c.len+1e-6&&c.used+h<=st.h+1e-6);
+        const sc=col?st.h-col.used-h:(st.x+l<=SL+1e-6?st.h-h+0.5:null);if(sc!=null&&(!b||sc<b.sc))b={s,st,l,h,col,sc}}
+      if(b){const {s,st,l,h,col}=b;if(col){s.items.push({...r,x:col.x,y:st.y+col.used,w:l,h});col.used+=h}else{st.cols.push({x:st.x,len:l,used:h});s.items.push({...r,x:st.x,y:st.y,w:l,h});st.x+=l}continue}}
+    else for(const s of sheets){for(const st of s.strips){for(const [l,h] of O){if(h>st.h+1e-6)continue;
+          const col=st.cols.find(c=>l<=c.len+1e-6&&c.used+h<=st.h+1e-6);
+          if(col){s.items.push({...r,x:col.x,y:st.y+col.used,w:l,h});col.used+=h;ok=true;break}
+          if(st.x+l<=SL+1e-6){st.cols.push({x:st.x,len:l,used:h});s.items.push({...r,x:st.x,y:st.y,w:l,h});st.x+=l;ok=true;break}}if(ok)break}if(ok)break}
+    if(ok)continue;
+    // 2) franja nueva (la pieza acostada a lo largo de la franja si cabe)
+    const [l,h]=O[0];
+    let s=sheets.find(x=>x.strips&&x.y+h<=ST+1e-6);if(!s){s={strips:[],y:0,items:[]};sheets.push(s)}
+    s.strips.push({y:s.y,h,x:l,cols:[{x:0,len:l,used:h}]});s.items.push({...r,x:0,y:s.y,w:l,h});s.y+=h}
+  for(const s of sheets){const F=[];if(s.y<ST-1e-6)F.push({x:0,y:s.y,w:SL,h:ST-s.y});
+    for(const st of s.strips){if(st.x<SL-1e-6)F.push({x:st.x,y:st.y,w:SL-st.x,h:st.h});for(const c of st.cols)if(c.used<st.h-1e-6)F.push({x:c.x,y:st.y+c.used,w:c.len,h:st.h-c.used})}
+    s.free=F;delete s.strips;delete s.y;unirSobrantes(s)}
+  return sheets}
+/* Varias formas de cortar las láminas para que el usuario escoja */
+function opcionesLam(rects,W,H){if(!rects.length)return [];
+  rects=rects.flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
+  const tr=sh=>sh.map(x=>({items:x.items.map(r=>({...r,x:r.y,y:r.x,w:r.h,h:r.w})),free:x.free.map(f=>({x:f.y,y:f.x,w:f.h,h:f.w}))}));
+  const Lg=Math.max(W,H),Ct=Math.min(W,H),largo=packFranjas(rects,Lg,Ct),ancho=packFranjas(rects,Ct,Lg);
+  // en las franjas la coordenada x va a lo largo de la franja: se pasa a la posición de la lámina (x sobre W)
+  const O=[{id:"optimo",t:"Óptimo",d:"El sobrante más grande posible",sh:packRects(rects,W,H)},
+    {id:"largo",t:"Cortes a lo largo",d:"Franjas a lo largo de la lámina",sh:W>=H?largo:tr(largo)},
+    {id:"ancho",t:"Cortes a lo ancho",d:"Franjas a lo ancho de la lámina",sh:W<=H?ancho:tr(ancho)}];
+  const area=rects.reduce((a,r)=>a+r.w*r.h,0);
+  for(const o of O){o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W*H)}
+  return O}
+function lamOpcSel(key){const o=S.cortesSel==="__draft"?S.draft:obra(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
+function opcionesLamHtml(key,rects,W,H,cotizadas){const O=opcionesLam(rects,W,H);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+  return `<div class="small" style="font-weight:600;margin-top:4px">Forma de cortar · escoge la que más te sirva</div>
+   <div class="lamopc">${O.map(o=>`<button class="lamopc-b" data-act="lam-opc" data-k="${esc(key)}" data-v="${o.id}" aria-pressed="${o===sel}"><b>${o.t}</b><span>${o.n} lámina${o.n===1?"":"s"}${o.fuera?" · "+o.fuera+" no caben":""}</span><span>${o.sob?"Sobra "+cm(o.sob.h)+"×"+cm(o.sob.w):"Sin sobrante"}</span><span style="white-space:nowrap">Usa ${Math.round(o.uso*100)} %</span></button>`).join("")}</div>
+   ${cotizadas&&sel.n>Math.ceil(cotizadas)?`<div class="note" style="border-color:var(--warn)">Esta forma usa ${sel.n} láminas y en la cotización se cobraron ${String(cotizadas).replace(".",",")}.</div>`:""}
+   ${dibujoLaminas(sel.sh,W,H)}`}
 /* Cuántas tiras salen para una lista de cortes (primero el más largo) */
 function tirasNecesarias(list,L){const k=S.cfg.sierra||0,bins=[];
   for(const l of list.slice().sort((a,b)=>b-a)){if(l>L){bins.push(L);continue}const i=bins.findIndex(u=>u+k+l<=L);if(i<0)bins.push(l);else bins[i]+=k+l}
@@ -1313,10 +1363,10 @@ function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const 
   const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media),hojas=cl.hojas;
   return `<div class="panel"><div class="row sp"><h2>${t}</h2><span class="pill st-apr">${txtLam(cl.n)}</span></div><span class="small muted">Lámina de ${W} × ${H} cm${cl.media?` · la última es media lámina (${W>=H?cm(W*5)+" × "+H:W+" × "+cm(H*5)} cm)`:""}</span>
    <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td>${esc(p.pieza)}${partesPieza(p.ancho,p.alto,W*10,H*10)>1?`<div class="small" style="color:var(--warn)">Más larga que la lámina: se corta en ${partesPieza(p.ancho,p.alto,W*10,H*10)} partes de ${cm(Math.max(p.ancho,p.alto)/partesPieza(p.ancho,p.alto,W*10,H*10))} y se unen</div>`:""}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
-   ${dibujoLaminas(hojas,W*10,H*10)}</div>`}).join("")}
+   ${opcionesLamHtml(g,r,W*10,H*10,cl.n)}</div>`}).join("")}
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada").sort((a,b)=>(b.numero||0)-(a.numero||0));
-  const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));
+  const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
   const items=sel==="__draft"?(S.draft?.items||[]):(obra(sel)?.items||[]);
   const res=sumarDespiece(items);
   const L=S.cfg.barra;
@@ -1329,7 +1379,7 @@ function vCortes(){
       <div class="stack" style="gap:6px">${(()=>{const med=[...new Set(p.cortes.map(c=>c.largo))];return bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div class="cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%;${j&&b.cuts[j-1]===l?"border-left:1px dashed rgba(255,255,255,.35);":""}" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")})()}</div></div>`}).join("");
   const m2=res.vid.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6,nVid=res.vid.reduce((s,v)=>s+v.cant,0);
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.ancho,h:p.alto})});
-  const nPvc=rects.length,hojas=nPvc?packRects(rects,mm.ancho*10,mm.alto*10):[],L2=nPvc?laminasMarmo(rects,true):null;
+  const nPvc=rects.length,L2=nPvc?laminasMarmo(rects,true):null;
   return `
   ${backBtn()}
   <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)</div><h1>Cortes</h1></div></div>
@@ -1351,8 +1401,7 @@ function vCortes(){
    <div class="tbl-wrap"><table><thead><tr><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>
    ${res.pvc.map(p=>`<tr><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}
    </tbody></table></div>
-   <div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${mm.alto*10} ${mm.ancho*10}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
-      return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>
+   ${opcionesLamHtml("pvc",rects,mm.ancho*10,mm.alto*10,L2.laminas)}
    <span class="small muted">Medidas en cm. Distribución sugerida para cortar; en cobre, el sobrante más grande de cada lámina.</span></div>`:""}
   ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
    <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th><th class="n">m²</th></tr></thead><tbody>
@@ -1969,6 +2018,8 @@ document.addEventListener("click",async ev=>{
     case"materiales":materialesSheet(id);break;
     case"enviar-cortes":compartirTexto(textoCortes(b.dataset.v));break;
     case"compartir-archivo":{const A=S.archivo;if(!A)break;try{await navigator.share({files:[A.f],title:A.nombre})}catch(e){}break}
+    case"lam-opc":{const k=b.dataset.k,v=b.dataset.v,sel=S.cortesSel;S.lamOpc={...(S.lamOpc||{}),[k]:v};
+      if(sel==="__draft"&&S.draft)S.draft.lamOpc={...(S.draft.lamOpc||{}),[k]:v};else{const o=obra(sel);if(o&&!S.readonly){o.lamOpc={...(o.lamOpc||{}),[k]:v};guardar("obras",o.id,o).catch(()=>{})}}render();break}
     case"pdf-cortes":pdfCortes(b.dataset.v);break;
     case"hoja-taller":pdfTaller(id);break;
     case"enviar-materiales":compartirTexto(S.matTxt||"");break;
