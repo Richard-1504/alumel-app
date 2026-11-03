@@ -229,7 +229,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.27.4";
+const APP_VER="1.27.5";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -762,9 +762,12 @@ function sketch(it){
   else if(it.tipo==="corrediza"){const hw=w/n;for(let i=0;i<n;i++){inner+=`<rect x="${x+4+i*hw}" y="${y+4}" width="${hw-8}" height="${h-8}" ${glass} ${s} stroke-width="2"/>`}
     inner+=`<path d="M${x+w/2-14} ${y+h/2}h28m-6-5 6 5-6 5" fill="none" ${s} stroke-width="1.5"/>`}
   else if(it.tipo==="proyectante"){inner=`<rect x="${x+5}" y="${y+5}" width="${w-10}" height="${h-10}" ${glass} ${s} stroke-width="2"/><path d="M${x+5} ${y+h-5}L${x+w/2} ${y+5}L${x+w-5} ${y+h-5}" fill="none" ${s} stroke-dasharray="4 3"/>`}
-  else if(esMel(it)){const T=tramosEf(it),tot=T.reduce((a,t)=>a+t.A,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
-    for(const [kt,{A,Ap,ci,cd}] of T.entries()){const N=puertasTramo(it,kt),tw=A*sc,pw=Ap*sc/N,x0=cx+ci*sc;inner+=`<rect x="${cx}" y="${y}" width="${tw}" height="${h}" fill="var(--surface)" ${s} stroke-width="2"/>`+ciegos(cx,y,tw,h,ci*sc,cd*sc);
-      for(let k=0;k<N;k++){const px=x0+k*pw,izq=k%2===0&&k<N-(N%2);inner+=`<rect x="${px+1}" y="${y+2}" width="${Math.max(1,pw-2)}" height="${h-2}" fill="#d9c3a5" ${s} stroke-width="1.2"/><line x1="${izq?px+pw-6:px+5}" y1="${y+h/2-6}" x2="${izq?px+pw-6:px+5}" y2="${y+h/2+6}" ${s} stroke-width="2"/>`}
+  else if(esMel(it)){const inf=esInf(it),T=tramosEf(it),tot=T.reduce((a,t)=>a+t.A,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
+    const dd=inf?0:Math.min(18,(it.fondo||300)*sc*0.45);  // gabinete superior en perspectiva (muestra el fondo)
+    for(const [kt,{A,Ap,ci,cd}] of T.entries()){const N=puertasTramo(it,kt),tw=A*sc,pw=Ap*sc/N,x0=cx+ci*sc,top=y+dd,hh=h-dd,col="#d9c3a5";
+      if(dd)inner+=`<path d="M${cx} ${top}L${cx+dd} ${y}H${cx+tw+dd}L${cx+tw} ${top}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/><path d="M${cx+tw} ${top}L${cx+tw+dd} ${y}V${y+hh}L${cx+tw} ${top+hh}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/>`;
+      inner+=`<rect x="${cx}" y="${top}" width="${tw}" height="${hh}" fill="var(--surface)" ${s} stroke-width="2"/>`+ciegos(cx,top,tw,hh,ci*sc,cd*sc);
+      for(let k=0;k<N;k++){const px=x0+k*pw,izq=k%2===0&&k<N-(N%2),my=inf?top+hh/2-6:top+hh-16;inner+=`<rect x="${px+1}" y="${top+2}" width="${Math.max(1,pw-2)}" height="${hh-2}" fill="${col}" ${s} stroke-width="1.2"/><line x1="${izq?px+pw-6:px+5}" y1="${my}" x2="${izq?px+pw-6:px+5}" y2="${my+12}" ${s} stroke-width="2"/>`}
       cx+=tw+gap}}
   else if(it.tipo==="cocina"){const inf=esInf(it),T=tramosEf(it),tot=T.reduce((a,t)=>a+t.A,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
     const dd=inf?0:Math.min(18,300*sc*0.45);  // profundidad (30 cm) en perspectiva para el gabinete superior
