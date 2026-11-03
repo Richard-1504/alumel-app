@@ -652,7 +652,7 @@ function calcCot(items,opts){opts=opts||{};
   /* Láminas de melamina y de fondo: se suman en todo el pedido y se cobran láminas enteras */
   const laminasDe=(arr,W,H,precio,nombre,medida,media)=>{if(!arr.length)return;const rects=[];arr.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.w,h:p.h})});
     const cl=contarLaminas(rects,W*10,H*10,media),n=cl.n,valor=n*(+precio||0),tot=arr.reduce((s,p)=>s+p.w*p.h*p.cant,0);arr.forEach(p=>lin[p.i].tab+=tot?valor*p.w*p.h*p.cant/tot:0);
-    tableros.push({nombre,detalle:rects.length+(rects.length===1?" pieza":" piezas")+" · lámina "+medida,cobrado:txtLam(n)+(cl.media?" (incluye media)":""),valor})};
+    tableros.push({nombre,detalle:rects.length+(rects.length===1?" pieza":" piezas")+" · lámina "+medida,cobrado:txtLam(n)+(cl.media&&n>0.5?" (incluye media)":""),valor})};
   /* Tableros de PVC de puertas: se suman en todo el pedido */
   const tableros=[];
   if(cielo.length){const c=cfg.puertas.cielo,list=[];cielo.forEach(p=>{for(let k=0;k<p.cant;k++)list.push(p.largo)});
