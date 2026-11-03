@@ -241,7 +241,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.32.0";
+const APP_VER="1.33.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -692,6 +692,35 @@ function calcCot(items,opts){opts=opts||{};
 const valLinea=(calc,i)=>{const l=calc.lineas[i]||{};return {unit:l.unit,total:l.total}};   // cada renglón con su parte del total (los renglones suman el total)
 /* Precio congelado: una cotización guardada conserva los precios con que se hizo, aunque luego cambies Ajustes */
 function calcCongelado(o){return !!(o&&o.calc&&o.calc.lineas&&o.calc.lineas.length===(o.items||[]).length&&o.calc.resumen&&(o.calcFalta===false||(o.calcFalta===undefined&&!faltanItems(o.items).length)))}
+/* Lista de todos los precios de Ajustes con su nombre, para saber cuáles cambiaron en una cotización */
+function preciosLista(c){const L=[],add=(key,lab,o,k,f)=>{if(o&&o[k]!=null&&o[k]!=="")L.push([key,lab,o,k,f||"$"])};
+  [["naveDucha","Nave de ducha (tira)"],["t78","T78 (tira)"],["a15","A15 (tira)"]].forEach(([k,t])=>add("coc."+k,t,c.cocina,k));
+  for(const r of Object.keys(c.puertas.perfiles||{}))add("pta."+r,r+" (tira)",c.puertas.perfiles,r);
+  for(const [k,sc] of Object.entries(c.series||{})){(sc.perfiles||[]).forEach(p=>add("ser."+k+"."+p.nombre,TIPOS[k].corto+" · "+p.nombre+" (tira)",p,"precio"));
+    if(sc.rod){add("rod."+k+".n","Rodamiento nylon "+TIPOS[k].corto,sc.rod,"nylon");add("rod."+k+".a","Rodamiento ABB "+TIPOS[k].corto,sc.rod,"abb")}}
+  for(const k of Object.keys(c.perfilMl||{}))if(TIPOS[k])add("pml."+k,"Perfil "+TIPOS[k].corto+" (metro)",c.perfilMl,k);
+  (c.colores||[]).forEach(x=>add("col."+x.nombre,"Recargo color "+x.nombre,x,"factor","x"));
+  (c.vidrios||[]).forEach(v=>{add("vid."+v.nombre+".m2","Vidrio "+v.nombre+" (m²)",v,"m2");add("vid."+v.nombre+".lam","Vidrio "+v.nombre+" (lámina)",v,"lam")});
+  add("pvc.marmo","Lámina PVC marmolizado",c.puertas.marmo,"precio");add("pvc.cielo","Tira PVC cielorraso",c.puertas.cielo,"precio");
+  add("mel.precio","Lámina melamina (general)",c.melamina,"precio");(c.melamina.colores||[]).forEach(x=>add("mel."+x.nombre,"Lámina melamina "+x.nombre,x,"precio"));
+  [["fondoPrecio","Lámina fondo 3 mm"],["cantoFlex","Canto flex (metro)"],["cantoRigido","Canto rígido (metro)"]].forEach(([k,t])=>add("mel."+k,t,c.melamina,k));
+  [["templadoM2","Vidrio templado (m²)"],["especialM2","Templado a la medida (m²)"],["accesorios","Accesorios división"]].forEach(([k,t])=>add("div."+k,t,c.division,k));
+  add("empaqueMl","Empaque de vidrio (metro)",c,"empaqueMl");for(const k of Object.keys(c.accesorios||{}))if(TIPOS[k])add("acc."+k,"Otros accesorios "+TIPOS[k].corto,c.accesorios,k);
+  for(const [k,t] of PTA_ACC)add("pacc."+k,t,c.puertas.acc,k);
+  [["bisagra","Bisagras cocina (par)"],["manija","Manija cocina"],["empaque","Empaque PVC cocina (metro)"],["losero","Losero"],["vidrioHueco","Vidrio por hueco cocina"]].forEach(([k,t])=>add("cacc."+k,t,c.cocina,k));
+  for(const k of Object.keys(c.instalacionTipo||{}))if(TIPOS[k])add("ins."+k,"Instalación "+TIPOS[k].corto,c.instalacionTipo,k);
+  add("margen","Margen de ganancia",c,"margen","%");add("pasaRec","Recargo pasamanos",c,"pasamanosRecargo","%");add("redondeo","Redondeo de precios",c,"redondeo");
+  return L}
+function preciosSnap(c){const m={};for(const [k,,o,f] of preciosLista(c||S.cfg))m[k]=+o[f]||0;return m}
+function conCfg(c,fn){const old=S.cfg;S.cfg=c;try{return fn()}finally{S.cfg=old}}
+const fmtPrecio=(v,f)=>f==="%"?String(v).replace(".",",")+" %":f==="x"?"×"+String(v).replace(".",","):money(v);
+/* Qué precios cambiaron y afectan esta cotización, y cuánto valdría hoy */
+function variacionObra(o){if(!calcCongelado(o)||faltanItems(o.items).length)return null;const tot=o.calc.resumen.total,vivo=calcCot(o.items||[],o).resumen.total;if(Math.abs(vivo-tot)<1)return null;
+  let V=[];if(o.precios){const now=preciosLista(S.cfg).filter(([k,,ob,f])=>k in o.precios&&+o.precios[k]!==(+ob[f]||0));
+    V=now.filter(([k])=>{const c=clone(S.cfg),e=preciosLista(c).find(x=>x[0]===k);e[2][e[3]]=o.precios[k];return Math.abs(conCfg(c,()=>calcCot(o.items||[],o).resumen.total)-vivo)>=1})
+     .map(([k,lab,ob,f,fm])=>({lab,antes:o.precios[k],ahora:+ob[f]||0,fm}))}
+  const key=JSON.stringify([vivo,V.map(v=>[v.lab,v.ahora])]);if(o.preciosIgnorados===key)return null;
+  return {tot,vivo,V,key}}
 function calcDe(o){return calcCongelado(o)?o.calc:calcCot(o.items||[],o)}
 const faltanObra=o=>calcCongelado(o)?[]:faltanItems(o?.items);
 function totalObra(o){return calcDe(o).resumen.total}
@@ -968,6 +997,10 @@ function vObra(){
   return `
   ${backBtn()}
   <div class="head"><div class="grow"><div class="eyebrow">Cotización COT-${pad(o.numero||0)} · ${fechaCorta(o.fecha)}</div><h1>${esc(o.nombre||"Sin nombre")}</h1></div>${estadoPill(o.estado)}</div>
+  ${(()=>{const v=variacionObra(o);if(!v)return "";return `<div class="note" style="border-color:var(--warn)"><b>Los precios tuvieron variaciones</b> desde que se hizo esta cotización${o.preciosFecha?" ("+fechaCorta(o.preciosFecha)+")":""}.
+    ${v.V.length?`<ul style="margin:6px 0;padding-left:18px">${v.V.map(x=>`<li>${esc(x.lab)}: <span style="white-space:nowrap">${fmtPrecio(x.antes,x.fm)}</span> → <b style="white-space:nowrap">${fmtPrecio(x.ahora,x.fm)}</b></li>`).join("")}</ul>`:`<div class="small" style="margin:6px 0">Cambiaron precios o medidas en Ajustes que la afectan.</div>`}
+    Precio inicial: <b>${money(v.tot)}</b> · con los precios de hoy: <b>${money(v.vivo)}</b> (${v.vivo>v.tot?"+":"−"}${money(Math.abs(v.vivo-v.tot))})${o.estado!=="cotizacion"?`<div class="small muted">Está aprobada: si la actualizas, cambia también lo que debe el cliente.</div>`:""}
+    <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-act="act-precios" data-id="${o.id}">Actualizar precios</button><button class="btn sm" data-act="seguir-precio" data-id="${o.id}">Seguir con el precio inicial</button></div></div>`})()}
   <div class="panel"><div class="row sp"><div class="eyebrow">Estado</div>${estadoPill(o.estado)}</div>
     ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala: pasa directo a producción.</span>`
      :sig?`<button class="btn dark block" data-act="${sig[0]==="instalada"&&pg.debe>0?"estado-pago":"estado-obra"}" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
@@ -991,9 +1024,6 @@ function vObra(){
     ${tablaItems(o.items||[],calc,false,calcCongelado(o))}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
   ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items)}
-  ${(()=>{if(o.estado!=="cotizacion"||!calcCongelado(o))return "";const vivo=calcCot(o.items||[],o),F=faltanItems(o.items);if(F.length)return "";const t2=vivo.resumen.total;
-    return Math.abs(t2-tot)>=1?`<div class="note info">Los precios cambiaron desde que hiciste esta cotización${o.preciosFecha?" ("+fechaCorta(o.preciosFecha)+")":""}. Con los precios de hoy valdría <b>${money(t2)}</b> (ahora dice ${money(tot)}).
-      <div class="row" style="margin-top:8px"><button class="btn sm pri" data-act="act-precios" data-id="${o.id}">Actualizar a precios de hoy</button></div></div>`:""})()}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
     <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
@@ -1427,17 +1457,6 @@ function clienteSheet(id,from,pref){
 
 /* --- Ajustes --- */
 const selModo=(path,val,lbl)=>`<select aria-label="Forma de cobro ${esc(lbl)}" data-cfg="${path}" class="cin">${MODOS.map(([v,t])=>`<option value="${v}" ${val===v?"selected":""}>${t}</option>`).join("")}</select>`;
-/* Cambio de precios en bloque: cada grupo dice dónde están sus precios dentro de los ajustes */
-const MAS_GRUPOS=[["perfiles","Perfiles de aluminio"],["pvc","PVC"],["melamina","Melamina y fondo"],["vidrios","Vidrios"],["templados","Vidrios templados"],["accesorios","Accesorios"],["instalacion","Instalación"]];
-function preciosGrupo(c,g){const P=[],add=(o,k)=>{if(o&&+o[k]>0)P.push([o,k])},todos=o=>{for(const k of Object.keys(o||{}))add(o,k)};
-  if(g==="perfiles"){["naveDucha","t78","a15"].forEach(k=>add(c.cocina,k));todos(c.puertas.perfiles);for(const sc of Object.values(c.series))sc.perfiles.forEach(p=>add(p,"precio"));todos(c.perfilMl)}
-  if(g==="pvc"){add(c.puertas.marmo,"precio");add(c.puertas.cielo,"precio")}
-  if(g==="melamina"){["precio","fondoPrecio","cantoFlex","cantoRigido"].forEach(k=>add(c.melamina,k));(c.melamina.colores||[]).forEach(x=>add(x,"precio"))}
-  if(g==="vidrios")c.vidrios.forEach(v=>{add(v,"m2");add(v,"lam")});
-  if(g==="templados"){add(c.division,"templadoM2");add(c.division,"especialM2")}
-  if(g==="accesorios"){for(const sc of Object.values(c.series)){if(sc.rod){add(sc.rod,"nylon");add(sc.rod,"abb")}}add(c,"empaqueMl");todos(c.accesorios);todos(c.puertas.acc);["bisagra","manija","empaque","losero","vidrioHueco"].forEach(k=>add(c.cocina,k));add(c.division,"accesorios")}
-  if(g==="instalacion")todos(c.instalacionTipo);
-  return P.filter(([o,k])=>+o[k]>0)}
 function vAjustes(){
   const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const e=c.empresa;
   c.instalacionTipo=c.instalacionTipo||{};for(const k of Object.keys(TIPOS))if(c.instalacionTipo[k]==null||c.instalacionTipo[k]==="")c.instalacionTipo[k]=instDe(k);
@@ -1563,12 +1582,6 @@ function vAjustes(){
    <h3>Descuentos de despiece (mm)</h3><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
    ${Object.keys(c.desc).filter(k=>TIPOS[k]&&!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3 class="small">${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}
    <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
-
-  ${sec("aj-masivo","Subir o bajar precios","Cambia varios precios a la vez con un porcentaje",`
-   <span class="small muted">Útil cuando el proveedor sube la lista. Escribe el porcentaje (negativo para bajar), marca qué grupos cambian y aplica. Los precios quedan redondeados a la centena. Las cotizaciones ya guardadas no cambian.</span>
-   <div class="field"><label for="mas-pct">Porcentaje %</label><input id="mas-pct" inputmode="decimal" placeholder="Ej: 8 o -5"></div>
-   <div class="fgrid">${MAS_GRUPOS.map(([k,t])=>`<label style="display:flex;gap:8px;align-items:center;font-size:15px"><input type="checkbox" data-mas="${k}" ${k==="instalacion"?"":"checked"} style="width:22px;height:22px;flex:none">${t}</label>`).join("")}</div>
-   <button class="btn pri block" data-act="aplicar-pct">Aplicar porcentaje</button>`)}
 
   ${sec("aj-instalacion","Instalación y ganancia","Instalación por sistema, margen, recargos y redondeo",`
    <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Instalación $/unidad</th></tr></thead><tbody>
@@ -1841,12 +1854,8 @@ document.addEventListener("click",async ev=>{
     case"inicio":{if(S.view==="login")break;if(sheetFn){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow=""}
       if(draftConDatos(S.draft)&&!S.readonly){try{await guardarBorrador();toast("La cotización quedó en Pendientes de completar")}catch(e){}}
       await guardarCfgYa();S.cfgEdit=null;S.hist=[];go("obras",null,{sinHist:true});break}
-    case"aplicar-pct":{const pct=num($("#mas-pct")?.value||"");const G=[...document.querySelectorAll("[data-mas]")].filter(x=>x.checked).map(x=>x.dataset.mas);
-      if(!pct){toast("Escribe el porcentaje");return}if(!G.length){toast("Marca al menos un grupo");return}
-      const c0=S.cfgEdit||(S.cfgEdit=clone(S.cfg)),n=G.reduce((s,g)=>s+preciosGrupo(c0,g).length,0);
-      confirmar(`Se ${pct>0?"suben":"bajan"} ${n} precios un ${Math.abs(pct).toString().replace(".",",")} %: ${G.map(g=>MAS_GRUPOS.find(x=>x[0]===g)[1]).join(", ")}.`,"Aplicar",async()=>{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));
-        for(const g of G)for(const [o,k] of preciosGrupo(c,g))o[k]=Math.max(0,Math.round(+o[k]*(1+pct/100)/100)*100);autoGuardarCfg();toast("Precios actualizados")});break}
-    case"act-precios":{const o=obra(id);if(!o)break;const calc=calcCot(o.items||[],o);try{await guardar("obras",id,{...o,calc,total:calc.resumen.total,calcFalta:false,preciosFecha:hoy()});toast("Precios actualizados");render()}catch(e){}break}
+    case"act-precios":{const o=obra(id);if(!o)break;const calc=calcCot(o.items||[],o);try{await guardar("obras",id,{...o,calc,total:calc.resumen.total,calcFalta:false,preciosFecha:hoy(),precios:preciosSnap(),preciosIgnorados:null});toast("Precios actualizados");render()}catch(e){}break}
+    case"seguir-precio":{const o=obra(id),v=o&&variacionObra(o);if(!v)break;try{await guardar("obras",id,{...o,preciosIgnorados:v.key});toast("Se mantiene el precio inicial");render()}catch(e){}break}
     case"dup-obra":{const o=obra(id);if(!o)break;S.draft={...nuevoDraft(),clienteId:o.clienteId||"",clienteNombre:o.clienteNombre||"",direccion:o.direccion||"",nombre:(o.nombre||"")+" (copia)",notas:o.notas||"",marmoMedia:o.marmoMedia,vidrioLamina:o.vidrioLamina,items:clone(o.items||[])};
       S.draftBase=null;go("cotizar");toast("Copia lista: cambia el cliente o lo que necesites y guárdala");break}
     case"continuar-borrador":continuarBorrador(id);break;
@@ -1901,7 +1910,7 @@ document.addEventListener("click",async ev=>{
       if(!String(d.nombre||"").trim())d.nombre=nombreAuto(d);
       const id2=d.id||uid();const prev=d.id?obra(d.id):null;
       const numero=prev?.numero||Math.max(0,...S.obras.map(o=>o.numero||0))+1;
-      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total,calcFalta:faltanItems(d.items).length>0,preciosFecha:hoy()});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;go("obra",id2)}catch(e){}break}
+      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total,calcFalta:faltanItems(d.items).length>0,preciosFecha:hoy(),precios:preciosSnap(),preciosIgnorados:null});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;go("obra",id2)}catch(e){}break}
     case"nuevo-cliente":clienteSheet(null,b.dataset.from,b.dataset.from==="cotizar"?S.draft?.clienteNombre:"");break;
     case"cliente-de-obra":{const o=obra(id);S.clienteObra=id;clienteSheet(null,"obra",o?.clienteNombre||"");break}
     case"editar-cliente":clienteSheet(id);break;
