@@ -201,6 +201,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 @media (max-width:700px){.cols2{grid-template-columns:1fr}}
 .kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:14px}
 .cin{border:1px solid var(--line);border-radius:6px;padding:7px;background:var(--surface);font-size:16px;min-height:38px}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}a.btn:not(.pri):not(.dark){color:inherit}
 details.aj{padding:0;gap:0}
 details.aj>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px}
 details.aj>summary::-webkit-details-marker{display:none}
@@ -241,7 +242,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.33.0";
+const APP_VER="1.34.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1748,11 +1749,16 @@ function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   `\n\n*TOTAL: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
   return `CUENTA DE COBRO No. ${pad(c.numero)}\n${e.ciudad?e.ciudad+", ":""}${fechaLarga(c.fecha)}\n\n${cl?cl.nombre+(cl.nit?"\nNIT/C.C. "+cl.nit:""):""}\n\nDEBE A:\n${e.propietario||e.nombre}${e.cc?"\nC.C. "+e.cc:""}\n\nLA SUMA DE: ${letras(+c.valor||0)} PESOS M/CTE (${money(c.valor)})\n\nPOR CONCEPTO DE: ${c.concepto}\n\n${e.nota||""}${e.banco?"\nPago a: "+e.banco:""}`}
+/* Entregar un archivo: verlo en pantalla, descargarlo o compartirlo (WhatsApp, correo…) */
 async function entregarArchivo(nombre,blob){
-  const f=new File([blob],nombre,{type:blob.type});
-  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:nombre});return}catch(e){if(e.name==="AbortError")return}}
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000);toast("Archivo descargado");
-}
+  const f=new File([blob],nombre,{type:blob.type}),puede=!!(navigator.canShare&&navigator.canShare({files:[f]}));
+  if(S.archivo?.url)URL.revokeObjectURL(S.archivo.url);S.archivo={f,nombre,url:URL.createObjectURL(blob)};
+  const movil=matchMedia("(pointer:coarse)").matches,pdf=blob.type==="application/pdf";
+  const ver=pdf?`<a class="btn ${movil?"":"pri"} grow" href="${S.archivo.url}" target="_blank" rel="noopener">Ver PDF</a>`:"";
+  const comp=puede?`<button class="btn ${movil?"pri":""} grow" data-act="compartir-archivo">Compartir</button>`:"";
+  openSheet(()=>`<div class="sheet-h"><h2>${esc(nombre)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <div class="row" style="gap:8px;flex-wrap:wrap">${movil?comp+ver:ver+comp}<a class="btn grow" href="${S.archivo.url}" download="${esc(nombre)}">Descargar</a></div>
+   <span class="small muted">${puede?"Compartir abre las opciones del equipo (WhatsApp, correo…). ":""}En el computador, "Ver PDF" lo abre en otra pestaña donde puedes imprimirlo o guardarlo.</span>`)}
 async function guardarArchivo(nombre,doc){entregarArchivo(nombre,new Blob([doc.output("arraybuffer")],{type:"application/pdf"}))}
 async function compartirTexto(txt){if(navigator.share){try{await navigator.share({text:txt});return}catch(e){if(e.name==="AbortError")return}}copiar(txt)}
 /* El PDF usa fuentes básicas: cambia los símbolos que no soportan (″, ′, comillas tipográficas, etc.) */
@@ -1958,6 +1964,7 @@ document.addEventListener("click",async ev=>{
     case"descartar-locales":confirmar("Se oculta este aviso. Los datos de este equipo no se suben.","Ocultar aviso",async()=>{try{localStorage.setItem("alumel-subido","1")}catch(e){}});break;
     case"materiales":materialesSheet(id);break;
     case"enviar-cortes":compartirTexto(textoCortes(b.dataset.v));break;
+    case"compartir-archivo":{const A=S.archivo;if(!A)break;try{await navigator.share({files:[A.f],title:A.nombre})}catch(e){}break}
     case"pdf-cortes":pdfCortes(b.dataset.v);break;
     case"hoja-taller":pdfTaller(id);break;
     case"enviar-materiales":compartirTexto(S.matTxt||"");break;
