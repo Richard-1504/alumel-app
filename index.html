@@ -264,7 +264,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.50.0";
+const APP_VER="1.50.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1069,7 +1069,7 @@ function softRender(){const a=document.activeElement;if(a&&(a.tagName==="INPUT"|
 /* ============ Render ============ */
 /* Historial de pantallas para el botón "Atrás" (y el atrás del navegador) */
 S.hist=[];S.ajOpen=new Set();
-document.addEventListener("toggle",e=>{const d=e.target;if(d.matches&&d.matches("details[data-aj]")){if(d.open)S.ajOpen.add(d.dataset.aj);else S.ajOpen.delete(d.dataset.aj)}},true);
+document.addEventListener("toggle",e=>{const d=e.target;if(d.matches&&d.matches("details[data-rs]")){S.rsOpen=S.rsOpen||{};S.rsOpen[d.dataset.rs]=d.open}if(d.matches&&d.matches("details[data-aj]")){if(d.open)S.ajOpen.add(d.dataset.aj);else S.ajOpen.delete(d.dataset.aj)}},true);
 function go(v,param,{sinHist}={}){if(S.view==="login")return;
   if(!sinHist&&S.view&&S.view!=="cargando"&&(S.view!==v||S.param!==(param??null))){S.hist.push([S.view,S.param]);if(S.hist.length>40)S.hist.shift();try{history.pushState({v},"")}catch(e){}}
   S.view=v;S.param=param??null;if(v==="cotizar"&&!S.draft)S.draft=nuevoDraft();render();
@@ -1229,7 +1229,7 @@ function resumenHtml(calc,total,items,editable){const F=faltanItems(items);if(F.
   const R=calc.resumen,nf=(items||[]).filter(x=>x.fuera).length,num2=v=>(Math.round(v*100)/100).toString().replace(".",",");
   const aj=(sec,hl)=>`<button class="btn sm mc-aj" data-act="ir-precios" data-v="${sec}" data-hl="${esc(hl||"")}" aria-label="Ver precio en Ajustes" title="Ver precio en Ajustes">⚙</button>`;
   const fila=(ico,tit,det,extra,valor,sec,hl)=>`<div class="mc-f">${ico}<div class="mc-t"><div class="row sp" style="gap:6px;flex-wrap:nowrap"><b>${tit}</b><b class="num" style="white-space:nowrap">${money(valor)}</b></div>${det?`<div class="small muted">${det}</div>`:""}${extra||""}</div>${sec?aj(sec,hl):""}</div>`;
-  const grupo=(t,v,body,abierto)=>v||body?`<details class="rs-g" ${abierto?"open":""}><summary><span>${t}</span><span class="num">${money(v)}</span><span class="rs-chev" aria-hidden="true">▾</span></summary>${body?`<div class="mc">${body}</div>`:""}</details>`:"";
+  S.rsOpen=S.rsOpen||{};const grupo=(t,v,body,abierto)=>v||body?`<details class="rs-g" data-rs="${esc(t)}" ${(S.rsOpen[t]??abierto)?"open":""}><summary><span>${t}</span><span class="num">${money(v)}</span><span class="rs-chev" aria-hidden="true">▾</span></summary>${body?`<div class="mc">${body}</div>`:""}</details>`:"";
   // perfilería
   const M=calc.materiales||[],otrosP=R.perfiles-M.reduce((a,m)=>a+m.valor,0);
   const bP=M.map(m=>fila(perfilIcon(angKey(m.serie,m.perfil),30),`${esc(m.serie.replace(/^Serie /,""))} · ${esc(m.perfil)}`,`${m.color?esc(m.color)+" · ":""}${money(m.tira)}/tira · usa ${num2(m.m)} m · cobra ${esc(typeof m.cobrado==="number"?num2(m.cobrado)+" m":m.cobrado)}`,"",m.valor,"aj-perfiles","pf:"+angKey(m.serie,m.perfil))).join("")
@@ -1244,12 +1244,15 @@ function resumenHtml(calc,total,items,editable){const F=faltanItems(items);if(F.
   // accesorios
   const bA=(calc.accDet||[]).sort((a,b)=>b.valor-a.valor).map(a=>fila("",esc(a.nombre),`${a.metros?num2(a.cant)+" m":num2(a.cant)+" und"} × ${money(a.unit)}${a.metros?"/m":""}`,"",a.valor,"aj-accesorios")).join("");
   // instalación por tipo
-  const ins={};(items||[]).forEach((it,i)=>{const l=calc.lineas?.[i];if(!l||l.fuera||l.manual||!(l.inst>0))return;const k=TIPOS[it.tipo]?.corto||it.tipo,d=ins[k]=ins[k]||{und:0,val:0,tipo:it.tipo};d.und+=it.cant||1;d.val+=l.inst});
-  const bI=Object.entries(ins).map(([k,d])=>fila("",esc(k),`${d.und} und × ${money(d.val/d.und)}`,"",d.val,"aj-instalacion","")).join("");
+  // instalación: cada ítem con su valor por unidad (se puede cambiar aquí mismo al cotizar)
+  const bI=(items||[]).map((it,i)=>{if(it.fuera||it.precioManual>0)return "";const u=it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo),q=it.cant||1;
+    return `<div class="mc-f"><div class="mc-t"><div class="row sp" style="gap:6px;flex-wrap:nowrap"><b>${i+1}. ${esc(describeItem(it))}</b><b class="num" style="white-space:nowrap">${money(u*q)}</b></div>
+     <div class="small muted">${medidaTxt(it)?medidaTxt(it)+" cm · ":""}${it.ubicacion?esc(it.ubicacion)+" · ":""}${q} und</div>
+     ${editable?`<div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:4px"><span class="small">$ por unidad</span><input class="cin" inputmode="numeric" data-it-inst="${i}" value="${u}" aria-label="Instalación por unidad ítem ${i+1}" style="width:120px;text-align:right"></div>`:`<div class="small muted">${money(u)} por unidad</div>`}</div></div>`}).join("");
   // ganancia
   const mg=+S.cfg.margen||0,bG=Math.abs(R.ajuste)>=1?fila("",mg?"Margen "+String(mg).replace(".",",")+" % y redondeo":"Redondeo",`Margen en ventanas y puertas; en divisiones solo sobre la mano de obra; cocinas y pasamanos con su recargo. Precios redondeados a ${money(+S.cfg.redondeo||1)}.`,"",R.ajuste,"aj-instalacion"):"";
   return `<div class="panel"><h2>Resumen</h2>${nf?`<div class="note" style="border-color:var(--warn)">${nf} ítem(s) sin marcar no van en esta cotización: no suman, no salen en el PDF ni en el WhatsApp, pero quedan guardados. Márcalos de nuevo cuando los necesites.</div>`:""}
-   <div class="rs">${grupo("Perfilería",R.perfiles,bP)}${grupo("Vidrio",R.vidrio,bV,editable&&V.some(v=>v.puedeLam))}${grupo("Tableros (PVC, melamina)",R.tableros,bT)}${grupo("Accesorios",R.accesorios,bA)}${grupo("Instalación",R.instalacion,bI)}${R.manual?grupo("Ítems con precio manual",R.manual,""):""}${Math.abs(R.ajuste)>=1?grupo(mg?"Margen y redondeo":"Redondeo",R.ajuste,bG):""}
+   <div class="rs">${grupo("Perfilería",R.perfiles,bP)}${grupo("Vidrio",R.vidrio,bV,editable&&V.some(v=>v.puedeLam))}${grupo("Tableros (PVC, melamina)",R.tableros,bT)}${grupo("Accesorios",R.accesorios,bA)}${grupo("Instalación",R.instalacion,bI?bI+(editable?`<div class="mc-f"><span class="small muted">Cambia el valor y sal del campo para recalcular. El valor general por sistema está en Ajustes.</span>${aj("aj-instalacion")}</div>`:""):"")}${R.manual?grupo("Ítems con precio manual",R.manual,""):""}${Math.abs(R.ajuste)>=1?grupo(mg?"Margen y redondeo":"Redondeo",R.ajuste,bG):""}
     <div class="rs-tot"><span>Total</span><span class="num">${money(R.total)}</span></div></div>
    <span class="small muted">Toca cada línea para ver el detalle; ⚙ te lleva a ese precio en Ajustes y con Atrás vuelves.</span>
   </div>
@@ -2229,6 +2232,7 @@ document.addEventListener("input",ev=>{
   if(t.dataset.buscar!==undefined){S.buscar=t.value;const pos=t.selectionStart;render();const nb=$("#buscar");nb.focus();try{nb.setSelectionRange(pos,pos)}catch(e){}}
 });
 document.addEventListener("change",ev=>{const t=ev.target;
+  if(t.dataset&&t.dataset.itInst!==undefined&&S.draft){const it=S.draft.items[+t.dataset.itInst];if(it){it.instalacion=Math.round(num(t.value));render()}return}
   if(t.dataset&&t.dataset.perfimg!==undefined&&t.files&&t.files[0]){const key=t.dataset.perfimg,fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,240/Math.max(im.width,im.height)),cv=document.createElement("canvas");
       cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);
       const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));c.perfilImg={...(c.perfilImg||{}),[key]:cv.toDataURL("image/jpeg",0.82)};S.cfg.perfilImg=c.perfilImg;autoGuardarCfg();render();toast("Foto del perfil guardada")};im.src=fr.result};fr.readAsDataURL(t.files[0]);t.value="";return}
