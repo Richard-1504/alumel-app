@@ -253,7 +253,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.43.0";
+const APP_VER="1.44.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -867,14 +867,55 @@ S.perfilData={};
 async function cargarPerfilesDef(){for(const [k,f] of Object.entries(PERFIL_DEF)){try{const r=await fetch("perfiles/"+f+".jpg");if(!r.ok)continue;const b=await r.blob();
   S.perfilData[k]=await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(fr.result);fr.readAsDataURL(b)})}catch(e){}}}
 setTimeout(cargarPerfilesDef,1500);
+const PERFIL_SVG={
+ "Nave de ducha":{t:1.5,p:[[[26,1.2],[18,1.5],[13,0],[0,0],[0,14],[13,14],[18,12.5],[26,12.8]]]},
+ "T78":{t:1.6,p:[[[0,25.4],[50.8,25.4]],[[12.7,25.4],[12.7,0],[38.1,0],[38.1,25.4]]]},
+ "A15":{t:3.2,p:[[[1.6,0],[1.6,30.2],[31.8,30.2]]]},
+ "U66":{t:1.4,p:[[[5,25],[0,25],[0,0],[50,0],[50,25],[45,25]],[[20.5,0],[20.5,-12.7]]]},
+ "T77":{t:1.6,p:[[[0,0],[25.4,0],[25.4,25.4],[0,25.4],[0,0]],[[25.4,25.4],[38.1,25.4]]]},
+ "T166":{t:1.5,p:[[[10,0],[78,0],[78,25.4],[10,25.4],[10,0]],[[0,1.5],[10,1.5]],[[0,23.9],[10,23.9]],[[78,3],[76,3],[76,6],[78,6]],[[78,19.4],[76,19.4],[76,22.4],[78,22.4]]]},
+ "A61":{t:1.5,p:[[[0.75,0],[0.75,11.95],[12.7,11.95]]]},
+ "U78":{t:1.6,p:[[[5,37.4],[0,37.4],[0,0],[75.9,0],[75.9,37.4],[70.9,37.4]],[[38,0],[38,-12]]]},
+ "T87":{t:1.6,p:[[[0,0],[38,0],[38,38],[0,38],[0,0]]]},
+ "T244":{t:2,p:[[[0,0],[76,0],[76,38],[0,38],[0,0]]]},
+ "S343":{t:1.4,p:[[[0,14.4],[0,12.6],[12.5,0.4],[14.3,1],[14.3,14.4],[36.4,14.4],[36.4,12.8]],[[14.3,6],[16,5]],[[14.3,2.6],[16,1.6]],[[28.5,14.4],[28.5,11]]]},
+ "U71":{t:1.3,p:[[[4.5,19],[0,19],[0,0],[38,0],[38,19],[33.5,19]]]},
+ "S344":{t:1.4,p:[[[2.5,14.4],[0.7,14.4],[0.7,1.2],[1.8,0.2],[14.5,13.2]],[[0.7,7],[-1.5,8.2]]]},
+ "F06":{t:1.1,p:[[[0,1.3],[11,1.3],[12.5,3.3],[39,3.3],[41.5,0],[50,0],[52.5,3.3],[78.5,3.3],[78.5,1.3],[96.7,1.3]],[[78.5,2.3],[88,2.3]]]},
+ "Serie 744 · Cabezal":{t:1.3,p:[[[0,3],[62.6,3]],[[0,0],[0,17]],[[13,0],[13,18]],[[49.6,0],[49.6,18]],[[62.6,0],[62.6,17]]]},
+ "Serie 744 · Sillar":{t:1.3,p:[[[0,9],[64.1,16]],[[0,0.5],[0,19.8]],[[17,1.5],[17,19.8]],[[48.5,1.5],[48.5,19.8]],[[64.1,16],[64.1,19.8],[60.5,19.8],[60.5,18.3]]],c:[[17,1.2,1.2],[48.5,1.2,1.2]]},
+ "Serie 744 · Jamba":{t:1.3,p:[[[0,15],[60,15]],[[2.5,2],[2.5,0],[0,0],[0,22.3],[3,22.3]],[[0,5.5],[2.5,5.5],[2.5,4]],[[27.5,2],[27.5,0],[30,0],[30,15]],[[30,5.5],[27.5,5.5],[27.5,4]],[[60,15],[60,22.3],[57,22.3]]],c:[[30,18.3,1.9]]},
+ "Serie 744 · Enganche":{t:1.4,p:[[[0,0],[0,26.5],[34.5,26.5],[34.5,23.5]],[[34.5,9.5],[34.5,6.5],[11,6.5],[11,2.6],[5,2.6],[5,0],[0,0]],[[11,0],[20,0]],[[21,6.5],[21,26.5]],[[34.5,9.5],[32.5,9.5]],[[34.5,23.5],[32.5,23.5]]]},
+ "Serie 744 · Traslape":{t:1.3,p:[[[0,0],[0,43.5]],[[20,0],[20,43.5]],[[0,4],[20,4]],[[0,30],[20,30]],[[0,43.5],[4,43.5],[4,41.5]],[[20,43.5],[16,43.5],[16,41.5]]]},
+ "Serie 744 · Superior":{t:1.2,p:[[[3.5,2],[3.5,0],[0,0],[0,34.3],[1.6,34.3]],[[13.5,2],[13.5,0],[17,0],[17,34.3],[15.4,34.3]],[[0,13],[17,13]]],c:[[8.5,11.4,1.6]]},
+ "Serie 744 · Inferior":{t:1.2,p:[[[3.5,2],[3.5,0],[0,0],[0,48.5],[3,48.5],[3,46.5]],[[13.5,2],[13.5,0],[17,0],[17,48.5],[14,48.5],[14,46.5]],[[0,13],[17,13]],[[0,41.5],[3,41.5],[3,43]],[[17,41.5],[14,41.5],[14,43]]],c:[[8.5,11.4,1.6]]},
+ "Serie 744 · Adaptador":{t:1.1,p:[[[0,0],[0,17]],[[23.2,0],[23.2,17]],[[0,4],[3,4],[3,1],[20.2,1],[20.2,4],[23.2,4]]]},
+ "Serie 8025 · Cabezal":{t:1.4,p:[[[0,3],[82.4,3]],[[0,3],[0,22]],[[82.4,3],[82.4,22]],[[2.5,0],[2.5,3]],[[79.9,0],[79.9,3]],[[21,3],[21,24]],[[61.4,3],[61.4,24]]]},
+ "Serie 8025 · Sillar":{t:1.3,p:[[[2,11.5],[80,8]],[[0,16],[0,11.5],[3,11.5],[3,10.6],[11,10.6]],[[19,1.5],[19,17]],[[58,1.5],[58,17]],[[82.5,0],[80,0],[80,17],[82.5,17]],[[85,0],[85,3]]],c:[[19,1.2,1.2],[58,1.2,1.2]]},
+ "Serie 8025 · Jamba":{t:1.4,p:[[[0,22],[0,17],[79.2,17],[79.2,0],[77,0]],[[79.2,4],[77,4]],[[79.2,17],[79.2,25],[77,25]],[[40,17],[40,0],[42.5,0]],[[40,4],[42.5,4]],[[0,22],[3,22],[3,25]]],c:[[11,19.5,1.8],[66,19.5,1.8]]},
+ "Serie 8025 · Enganche":{t:1.5,p:[[[3,13],[0,13],[0,8.3],[19,8.3],[19,1.6],[25,1.6],[25,8.3],[37.5,8.3],[37.5,35.5],[0,35.5],[0,29.5],[3,29.5]],[[13,8.3],[13,35.5]],[[13,0],[21,0]],[[24,0],[26,0]]]},
+ "Serie 8025 · Traslape":{t:1.5,p:[[[0,0],[0,48]],[[27.2,0],[27.2,48]],[[0,3.5],[27.2,3.5]],[[0,32],[27.2,32]],[[0,48],[9,48],[9,45]],[[27.2,48],[18.2,48],[18.2,45]]]},
+ "Serie 8025 · Zócalo superior":{t:1.4,p:[[[0,0],[38,0],[38,6]],[[0,23.8],[38,23.8],[38,17.8]],[[38,6],[35.5,6]],[[38,17.8],[35.5,17.8]],[[25,0],[25,23.8]],[[1,23.8],[1,19.5],[4,19.5]],[[4,19.5],[7,19.5],[7,21]]],c:[[22,11.9,2.2]]},
+ "Serie 8025 · Zócalo inferior":{t:1.4,p:[[[4,2.5],[4,0],[0,0],[0,59.7],[2.5,59.7]],[[19.8,2.5],[19.8,0],[23.8,0],[23.8,59.7],[20.5,59.7],[20.5,57.5]],[[0,12],[23.8,12]],[[23.8,52.5],[20.5,52.5],[20.5,55]]],c:[[11.9,14.8,2]]},
+ "Serie 8025 · Adaptador":{t:1.3,p:[[[0,0],[0,18.6]],[[30.2,0],[30.2,18.6]],[[0,5.5],[4,5.5],[4,2],[26.2,2],[26.2,5.5],[30.2,5.5]]]}
+};
+/* Caja de dibujo cuadrada y grosor de línea parejo para que todos se vean como íconos del mismo juego */
+function cajaPerfil(f){const P=f.p.flat(),C=f.c||[];let x0=Math.min(...P.map(q=>q[0]),...C.map(c=>c[0]-c[2])),x1=Math.max(...P.map(q=>q[0]),...C.map(c=>c[0]+c[2])),y0=Math.min(...P.map(q=>q[1]),...C.map(c=>c[1]-c[2])),y1=Math.max(...P.map(q=>q[1]),...C.map(c=>c[1]+c[2]));
+  const L0=Math.max(x1-x0,y1-y0),sw=L0*(f.t>=3?0.09:f.t>=1.5&&L0<20?0.09:0.045),L=L0+sw*2.4;return {x:(x0+x1)/2-L/2,y:(y0+y1)/2-L/2,L,sw}}
+function svgPerfil(f,px){const b=cajaPerfil(f);
+  return `<svg viewBox="${b.x} ${b.y} ${b.L} ${b.L}" width="${px}" height="${px}" style="flex:none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="${b.sw}" stroke-linejoin="round" stroke-linecap="square">${f.p.map(l=>`<polyline points="${l.map(q=>q.join(",")).join(" ")}"/>`).join("")}${(f.c||[]).map(c=>`<circle cx="${c[0]}" cy="${c[1]}" r="${c[2]}"/>`).join("")}</g></svg>`}
 function formaPerfil(key){const r=String(key).replace(/^.* · /,"").replace(/\s*\(.*\)$/,"").trim();
   if(/^U\d/.test(r))return "U";if(/^A\d/.test(r))return "L";if(r==="T87")return "tubo";if(r==="T244")return "tuboAlto";if(/^F\d/.test(r))return "tablero";return "generico"}
-function perfilIcon(key,px){px=px||34;const img=(S.cfg.perfilImg||{})[key]||perfilDef(key);
+function perfilIcon(key,px){px=px||34;if(!(S.cfg.perfilImg||{})[key]&&PERFIL_SVG[key])return svgPerfil(PERFIL_SVG[key],px);const img=(S.cfg.perfilImg||{})[key]||perfilDef(key);
   if(img)return `<img src="${img}" alt="" style="width:${px}px;height:${px}px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;flex:none">`;
   const F=PERFIL_FORMAS[formaPerfil(key)];
   return `<svg viewBox="0 0 10 10" width="${px}" height="${px}" style="flex:none;background:var(--surface-2);border:1px solid var(--line);border-radius:6px" aria-hidden="true">${F.map(pl=>pl.length===2?`<line x1="${pl[0][0]}" y1="${pl[0][1]}" x2="${pl[1][0]}" y2="${pl[1][1]}" stroke="currentColor" stroke-width=".5"/>`:`<polygon points="${pl.map(q=>q.join(",")).join(" ")}" fill="var(--accent)" fill-opacity=".25" stroke="currentColor" stroke-width=".5" stroke-linejoin="round"/>`).join("")}</svg>`}
 /* El mismo croquis en el PDF */
-function pdfPerfilIcon(doc,key,x,y,sz){const img=(S.cfg.perfilImg||{})[key]||S.perfilData[key];doc.setDrawColor(150);doc.setFillColor(255,255,255);doc.rect(x,y,sz,sz,"FD");
+function pdfPerfilIcon(doc,key,x,y,sz){const f=!(S.cfg.perfilImg||{})[key]&&PERFIL_SVG[key];
+  if(f){const b=cajaPerfil(f),k=sz/b.L,X=v=>x+(v-b.x)*k,Y=v=>y+(v-b.y)*k;doc.setDrawColor(40,34,30);doc.setLineWidth(Math.max(0.25,b.sw*k));if(doc.setLineJoin)try{doc.setLineJoin("round")}catch(e){}
+    for(const l of f.p)for(let i=0;i<l.length-1;i++)doc.line(X(l[i][0]),Y(l[i][1]),X(l[i+1][0]),Y(l[i+1][1]));
+    for(const c of f.c||[])if(doc.circle)doc.circle(X(c[0]),Y(c[1]),c[2]*k,"S");doc.setLineWidth(0.2);return}
+  const img=(S.cfg.perfilImg||{})[key]||S.perfilData[key];doc.setDrawColor(150);doc.setFillColor(255,255,255);doc.rect(x,y,sz,sz,"FD");
   if(img){try{const p=doc.getImageProperties?doc.getImageProperties(img):null,r=p?p.width/p.height:1,w=r>=1?sz-0.8:(sz-0.8)*r,h=r>=1?(sz-0.8)/r:sz-0.8;
     doc.addImage(img,img.startsWith("data:image/png")?"PNG":"JPEG",x+(sz-w)/2,y+(sz-h)/2,w,h);return}catch(e){}}
   const F=PERFIL_FORMAS[formaPerfil(key)],k=sz/10;doc.setDrawColor(40,34,30);
@@ -1584,7 +1625,7 @@ function vAjustes(){
   const B=c.barra/1000,inp=(path,val,lbl,w,dec)=>`<input class="cin" aria-label="${esc(lbl)}" inputmode="${dec?"decimal":"numeric"}" data-cfg="${path}" value="${dec?String(val??0).replace(".",","):(val??0)}" style="width:${w||96}px;text-align:right">`;
   const fld=(id,lbl,path,val,hint,dec)=>`<div class="field"><label for="${id}">${lbl}</label><input id="${id}" inputmode="${dec?"decimal":"numeric"}" data-cfg="${path}" value="${dec?String(val??0).replace(".",","):(val??0)}">${hint?`<span class="hint">${hint}</span>`:""}</div>`;
   const ang=r=>{const v=(c.angulos||{})[r]||(ANG45.includes(r)?45:90);return `<div class="seg" style="justify-content:flex-end;flex-wrap:nowrap">${[45,90].map(a=>`<button data-act="ang-set" data-k="${esc(r)}" data-v="${a}" aria-pressed="${+v===a}" style="flex:0 0 auto;min-width:46px;padding:6px 8px">${a}°</button>`).join("")}</div>`};
-  const pfFoto=key=>{const tiene=(c.perfilImg||{})[key];const def=!tiene&&perfilDef(key);return `<label class="pf-foto" title="Foto o dibujo del perfil" style="cursor:pointer;position:relative">${perfilIcon(key,40)}<input type="file" accept="image/*" data-perfimg="${esc(key)}" hidden><span class="pf-foto-t">${tiene||def?"Cambiar":"Foto"}</span></label>${tiene?`<button class="btn sm" data-act="perfimg-quitar" data-k="${esc(key)}" aria-label="Quitar foto" style="padding:4px 8px">✕</button>`:""}`};
+  const pfFoto=key=>`<button class="linkish" data-act="ver-perfil" data-k="${esc(key)}" aria-label="Ver plano" style="padding:0">${perfilIcon(key,44)}</button>`;
   const sec=(id,titulo,sub,body)=>`<details class="panel aj" id="${id}" data-aj="${id}" ${S.ajOpen?.has(id)?"open":""}><summary><div><h2>${titulo}</h2><span class="small muted">${sub}</span></div><span class="aj-chev" aria-hidden="true">▾</span></summary><div class="stack">${body}</div></details>`;
   // perfiles de aluminio sueltos (puertas, cocinas y demás): referencia, uso, precio por tira, cobro y ángulo
   const refs=[["Nave de ducha","Marcos de gabinete y puertas de cocina","cocina.naveDucha",c.cocina.naveDucha,"cocina.cobro",c.cocina.cobro||"tira"],
@@ -1613,7 +1654,7 @@ function vAjustes(){
 
   ${sec("aj-perfiles","Perfiles de aluminio","Precio por tira de "+String(B).replace(".",",")+" m, forma de cobro y ángulo de corte",`
    <span class="small muted">${MODOS_AYUDA} Cada referencia se suma en todo el pedido, sin importar si es de puerta, cocina u otro trabajo.</span>
-   <span class="small muted">Toca el dibujo de cada perfil para subir una foto del corte o un croquis; así el trabajador lo identifica en Cortes y en el PDF.</span>
+   <span class="small muted">Toca el dibujo de cada perfil para ver su plano con medidas.</span>
    <div class="pf-h"><span>$ tira</span><span>Cobro</span><span>Corte</span></div>
    ${refs.map(([r,u,pp,v,pc,vc])=>`<div class="pf"><div class="row" style="gap:8px;flex-wrap:nowrap">${pfFoto(r)}<div class="grow"><b class="mono">${esc(r)}</b> <span class="small muted">${esc(u)}</span></div></div><div class="pf-c">${inp(pp,v,"Precio "+r)}${selModo(pc,vc,r)}${ang(r)}</div></div>`).join("")}
    ${Object.entries(c.series).map(([k,sc])=>`<h3>${TIPOS[k].nombre}</h3>
@@ -2042,8 +2083,9 @@ document.addEventListener("click",async ev=>{
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
     case"it-lote":S.itemTmp.loteOn=b.dataset.v==="1";if(S.itemTmp.loteOn&&!S.itemTmp.lote?.length)S.itemTmp.lote=[...(S.itemTmp.ancho>0&&S.itemTmp.alto>0?[{a:S.itemTmp.ancho,h:S.itemTmp.alto,c:S.itemTmp.cant||1,u:S.itemTmp.ubicacion||""}]:[]),{a:0,h:0,c:1,u:""}];refreshSheet();break;
-    case"ver-perfil":{const k=b.dataset.k,img=(S.cfg.perfilImg||{})[k]||perfilDef(k);openSheet(()=>`<div class="sheet-h"><h2>${esc(k)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
-      ${img?`<img src="${img}" alt="Perfil ${esc(k)}" style="width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px">`:perfilIcon(k,240)}<span class="small muted">Medidas del plano en mm. La imagen se cambia en Ajustes → Perfiles de aluminio.</span>`);break}
+    case"ver-perfil":{const k=b.dataset.k,img=perfilDef(k);openSheet(()=>`<div class="sheet-h"><h2>${esc(k)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+      <div style="display:flex;justify-content:center;padding:8px 0">${perfilIcon(k,160)}</div>
+      ${img?`<div class="eyebrow">Plano con medidas (mm)</div><img src="${img}" alt="Plano ${esc(k)}" style="width:100%;height:auto;mix-blend-mode:multiply;border-radius:8px">`:""}`);break}
     case"perfimg-quitar":{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const m={...(c.perfilImg||{})};delete m[b.dataset.k];c.perfilImg=m;S.cfg.perfilImg=m;autoGuardarCfg();render();break}
     case"lote-d":{const it=S.itemTmp,DS=distsLote(it),r=it.lote[+b.dataset.i],cur=r.d||((it.dist==="FC"?"FI":it.dist)||"FI"),k=DS.findIndex(x=>x[0]===cur);r.d=DS[(k+1)%DS.length][0];refreshSheet();break}
     case"lote-del":S.itemTmp.lote.splice(+b.dataset.i,1);refreshSheet();break;
