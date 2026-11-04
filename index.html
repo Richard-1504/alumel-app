@@ -260,7 +260,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.48.1";
+const APP_VER="1.49.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -682,7 +682,7 @@ const vidrioPorLam=(opts,id)=>{const m=(opts.vidrioModo||{})[id];return m?m==="l
 function calcCot(items,opts){opts=opts||{};
   const cfg=S.cfg,lin=items.map(()=>({perf:0,vid:0,acc:0,inst:0,tab:0})),pools={},cielo=[],marmo=[],vpz={},melP=[],fonP=[];const marmoMedia=opts.marmoMedia!==false;
   items.forEach((it,i)=>{
-    const q=it.cant||1;if(it.precioManual>0){lin[i].manual=true;return}
+    const q=it.cant||1;if(it.fuera){lin[i].fuera=true;return}if(it.precioManual>0){lin[i].manual=true;return}
     if(it.tipo==="pasamanos"){const rc=1+(+cfg.pasamanosRecargo||0)/100;lin[i].perf=(+it.acero||0)*rc*q;lin[i].vid=(+it.vidrioTpl||0)*rc*q;lin[i].m2=0;
       lin[i].inst=(it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo))*q;return}
     const dp=despiece({...it,cant:1}),color=cfg.colores.find(c=>c.nombre===it.color)||cfg.colores[0]||{factor:1},f=+color.factor||1,ser=TIPOS[it.tipo]?.serie,pta=TIPOS[it.tipo]?.puerta;
@@ -749,12 +749,13 @@ function calcCot(items,opts){opts=opts||{};
   {const ml=cfg.melamina||{};for(const col of [...new Set(melP.map(p=>p.color))]){const md=medidaMel(col);laminasDe(melP.filter(p=>p.color===col),md.W,md.H,precioMel(col),"Melamina 15 mm · "+col,md.W+" × "+md.H+" cm",mediaMel(col))}laminasDe(fonP,ml.fondoAncho,ml.fondoAlto,ml.fondoPrecio,"Fondo 3 mm",ml.fondoAncho+" × "+ml.fondoAlto+" cm")}
   const r=cfg.redondeo||1,mg=1+(cfg.margen||0)/100;let R={perfiles:0,vidrio:0,tableros:0,accesorios:0,instalacion:0,manual:0,ajuste:0,total:0};
   const lineas=items.map((it,i)=>{const q=it.cant||1,L=lin[i];
+    if(L.fuera)return {unit:0,total:0,fuera:true};
     if(L.manual){const t=it.precioManual*q;R.manual+=t;R.total+=t;return {unit:it.precioManual,total:t,manual:true}}
     const base=L.perf+L.vid+L.tab+L.acc+L.inst,conMg=it.tipo==="division"?base+L.inst*(mg-1):it.tipo==="pasamanos"?base:it.tipo==="cocina"?(base-L.inst)*(1+recCocina(it)/100)+L.inst:base*mg,unit=Math.ceil(conMg/q/r-1e-9)*r,t=unit*q;
     R.perfiles+=L.perf;R.vidrio+=L.vid;R.tableros+=L.tab;R.accesorios+=L.acc;R.instalacion+=L.inst;R.ajuste+=t-base;R.total+=t;
     return {unit,total:t,perf:L.perf,vid:L.vid,tab:L.tab,acc:L.acc,inst:L.inst,m2:L.m2}});
     /* Cada renglón también se calcula solo; la diferencia con el total junto es el ahorro por aprovechar material entre ítems */
-  let ahorro=0;if(!opts.solo&&items.length>1){let suma=0;lineas.forEach((l,i)=>{if(l.manual){l.uSolo=l.unit;l.tSolo=l.total}else{const c1=calcCot([items[i]],{...opts,solo:true}).lineas[0];l.uSolo=c1.unit;l.tSolo=c1.total}suma+=l.tSolo});
+  let ahorro=0;if(!opts.solo&&items.length>1){let suma=0;lineas.forEach((l,i)=>{if(l.fuera)return;if(l.manual){l.uSolo=l.unit;l.tSolo=l.total}else{const c1=calcCot([items[i]],{...opts,solo:true}).lineas[0];l.uSolo=c1.unit;l.tSolo=c1.total}suma+=l.tSolo});
     ahorro=suma-R.total;if(ahorro<(cfg.redondeo||1))ahorro=0}
   R.ahorro=ahorro;
   // resumen del vidrio por referencia (cómo se cobra cada una)
@@ -938,7 +939,7 @@ function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T2
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={},melC={};let esc=0;
-  for(const it of items){const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
+  for(const it of items){if(it.fuera)continue;const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
     for(const p of dp.perfiles){if(p.ref==="a15"){esc+=p.cant*4;continue}const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const gg=g==="mel"?"mel|"+(t.color||"Blanco"):g,key=gg+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g:gg,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
@@ -1168,7 +1169,7 @@ function vObra(){
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
     ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
-  ${(()=>{const T=o.items||[],M=itemsMarcados(T,o.id);return M.length===T.length?resumenHtml(calc,0,calcCongelado(o)?[]:T):M.length?resumenHtml(calcCot(M,o),0,M,false,[M.length,T.length]):`<div class="panel"><h2>Resumen</h2><span class="small muted">No hay ítems marcados.</span></div>`})()}
+  ${resumenHtml(calc,0,calcCongelado(o)?(o.items||[]).filter(x=>x.fuera):o.items)}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
     <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
@@ -1184,7 +1185,7 @@ function vObra(){
   </div>`;
 }
 /* ===== Precios faltantes: un ítem no se cotiza mientras falte algún precio de lo que usa ===== */
-function faltanItem(it){if(!it||it.precioManual>0)return [];const F=new Set(),cfg=S.cfg,z=v=>!(+v>0),dp=despiece({...it,cant:1});
+function faltanItem(it){if(!it||it.fuera||it.precioManual>0)return [];const F=new Set(),cfg=S.cfg,z=v=>!(+v>0),dp=despiece({...it,cant:1});
   if(TIPOS[it.tipo]?.serie){const sc=cfg.series[it.tipo];for(const p of dp.perfiles){const r=sc.perfiles.find(x=>x.nombre===p.nombre);if(!r||z(r.precio))F.add(TIPOS[it.tipo].corto+" · "+p.nombre)}
     for(const [n,c] of dp.acc){if(!(c>0))continue;if(n.startsWith("Rodamientos")&&z(precioRod(it.tipo,it.rod)))F.add("Rodamiento "+(it.rod==="abb"?"ABB":"nylon")+" "+TIPOS[it.tipo].corto);if(n.startsWith("Empaque")&&z(cfg.empaqueMl))F.add("Empaque")}
     if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
@@ -1203,15 +1204,16 @@ function seccionFalta(f){if(/melamina|fondo 3|Canto/i.test(f))return "aj-melamin
   return /^[A-Z]{1,2}\d+$|^Nave de ducha$| · /.test(f)?"aj-perfiles":"aj-accesorios"}
 function avisoFaltan(F){const sec=[...new Set(F.map(seccionFalta))];
   return `<div class="note"><b>Faltan precios</b>, por eso no se muestra el total: ${esc(F.join(", "))}.<div class="row" style="margin-top:6px;gap:8px">${sec.map(x=>`<button class="btn sm pri" data-act="ir-precios" data-v="${x}">Poner precio · ${esc(({"aj-melamina":"Melamina","aj-templados":"Vidrios templados","aj-pvc":"PVC","aj-vidrios":"Vidrios","aj-accesorios":"Accesorios","aj-perfiles":"Perfiles de aluminio"})[x])}</button>`).join("")}</div></div>`}
-/* Casillas de los ítems: por defecto todos marcados; al desmarcar, el resumen se recalcula solo con los marcados (solo para consultar) */
-const selDe=ctx=>{S.excl=S.excl||{};return S.excl[ctx]||(S.excl[ctx]=new Set())};
-const itemsMarcados=(items,ctx)=>{const ex=selDe(ctx);return (items||[]).filter((_,i)=>!ex.has(i))};
+/* Casillas de los ítems: desmarcado = no va en la cotización (no suma, no sale en PDF ni WhatsApp) pero queda guardado */
+function calcPreciosIniciales(o){if(!o.precios)return calcCot(o.items||[],o);const c=clone(S.cfg);for(const [k,,ob,f] of preciosLista(c))if(k in o.precios)ob[f]=o.precios[k];return conCfg(c,()=>calcCot(o.items||[],o))}
+async function marcarItems(ctx,fn){if(ctx==="__draft"){fn(S.draft.items);render();return}const o=obra(ctx);if(!o||S.readonly)return;const items=clone(o.items||[]);fn(items);
+  const o2={...o,items},calc=calcPreciosIniciales(o2);try{await guardar("obras",o.id,{...o2,calc,total:calc.resumen.total,calcFalta:faltanItems(items).length>0});render()}catch(e){}}
 function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
-  const st=ctx?selDe(ctx):null,todos=st&&!items.some((_,i)=>st.has(i));
-  return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Seleccionar todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
-  ${items.map((it,i)=>`<tr${st&&st.has(i)?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${st.has(i)?"":"checked"} aria-label="Seleccionar ítem ${i+1}"></td>`:""}<td><b>${esc(describeItem(it))}</b><div class="small muted">${esc(detalleItem(it))}${TIPOS[it.tipo]?.serie?" · rodamiento "+(it.rod==="abb"?"ABB":"nylon"):""}${it.ubicacion?" · "+esc(it.ubicacion):""}</div><div class="mono small" style="margin-top:2px"><b>${medidaTxt(it)?medidaTxt(it)+" cm":""}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></td>
-   <td class="n" style="vertical-align:top">${!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
+  const st=!!ctx,todos=!items.some(it=>it.fuera);
+  return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Incluir todos" title="Incluir todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
+  ${items.map((it,i)=>`<tr${it.fuera?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${esc(describeItem(it))}</b><div class="small muted">${esc(detalleItem(it))}${TIPOS[it.tipo]?.serie?" · rodamiento "+(it.rod==="abb"?"ABB":"nylon"):""}${it.ubicacion?" · "+esc(it.ubicacion):""}</div><div class="mono small" style="margin-top:2px"><b>${medidaTxt(it)?medidaTxt(it)+" cm":""}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></td>
+   <td class="n" style="vertical-align:top">${it.fuera?`<span class="small muted" style="white-space:nowrap">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
      return `<div class="small muted" title="Lo que valdría este ítem cotizado solo" style="white-space:nowrap"><s>${money(l.tSolo)}</s>${it.cant>1?`<br><s>c/u ${money(l.uSolo)}</s>`:""}<br><span style="font-size:10px">si fuera solo</span></div>`})()}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
    ${editable?`<td class="n" style="vertical-align:top"><button class="btn sm" data-act="editar-item" data-i="${i}">Editar</button></td>`:""}</tr>`).join("")}
   </tbody></table></div>`;
@@ -1236,7 +1238,8 @@ function resumenHtml(calc,total,items,editable,parcial){const F=faltanItems(item
   <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v" style="font-size:18px">Falta precio</span></div>`;
   const R=calc.resumen,f=(t,v)=>v?`<tr><td>${t}</td><td class="n">${money(v)}</td></tr>`:"";
   const mats=calc.materiales||[];
-  return `<div class="panel"><h2>Resumen${parcial?` · ${parcial[0]} de ${parcial[1]} ítems`:""}</h2>${parcial?`<div class="note" style="border-color:var(--warn)">Solo los ítems marcados, recalculado entre ellos. Para ver todo, marca todas las casillas. El PDF, el WhatsApp y lo que se guarda llevan todos los ítems.</div>`:""}
+  const nf=(items||[]).filter(x=>x.fuera).length;
+  return `<div class="panel"><h2>Resumen</h2>${nf?`<div class="note" style="border-color:var(--warn)">${nf} ítem(s) sin marcar no van en esta cotización: no suman, no salen en el PDF ni en el WhatsApp, pero quedan guardados. Márcalos de nuevo cuando los necesites.</div>`:""}
    <div class="tbl-wrap"><table><tbody>${f("Materiales (perfilería)",R.perfiles)||`<tr><td>Materiales (perfilería)</td><td class="n">${money(0)}</td></tr>`}${f("Vidrio",R.vidrio)}${f("Tableros PVC (puertas)",R.tableros)}${f("Accesorios (rodamientos, empaque, chapas, bisagras y otros)",R.accesorios)}${f("Instalación",R.instalacion)}${f("Ítems con precio manual",R.manual)}${Math.abs(R.ajuste)>=1?`<tr><td>${S.cfg.margen?"Margen "+S.cfg.margen+" % y redondeo":"Redondeo"}</td><td class="n">${money(R.ajuste)}</td></tr>`:""}</tbody>
    <tfoot><tr><td>Total</td><td class="n">${money(R.total)}</td></tr></tfoot></table></div>
 
@@ -1246,7 +1249,7 @@ function resumenHtml(calc,total,items,editable,parcial){const F=faltanItems(item
     ${calc.tableros.map(t=>`<tr><td>${esc(t.nombre)}<div class="small muted">${esc(t.detalle)}</div></td><td class="n">${esc(t.cobrado)}</td><td class="n">${money(t.valor)}</td></tr>`).join("")}
     </tbody></table></div></details>`:""}
   </div>
-  <div class="total-bar"><span class="eyebrow" style="color:inherit">${parcial?"Total ítems marcados":"Total cotización"}</span><span class="v">${money(R.total)}</span></div>`;
+  <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v">${money(R.total)}</span></div>`;
 }
 
 /* --- Cotizar --- */
@@ -1275,7 +1278,7 @@ function panelBorradores(){const L=[...S.borradores].sort((a,b)=>(b.guardado||""
    <div class="row" style="margin-top:8px;gap:8px"><button class="btn sm pri" data-act="continuar-borrador" data-id="${b.id}">Continuar</button><button class="btn sm danger" data-act="borrar-borrador" data-id="${b.id}">Descartar</button></div></div></div>`}).join("")}</div></div>`}
 function nuevoDraft(){return {id:null,clienteId:"",nombre:"",direccion:"",estado:"cotizacion",fecha:hoy(),notas:"",items:[]}}
 /* Vidrios estándar de divisiones que usa una obra: {"60x190":2,...} */
-function vidriosInvObra(o){const m={};for(const it of o.items||[]){if(it.tipo!=="division"||it.precioManual>0)continue;const r=vidriosDivision(it);
+function vidriosInvObra(o){const m={};for(const it of o.items||[]){if(it.fuera||it.tipo!=="division"||it.precioManual>0)continue;const r=vidriosDivision(it);
   if(r.modo!=="estandar"||r.sinCatalogo)continue;for(const w of [r.fijo,r.movil]){const k=cm(w)+"x"+cm(it.alto);m[k]=(m[k]||0)+(it.cant||1)}}return m}
 async function moverInventario(mapa,signo){const c=clone(S.cfg);const L=c.division.vidrios||[];
   for(const [k,n] of Object.entries(mapa)){const [a,h]=k.split("x").map(x=>num(x));const v=L.find(v=>Math.abs(+v.ancho-a)<0.01&&Math.abs(+v.alto-h)<0.01);if(v)v.stock=Math.max(0,(+v.stock||0)+signo*n)}
@@ -1328,7 +1331,7 @@ function vCotizar(){
     ${d.items.length?tablaItems(d.items,calc,true,false,"__draft",d):emptyBox("Sin ítems","Agrega ventanas, puertas, divisiones o vidrios con sus medidas.",`<button class="btn pri" data-act="nuevo-item">+ Agregar ítem</button>`)}
   </div>
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
-  ${d.items.length?(()=>{const M=itemsMarcados(d.items,"__draft");return M.length===d.items.length?resumenHtml(calc,0,d.items,true):M.length?resumenHtml(calcCot(M,d),0,M,true,[M.length,d.items.length]):`<div class="panel"><h2>Resumen</h2><span class="small muted">No hay ítems marcados.</span></div>`})():""}
+  ${d.items.length?resumenHtml(calc,0,d.items,true):""}
   ${d.items.length?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
@@ -1592,7 +1595,7 @@ function cobroSheet(id,obraId){
   const ex=id?S.cobros.find(c=>c.id===id):null;const o=obraId?obra(obraId):null;
   let valorDef=0,concepto="";
   if(o){const yaCob=S.cobros.filter(x=>x.obraId===o.id&&!x.anulada).reduce((s,x)=>s+(+x.valor||0),0);valorDef=Math.max(0,totalObra(o)-yaCob);
-    concepto="Suministro e instalación de "+(o.items||[]).map(it=>it.cant+" "+describeItem(it).toLowerCase()).join(", ")+" — obra "+(o.nombre||"");}
+    concepto="Suministro e instalación de "+(o.items||[]).filter(it=>!it.fuera).map(it=>it.cant+" "+describeItem(it).toLowerCase()).join(", ")+" — obra "+(o.nombre||"");}
   const c=ex||{numero:siguienteCobro(),fecha:hoy(),clienteId:o?.clienteId||"",obraId:o?.id||"",concepto,valor:valorDef,abonos:[]};
   S.cobroTmp={...c,id:ex?.id||null};
   const clientes=[...S.clientes].sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
@@ -1924,8 +1927,8 @@ function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de PDF. R
   doc.setFontSize(10);const dato=(k,v)=>{if(!v)return;doc.setFont("helvetica","bold");doc.text(k,16,y);doc.setFont("helvetica","normal");const l=doc.splitTextToSize(v,150);doc.text(l,46,y);y+=l.length*5};
   dato("Obra:",o.nombre||"");dato("Cliente:",[c?.nombre,c?.telefono].filter(Boolean).join(" · "));dato("Dirección:",o.direccion||c?.direccion||"");
   dato("Estado:",(ESTADOS.find(e=>e[0]===o.estado)||[,o.estado])[1]+(o.fechaAprobada?" · aprobada el "+fechaCorta(o.fechaAprobada):""));y+=3;
-  tit("Trabajos ("+(o.items||[]).length+")");
-  (o.items||[]).forEach((it,i)=>{const l1=(i+1)+". "+describeItem(it)+(medidaTxt(it)?"  ·  "+medidaTxt(it)+" cm":"")+"  ·  x"+it.cant+(it.ubicacion?"  ·  "+it.ubicacion:"");
+  tit("Trabajos ("+(o.items||[]).filter(it=>!it.fuera).length+")");
+  (o.items||[]).filter(it=>!it.fuera).forEach((it,i)=>{const l1=(i+1)+". "+describeItem(it)+(medidaTxt(it)?"  ·  "+medidaTxt(it)+" cm":"")+"  ·  x"+it.cant+(it.ubicacion?"  ·  "+it.ubicacion:"");
     const l2=detalleItem(it),a=doc.splitTextToSize(l1,184),b=l2?doc.splitTextToSize(l2,178):[];nl(a.length*4.6+b.length*4.2+2);
     doc.setFont("helvetica","bold");doc.text(a,16,y);y+=a.length*4.6;doc.setFont("helvetica","normal");if(b.length){doc.setTextColor(106,95,88);doc.text(b,20,y);doc.setTextColor(31,26,23);y+=b.length*4.2}y+=1.5});
   if(o.notas){const l=doc.splitTextToSize("Notas: "+o.notas,184);nl(l.length*4.5);doc.text(l,16,y);y+=l.length*4.5}
@@ -1950,7 +1953,7 @@ function confirmar(msg,okTxt,fn){S.confirmFn=fn;openSheet(()=>`<div class="sheet
 async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("Copiado")}catch(e){openSheet(()=>`<div class="sheet-h"><h2>Copia este texto</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div><textarea id="copy-area" style="width:100%;min-height:260px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);font-size:14px">${esc(txt)}</textarea>`);setTimeout(()=>{const t=$("#copy-area");t&&t.select()},50)}}
 function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   return `*Cotización COT-${pad(o.numero||0)}*\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
-  (o.items||[]).map((it,i)=>`${i+1}. ${[describeItem(it)+(medidaTxt(it)?" "+medidaTxt(it)+" cm":""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
+  (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).map(([it,i],n)=>`${n+1}. ${[describeItem(it)+(medidaTxt(it)?" "+medidaTxt(it)+" cm":""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
   `\n\n*TOTAL: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
   return `CUENTA DE COBRO No. ${pad(c.numero)}\n${e.ciudad?e.ciudad+", ":""}${fechaLarga(c.fecha)}\n\n${cl?cl.nombre+(cl.nit?"\nNIT/C.C. "+cl.nit:""):""}\n\nDEBE A:\n${e.propietario||e.nombre}${e.cc?"\nC.C. "+e.cc:""}\n\nLA SUMA DE: ${letras(+c.valor||0)} PESOS M/CTE (${money(c.valor)})\n\nPOR CONCEPTO DE: ${c.concepto}\n\n${e.nota||""}${e.banco?"\nPago a: "+e.banco:""}`}
@@ -1991,9 +1994,9 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
   doc.setFont("helvetica","bold");doc.text("Obra:",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize((o.nombre||"")+(o.direccion?" · "+o.direccion:""),160),36,y);y+=10;
   const cols=[16,26,110,140,155,178];doc.setFillColor(236,230,223);doc.rect(14,y-5,188,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(9);
   ["#","Descripción","Medida (cm)","Cant","Valor unit.","Total"].forEach((h,i)=>doc.text(h,i>=3?(i===3?150:i===4?173:200):cols[i],y,{align:i>=3?"right":"left"}));y+=8;doc.setFont("helvetica","normal");
-  (o.items||[]).forEach((it,i)=>{const desc=doc.splitTextToSize([describeItem(it),detalleItem(it)].filter(Boolean).join(" · ")+(it.ubicacion?" · "+it.ubicacion:""),80);
+  (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).forEach(([it,i],n)=>{const desc=doc.splitTextToSize([describeItem(it),detalleItem(it)].filter(Boolean).join(" · ")+(it.ubicacion?" · "+it.ubicacion:""),80);
     if(y+desc.length*4>250){doc.addPage();y=20}
-    doc.text(String(i+1),16,y);doc.text(desc,26,y);doc.text(medidaTxt(it),110,y);doc.text(String(it.cant),150,y,{align:"right"});doc.text(money(valLinea(calc,i).unit),173,y,{align:"right"});doc.text(money(valLinea(calc,i).total),200,y,{align:"right"});
+    doc.text(String(n+1),16,y);doc.text(desc,26,y);doc.text(medidaTxt(it),110,y);doc.text(String(it.cant),150,y,{align:"right"});doc.text(money(valLinea(calc,i).unit),173,y,{align:"right"});doc.text(money(valLinea(calc,i).total),200,y,{align:"right"});
     y+=desc.length*4+3;doc.setDrawColor(203,211,219);doc.line(14,y-2,202,y-2);});
   y+=3;if(y>215){doc.addPage();y=20}doc.setFontSize(10);
 
@@ -2071,9 +2074,9 @@ document.addEventListener("click",async ev=>{
       S.draftBase=null;go("cotizar");toast("Copia lista: cambia el cliente o lo que necesites y guárdala");break}
     case"continuar-borrador":continuarBorrador(id);break;
     case"borrar-borrador":confirmar("Se borra esta cotización pendiente con sus ítems.","Descartar",async()=>{await borrar("borradores",id);if(S.draft?.borradorId===id)S.draft.borradorId=null;render()});break;
-    case"nueva-cot":selDe("__draft").clear();S.draft=nuevoDraft();S.draftBase=null;go("cotizar");break;
+    case"nueva-cot":S.draft=nuevoDraft();S.draftBase=null;go("cotizar");break;
     case"nueva-cot-cliente":S.draft={...nuevoDraft(),clienteId:id,direccion:cliente(id)?.direccion||""};go("cotizar");break;
-    case"editar-obra":selDe("__draft").clear();S.draft=clone(obra(id));S.draftBase=JSON.stringify(S.draft);go("cotizar");break;
+    case"editar-obra":S.draft=clone(obra(id));S.draftBase=JSON.stringify(S.draft);go("cotizar");break;
     case"descartar":{const bid=S.draft?.borradorId;S.draft=nuevoDraft();S.draftBase=null;if(bid)await borrar("borradores",bid);render();break}
     case"cortes-obra":S.cortesObra=id;go("cortes");break;
     case"aprobar-obra":{const F=faltanObra(obra(id));if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pagoSheet(id,"aprobar");break}
@@ -2107,8 +2110,8 @@ document.addEventListener("click",async ev=>{
         if(d.alto<1800)d.alto=2100;if(d.ancho>1300)d.ancho=900}
       if(t==="cocina"){const d=S.itemTmp;d.alto=Math.round((+S.cfg.cocina?.alto||61.5)*10);d.forma=d.forma||"recta";d.parte="superior";if(d.ancho>4000)d.ancho=1500}
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
-    case"sel-item":{const st=selDe(b.dataset.ctx),k=+b.dataset.i;st.has(k)?st.delete(k):st.add(k);render();break}
-    case"sel-todos":{const st=selDe(b.dataset.ctx),it=b.dataset.ctx==="__draft"?S.draft.items:(obra(b.dataset.ctx)?.items||[]);if(st.size)st.clear();else it.forEach((_,i)=>st.add(i));render();break}
+    case"sel-item":{const k=+b.dataset.i;await marcarItems(b.dataset.ctx,items=>{if(items[k]){if(items[k].fuera)delete items[k].fuera;else items[k].fuera=true}});break}
+    case"sel-todos":await marcarItems(b.dataset.ctx,items=>{const todos=!items.some(x=>x.fuera);items.forEach(x=>{if(todos)x.fuera=true;else delete x.fuera})});break;
     case"vid-modo":S.draft.vidrioModo={...(S.draft.vidrioModo||{}),[b.dataset.k]:b.dataset.v};render();break;
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
@@ -2127,7 +2130,7 @@ document.addEventListener("click",async ev=>{
     case"it-rod":S.itemTmp.rod=b.dataset.v;refreshSheet();break;
     case"guardar-item":if(guardarItemTmp())closeSheet();break;
     case"dup-item":if(guardarItemTmp()){S.itemTmp=clone(S.draft.items[S.itemIdx!=null?S.itemIdx:S.draft.items.length-1]);S.itemIdx=null;render();openSheet(()=>itemSheetHtml());const sh=$(".sheet");if(sh)sh.scrollTop=0;toast("Copia lista: cambia la medida y agrégala")}break;
-    case"quitar-item":selDe("__draft").clear();S.draft.items.splice(S.itemIdx,1);closeSheet();break;
+    case"quitar-item":S.draft.items.splice(S.itemIdx,1);closeSheet();break;
     case"guardar-obra":{const d=S.draft;if(!d.items.length){toast("Agrega al menos un ítem");return}
       if(!String(d.nombre||"").trim())d.nombre=nombreAuto(d);
       const id2=d.id||uid();const prev=d.id?obra(d.id):null;
