@@ -208,6 +208,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .lote-r .cin{width:100%;min-width:0;padding:8px 6px}.lote-r .btn{padding:6px 0;min-height:36px}
 .lote.con-d .lote-r{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px 50px minmax(0,1.2fr) 32px}
 .lote-d{padding:6px 2px!important;font-size:13px}
+.lote-x{display:grid;gap:4px;padding:8px;border:1px dashed var(--line);border-radius:8px;background:var(--surface-2);font-size:13px}
 .lote-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .lamopc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .lamopc-b{display:flex;flex-direction:column;gap:2px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;font-size:12px;color:inherit;cursor:pointer}
@@ -253,7 +254,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.44.0";
+const APP_VER="1.45.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1350,7 +1351,7 @@ function itemSheetHtml(){
 /* Varias medidas de la misma referencia en una sola pantalla */
 const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina","division"].includes(it.tipo);
 function loteItems(it){const base={...it};delete base.lote;delete base.loteOn;
-  return (it.lote||[]).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||"",...(r.d&&TIPOS[it.tipo]?.serie?{dist:r.d}:{})}))}
+  return (it.lote||[]).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||"",...(r.i!=null&&r.i!==""&&!isNaN(+r.i)?{instalacion:+r.i}:{}),...(r.d&&TIPOS[it.tipo]?.serie?{dist:r.d}:{})}))}
 /* Lado de la fija por fila: depende de las naves */
 function distsLote(it){const n=it.naves||2;return !TIPOS[it.tipo]?.serie||n===4?[]:n===2?[["FI","Izq"],["FD","Der"],["CC","Corr"]]:[["FI","Izq"],["FD","Der"]]}
 function loteRes(it){const L=loteItems(it);if(!L.length)return `<span class="small muted">Escribe ancho y alto en cm.</span>`;const F=faltanItems(L);
@@ -1363,12 +1364,14 @@ function loteHtml(it){if(!it.lote||!it.lote.length)it.lote=[{a:0,h:0,c:1,u:""}];
     <input id="lt-${i}-c" class="cin" inputmode="numeric" data-lote="${i}.c" value="${r.c||1}" aria-label="Cantidad ${i+1}">
     ${DS.length?`<button class="btn sm lote-d" data-act="lote-d" data-i="${i}" aria-label="Lado de la fija, fila ${i+1}">${dOf(r)[1]}</button>`:""}
     <input id="lt-${i}-u" class="cin" data-lote="${i}.u" value="${esc(r.u||"")}" placeholder="Sala…" aria-label="Ubicación ${i+1}">
-    ${i<L.length-1?`<button class="btn sm" data-act="lote-del" data-i="${i}" aria-label="Quitar fila">✕</button>`:"<span></span>"}</div>`).join("")}</div>
+    ${i<L.length-1?`<button class="btn sm${r.i!=null&&r.i!==""?" pri":""}" data-act="lote-mas" data-i="${i}" aria-label="Más opciones de la fila ${i+1}" aria-expanded="${!!r.open}">⋯</button>`:"<span></span>"}</div>
+    ${r.open&&i<L.length-1?`<div class="lote-x"><label for="lt-${i}-i">Mano de obra de esta ventana ($)</label><div class="row" style="gap:6px;flex-wrap:nowrap"><input id="lt-${i}-i" class="cin grow" inputmode="numeric" data-lote="${i}.i" value="${r.i??""}" placeholder="${money(it.instalacion??instDe(it.tipo))} (la general)">
+     <button class="btn sm danger" data-act="lote-del" data-i="${i}">Quitar fila</button></div><span class="hint">Déjalo vacío para usar la mano de obra general de abajo.</span></div>`:""}`).join("")}</div>
   <div class="panel" id="lote-res" style="gap:4px">${loteRes(it)}</div>
   <div class="fgrid">
     ${`<div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>`}
     ${TIPOS[it.tipo]?.puerta?"":`<div class="field"><label for="it-vidrio">Vidrio</label><select id="it-vidrio" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)}</option>`).join("")}</select></div>`}
-    <div class="field full"><label for="it-inst">Instalación por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>`}
+    <div class="field full"><label for="it-inst">Mano de obra general por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"><span class="hint">Para cambiarla en una ventana, toca ⋯ en su fila.</span></div></div>`}
 function ptaOpciones(it){
   const seg=(lbl,k,opts,def)=>`<div class="field"><label>${lbl}</label><div class="seg">${opts.map(([v,t])=>`<button data-act="it-set" data-k="${k}" data-v="${v}" aria-pressed="${(it[k]||def)===v}">${t}</button>`).join("")}</div></div>`;
   let h=it.tipo==="p1"?seg("Tablero","tab1",[["f06","F06"],["marmo","PVC marmolizado"],["cielo","PVC cielorraso"]],"f06")
@@ -2088,6 +2091,7 @@ document.addEventListener("click",async ev=>{
       ${img?`<div class="eyebrow">Plano con medidas (mm)</div><img src="${img}" alt="Plano ${esc(k)}" style="width:100%;height:auto;mix-blend-mode:multiply;border-radius:8px">`:""}`);break}
     case"perfimg-quitar":{const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));const m={...(c.perfilImg||{})};delete m[b.dataset.k];c.perfilImg=m;S.cfg.perfilImg=m;autoGuardarCfg();render();break}
     case"lote-d":{const it=S.itemTmp,DS=distsLote(it),r=it.lote[+b.dataset.i],cur=r.d||((it.dist==="FC"?"FI":it.dist)||"FI"),k=DS.findIndex(x=>x[0]===cur);r.d=DS[(k+1)%DS.length][0];refreshSheet();break}
+    case"lote-mas":{const r=S.itemTmp.lote[+b.dataset.i];r.open=!r.open;refreshSheet();if(r.open){const e=document.getElementById("lt-"+b.dataset.i+"-i");if(e)e.focus()}break}
     case"lote-del":S.itemTmp.lote.splice(+b.dataset.i,1);refreshSheet();break;
     case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;if(b.dataset.k==="mat"||(b.dataset.k==="parte"&&esMel(S.itemTmp))){const d=S.itemTmp;if(esMel(d)){const inf=d.parte==="inferior";d.alto=inf?800:615;d.fondo=inf?550:300;if(d.espaldar==null)d.espaldar=true;d.canto=d.canto||"flex"}else{d.alto=d.parte==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10)}refreshSheet();break}if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
@@ -2176,7 +2180,7 @@ document.addEventListener("input",ev=>{
     const h=$("#d-cli-hint");if(h)h.textContent=cliHint(S.draft);return}
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
   if(t.dataset.lote&&S.itemTmp?.lote){const [i,f]=t.dataset.lote.split("."),L=S.itemTmp.lote,r=L[+i];if(!r)return;
-    r[f]=f==="u"?t.value:f==="c"?Math.round(num(t.value)):Math.round(num(t.value)*10);
+    r[f]=f==="u"?t.value:f==="i"?(t.value.trim()===""?"":Math.round(num(t.value))):f==="c"?Math.round(num(t.value)):Math.round(num(t.value)*10);
     if(+i===L.length-1&&(r.a>0||r.h>0)){L.push({a:0,h:0,c:1,u:"",...(r.d?{d:r.d}:{})});refreshSheet()}
     else{const e=$("#lote-res");if(e)e.innerHTML=loteRes(S.itemTmp);const g=$('[data-act="guardar-item"]');if(g)g.textContent="Agregar "+loteItems(S.itemTmp).length+" ítem(s) a la cotización"}return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
