@@ -265,7 +265,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.51.0";
+const APP_VER="1.52.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1239,23 +1239,43 @@ function vidrioDespieceHtml(id,ctx){const o=ctx==="__draft"?S.draft:obra(ctx);if
     ${L.map(p=>`<tr><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n"><b>${p.cant}</b></td><td class="small">#${[...p.items].join(", #")}${p.nota?` · ${esc(p.nota)}`:""}</td></tr>`).join("")}</tbody></table></div>
    <span class="small muted">Medidas de corte en cm.</span>
    ${rects.length?`<h3>Cómo sale de la lámina (${la} × ${lh} cm)</h3>${opcionesLamHtml("vid:"+id,rects,la*10,lh*10,0,0)}`:""}`}
+function perfilDespieceHtml(key,color,ctx){const o=ctx==="__draft"?S.draft:obra(ctx);if(!o)return "";const res=sumarDespiece(o.items||[]);
+  const p=res.per.find(x=>angKey(x.sistema,x.nombre)===key&&(x.color||"")===(color||""))||res.per.find(x=>angKey(x.sistema,x.nombre)===key);if(!p)return `<div class="sheet-h"><h2>${esc(key)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div><span class="small muted">Sin cortes.</span>`;
+  const L=S.cfg.barra||6000,bs=barras(p.cortes,kerfDe(p)),med=[...new Set(p.cortes.map(c=>c.largo))],angs=angsPerfil(p);
+  return `<div class="sheet-h"><h2>Despiece · ${esc(p.nombre)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <div class="row" style="gap:10px;flex-wrap:nowrap">${perfilIcon(key,56)}<div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><span class="small muted">${bs.length} tira(s) de ${cm(L)} cm · corte ${angs.join("°/")}° · sierra ${kerfDe(p)} mm</span></div></div>
+   <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Medida (cm)</th>${angs.length>1?"<th class=\"n\">Corte</th>":""}</tr></thead><tbody>${p.cortes.map(c=>`<tr><td class="n"><b>${c.cant}</b></td><td class="n mono">${cm(c.largo)}</td>${angs.length>1?`<td class="n">${angCorte(p,c)}°</td>`:""}</tr>`).join("")}</tbody></table></div>
+   <h3>Cómo salen de las tiras</h3>
+   <div class="stack" style="gap:6px">${bs.map((b,i)=>`<div class="barline"><span class="mono muted">Tira ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div class="cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")}</div>`}
+function tableroDespieceHtml(g,ctx){const o=ctx==="__draft"?S.draft:obra(ctx);if(!o)return "";const res=sumarDespiece(o.items||[]);S.cortesSel=ctx;
+  let tit,W,H,k=0,L,rects=[];
+  if(g==="pvc"){const mm=S.cfg.puertas.marmo;tit="PVC marmolizado";W=mm.ancho*10;H=mm.alto*10;L=res.pvc.map(p=>({...p,pieza:"Tablero"}))}
+  else{const gr=gruposLam(res.mel||[]).find(x=>x.g===g);if(!gr)return "";tit=gr.t;W=gr.W*10;H=gr.H*10;k=kerfMel();L=(res.mel||[]).filter(x=>x.g===g)}
+  L.forEach(p=>{for(let q=0;q<p.cant;q++)rects.push({w:p.ancho,h:p.alto})});
+  return `<div class="sheet-h"><h2>Despiece · ${esc(tit)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <span class="small muted">${rects.length} pieza(s) · lámina ${cm(W)} × ${cm(H)} cm${k?" · sierra "+k+" mm":""}</span>
+   <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td class="small">${esc(p.pieza||"")}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n"><b>${p.cant}</b></td></tr>`).join("")}</tbody></table></div>
+   <span class="small muted">Medidas en cm.</span>
+   ${rects.length?`<h3>Cómo sale de la lámina</h3>${opcionesLamHtml(g,rects,W,H,0,k)}`:""}`}
 function resumenHtml(calc,total,items,editable,todos,ctx){const F=faltanItems(items);items=todos||items;if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
   <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v" style="font-size:18px">Falta precio</span></div>`;
   const R=calc.resumen,nf=(items||[]).filter(x=>x.fuera).length,num2=v=>(Math.round(v*100)/100).toString().replace(".",",");
   const aj=(sec,hl)=>`<button class="btn sm mc-aj" data-act="ir-precios" data-v="${sec}" data-hl="${esc(hl||"")}" aria-label="Ver precio en Ajustes" title="Ver precio en Ajustes">⚙</button>`;
-  const fila=(ico,tit,det,extra,valor,sec,hl)=>`<div class="mc-f">${ico}<div class="mc-t"><div class="row sp" style="gap:6px;flex-wrap:nowrap"><b>${tit}</b><b class="num" style="white-space:nowrap">${money(valor)}</b></div>${det?`<div class="small muted">${det}</div>`:""}${extra||""}</div>${sec?aj(sec,hl):""}</div>`;
+  const fila=(ico,tit,det,extra,valor,sec,hl,desp)=>`<div class="mc-f">${ico}<div class="mc-t"><div class="row sp" style="gap:6px;flex-wrap:nowrap"><b>${tit}</b><b class="num" style="white-space:nowrap">${money(valor)}</b></div>${det?`<div class="small muted">${det}</div>`:""}${extra||""}</div>${desp||""}${sec?aj(sec,hl):""}</div>`;
+  const dsp=(act,attrs,nom)=>ctx?`<button class="btn sm mc-aj" data-act="${act}" ${attrs} data-ctx="${esc(ctx)}" title="Ver despiece" aria-label="Ver despiece de ${esc(nom)}">▦</button>`:"";
   S.rsOpen=S.rsOpen||{};const grupo=(t,v,body,abierto)=>v||body?`<details class="rs-g" data-rs="${esc(t)}" ${(S.rsOpen[t]??abierto)?"open":""}><summary><span>${t}</span><span class="num">${money(v)}</span><span class="rs-chev" aria-hidden="true">▾</span></summary>${body?`<div class="mc">${body}</div>`:""}</details>`:"";
   // perfilería
   const M=calc.materiales||[],otrosP=R.perfiles-M.reduce((a,m)=>a+m.valor,0);
-  const bP=M.map(m=>fila(perfilIcon(angKey(m.serie,m.perfil),30),`${esc(m.serie.replace(/^Serie /,""))} · ${esc(m.perfil)}`,`${m.color?esc(m.color)+" · ":""}${money(m.tira)}/tira · usa ${num2(m.m)} m · cobra ${esc(typeof m.cobrado==="number"?num2(m.cobrado)+" m":m.cobrado)}`,"",m.valor,"aj-perfiles","pf:"+angKey(m.serie,m.perfil))).join("")
+  const bP=M.map(m=>fila(perfilIcon(angKey(m.serie,m.perfil),30),`${esc(m.serie.replace(/^Serie /,""))} · ${esc(m.perfil)}`,`${m.color?esc(m.color)+" · ":""}${money(m.tira)}/tira · usa ${num2(m.m)} m · cobra ${esc(typeof m.cobrado==="number"?num2(m.cobrado)+" m":m.cobrado)}`,"",m.valor,"aj-perfiles","pf:"+angKey(m.serie,m.perfil),/^A15/.test(m.perfil)?"":dsp("perf-despiece",`data-k="${esc(angKey(m.serie,m.perfil))}" data-c="${esc(m.color||"")}"`,m.perfil))).join("")
     +(otrosP>=1?fila("","Otros (pasamanos y perfil por metro)","","",otrosP):"");
   // vidrio
   const V=calc.vidRes||[],otrosV=R.vidrio-V.reduce((a,v)=>a+v.valor,0);
   const bV=V.map(v=>fila("",esc(v.nombre),`${v.piezas} vidrio(s) · ${num2(v.m2)} m²${v.modo==="lam"&&v.laminas?` · ${v.laminas} lámina(s), ${v.comoLamina} a precio de lámina`:""}`,
       editable?`<div class="seg mc-seg"><button data-act="vid-modo" data-k="${esc(v.id)}" data-v="m2" aria-pressed="${v.modo!=="lam"}">Por m²</button><button data-act="vid-modo" data-k="${esc(v.id)}" data-v="lam" aria-pressed="${v.modo==="lam"}" ${v.puedeLam?"":"disabled"}>Por lámina</button></div>${v.puedeLam?"":`<div class="small muted">Sin precio de lámina en Ajustes.</div>`}`:`<div class="small muted">Cobrado ${v.modo==="lam"?"por lámina":"por m²"}</div>`,
-      v.valor,"aj-vidrios","vid:"+v.id).replace('<button class="btn sm mc-aj"',`<button class="btn sm mc-aj" data-act="vid-despiece" data-k="${esc(v.id)}" data-ctx="${esc(ctx||"")}" title="Ver despiece" aria-label="Ver despiece de ${esc(v.nombre)}">▦</button><button class="btn sm mc-aj"`)).join("")+(otrosV>=1?fila("","Vidrio templado (divisiones y pasamanos)","","",otrosV,"aj-templados"):"");
+      v.valor,"aj-vidrios","vid:"+v.id,dsp("vid-despiece",`data-k="${esc(v.id)}"`,v.nombre))).join("")+(otrosV>=1?fila("","Vidrio templado (divisiones y pasamanos)","","",otrosV,"aj-templados"):"");
   // tableros
-  const bT=(calc.tableros||[]).map(t=>fila("",esc(t.nombre),esc(t.detalle)+" · se cobra "+esc(t.cobrado),"",t.valor,/Melamina|Fondo/.test(t.nombre)?"aj-melamina":"aj-pvc")).join("");
+  const gT=t=>t.nombre==="PVC marmolizado"?"pvc":/^Melamina 15 mm · /.test(t.nombre)?"mel|"+t.nombre.replace(/^Melamina 15 mm · /,""):/^Fondo/.test(t.nombre)?"fon":"";
+  const bT=(calc.tableros||[]).map(t=>fila("",esc(t.nombre),esc(t.detalle)+" · se cobra "+esc(t.cobrado),"",t.valor,/Melamina|Fondo/.test(t.nombre)?"aj-melamina":"aj-pvc","",gT(t)?dsp("tab-despiece",`data-k="${esc(gT(t))}"`,t.nombre):"")).join("");
   // accesorios
   const bA=(calc.accDet||[]).sort((a,b)=>b.valor-a.valor).map(a=>fila("",esc(a.nombre),`${a.metros?num2(a.cant)+" m":num2(a.cant)+" und"} × ${money(a.unit)}${a.metros?"/m":""}`,"",a.valor,"aj-accesorios")).join("");
   // instalación por tipo
@@ -1398,9 +1418,10 @@ function itemSheetHtml(){
   ${it.loteOn&&puedeLote(it)?"":`<button class="btn block" data-act="dup-item">${S.itemIdx!=null?"Guardar y duplicar":"Agregar y hacer otro igual"}</button>`}`;
 }
 /* Varias medidas de la misma referencia en una sola pantalla */
-const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina","division"].includes(it.tipo);
+const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina"].includes(it.tipo);
 function loteItems(it){const base={...it};delete base.lote;delete base.loteOn;
-  return (it.lote||[]).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||"",...(r.i!=null&&r.i!==""&&!isNaN(+r.i)?{instalacion:+r.i}:{}),...(r.d&&TIPOS[it.tipo]?.serie?{dist:r.d}:{})}))}
+  const dEst=it.tipo==="division"&&it.divModo!=="especial";
+  return (it.lote||[]).map(r=>dEst&&!(r.h>0)&&r.a>0?{...r,h:it.alto===1800?1800:1900}:r).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||"",...(r.i!=null&&r.i!==""&&!isNaN(+r.i)?{instalacion:+r.i}:{}),...(r.d&&TIPOS[it.tipo]?.serie?{dist:r.d}:{})}))}
 /* Lado de la fija por fila: depende de las naves */
 function distsLote(it){const n=it.naves||2;return !TIPOS[it.tipo]?.serie||n===4?[]:n===2?[["FI","Izq"],["FD","Der"],["CC","Corr"]]:[["FI","Izq"],["FD","Der"]]}
 function loteRes(it){const L=loteItems(it);if(!L.length)return `<span class="small muted">Escribe ancho y alto en cm.</span>`;const F=faltanItems(L);
@@ -1409,7 +1430,8 @@ function loteHtml(it){if(!it.lote||!it.lote.length)it.lote=[{a:0,h:0,c:1,u:""}];
   const dOf=r=>{const v=r.d||dd;return DS.find(x=>x[0]===v)||DS[0]};
   return `<div class="lote${DS.length?" con-d":""}"><div class="lote-r lote-h"><span>Ancho</span><span>Alto</span><span>Cant</span>${DS.length?"<span>Fija</span>":""}<span>Ubicación</span><span></span></div>
    ${L.map((r,i)=>`<div class="lote-r"><input id="lt-${i}-a" class="cin" inputmode="decimal" data-lote="${i}.a" value="${r.a?cm(r.a):""}" placeholder="cm" aria-label="Ancho ${i+1}">
-    <input id="lt-${i}-h" class="cin" inputmode="decimal" data-lote="${i}.h" value="${r.h?cm(r.h):""}" placeholder="cm" aria-label="Alto ${i+1}">
+    ${it.tipo==="division"&&it.divModo!=="especial"?`<select id="lt-${i}-h" class="cin" data-lote="${i}.h" aria-label="Alto ${i+1}">${[1800,1900].map(v=>`<option value="${v/10}" ${(r.h||it.alto||1900)===v?"selected":""}>${v/10}</option>`).join("")}</select>`
+     :`<input id="lt-${i}-h" class="cin" inputmode="decimal" data-lote="${i}.h" value="${r.h?cm(r.h):""}" placeholder="cm" aria-label="Alto ${i+1}">`}
     <input id="lt-${i}-c" class="cin" inputmode="numeric" data-lote="${i}.c" value="${r.c||1}" aria-label="Cantidad ${i+1}">
     ${DS.length?`<button class="btn sm lote-d" data-act="lote-d" data-i="${i}" aria-label="Lado de la fija, fila ${i+1}">${dOf(r)[1]}</button>`:""}
     <input id="lt-${i}-u" class="cin" data-lote="${i}.u" value="${esc(r.u||"")}" placeholder="Sala…" aria-label="Ubicación ${i+1}">
@@ -1418,8 +1440,8 @@ function loteHtml(it){if(!it.lote||!it.lote.length)it.lote=[{a:0,h:0,c:1,u:""}];
      <button class="btn sm danger" data-act="lote-del" data-i="${i}">Quitar fila</button></div><span class="hint">Déjalo vacío para usar la mano de obra general de abajo.</span></div>`:""}`).join("")}</div>
   <div class="panel" id="lote-res" style="gap:4px">${loteRes(it)}</div>
   <div class="fgrid">
-    ${`<div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>`}
-    ${TIPOS[it.tipo]?.puerta?"":`<div class="field"><label for="it-vidrio">Vidrio</label><select id="it-vidrio" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)}</option>`).join("")}</select></div>`}
+    ${it.tipo==="division"?"":`<div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>`}
+    ${TIPOS[it.tipo]?.puerta||it.tipo==="division"?"":`<div class="field"><label for="it-vidrio">Vidrio</label><select id="it-vidrio" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)}</option>`).join("")}</select></div>`}
     <div class="field full"><label for="it-inst">Mano de obra general por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"><span class="hint">Para cambiarla en una ventana, toca ⋯ en su fila.</span></div></div>`}
 function ptaOpciones(it){
   const seg=(lbl,k,opts,def)=>`<div class="field"><label>${lbl}</label><div class="seg">${opts.map(([v,t])=>`<button data-act="it-set" data-k="${k}" data-v="${v}" aria-pressed="${(it[k]||def)===v}">${t}</button>`).join("")}</div></div>`;
@@ -2135,6 +2157,8 @@ document.addEventListener("click",async ev=>{
     case"sel-item":{const k=+b.dataset.i;await marcarItems(b.dataset.ctx,items=>{if(items[k]){if(items[k].fuera)delete items[k].fuera;else items[k].fuera=true}});break}
     case"sel-todos":await marcarItems(b.dataset.ctx,items=>{const todos=!items.some(x=>x.fuera);items.forEach(x=>{if(todos)x.fuera=true;else delete x.fuera})});break;
     case"vid-modo":S.draft.vidrioModo={...(S.draft.vidrioModo||{}),[b.dataset.k]:b.dataset.v};render();if(sheetFn)refreshSheet();break;
+    case"perf-despiece":{const k=b.dataset.k,c=b.dataset.c,ctx=b.dataset.ctx;openSheet(()=>perfilDespieceHtml(k,c,ctx));break}
+    case"tab-despiece":{const k=b.dataset.k,ctx=b.dataset.ctx;openSheet(()=>tableroDespieceHtml(k,ctx));break}
     case"vid-despiece":{const k=b.dataset.k,ctx=b.dataset.ctx;openSheet(()=>vidrioDespieceHtml(k,ctx));break}
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
