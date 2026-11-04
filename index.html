@@ -224,6 +224,13 @@ tr.sel-off td:not(:first-child){opacity:.45}
 .lote.con-v .lote-r{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px minmax(0,1.6fr) 32px}
 .vr-l{display:grid;gap:6px}.vr{display:grid;gap:3px;padding-bottom:6px;border-bottom:1px solid var(--line)}.vr-new{border-bottom:0}
 .vr-g{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 54px 36px;gap:6px;align-items:center}
+.vchips{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;align-items:flex-start}
+.vchip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);font-size:14px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.vchip-a{color:var(--muted);font-size:12px}.vchip-m{font-family:var(--f-mono,monospace);font-weight:600}.vchip-q{font-weight:700;color:var(--accent)}.vchip-u{font-size:12px;color:var(--muted)}.vchip-v{font-size:12px;color:var(--muted)}
+.vchip.off{opacity:.45;text-decoration:line-through}.vchip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.vchip-src{opacity:.3}.vchip-ghost{position:fixed;z-index:999;pointer-events:none;box-shadow:0 8px 20px rgba(0,0,0,.25);opacity:.95}
+.vg.drop{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.vr-n{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 54px 44px!important}.vr-e{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 54px!important}
 .vg{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--surface)}
 .vg-h{display:flex;align-items:center;gap:8px}.vg-h b{flex:none}.vg-sub{flex:1;text-align:right;font-weight:700}.vg-h .btn{padding:6px 8px;min-height:34px}.vg-sel{width:100%;font-weight:600}
 .vr-g .cin{width:100%;min-width:0;padding:8px 6px}.vr-g .btn{padding:6px 0;min-height:36px}.vr-info{padding-left:27px}
@@ -273,7 +280,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.55.0";
+const APP_VER="1.56.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1289,35 +1296,45 @@ function vidGrupos(d){if(!d.grupos||!d.grupos.length){d.grupos=[];for(const it o
     if(!d.grupos.length)d.grupos.push({id:uid(),vidrio:S.ultVidrio||S.cfg.vidrios[0]?.id||""})}
   for(const it of d.items)if(it.tipo==="vidrio"&&!d.grupos.some(g=>g.id===it.g)){it.g=d.grupos[0].id}
   for(const it of d.items){const g=d.grupos.find(x=>x.id===it.g);if(g&&it.vidrio!==g.vidrio)it.vidrio=g.vidrio}return d.grupos}
+function vchipIn(it,l){const m=it.ancho>0&&it.alto>0?cm(it.ancho)+" × "+cm(it.alto):"sin medida";return `<span class="vchip-a" aria-hidden="true">⠿</span><span class="vchip-m">${m}</span>${(it.cant||1)>1?`<span class="vchip-q">×${it.cant}</span>`:""}${it.ubicacion?`<span class="vchip-u">${esc(it.ubicacion)}</span>`:""}<span class="vchip-v">${l&&l.totalVid?money(l.totalVid):""}</span>`}
 function vidItemsHtml(d,calc){const G=vidGrupos(d);
   const op=sel=>S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===sel?"selected":""}>${esc(v.nombre)} · ${money(+v.m2||0)}/m²</option>`).join("");
   return G.map((g,gi)=>{const idx=d.items.map((it,i)=>[it,i]).filter(([it])=>it.g===g.id),sub=idx.reduce((a,[it,i])=>a+(it.fuera?0:(calc.lineas?.[i]?.totalVid||0)),0),todos=idx.length&&idx.every(([it])=>!it.fuera);
-    return `<div class="vg"><div class="vg-h"><input type="checkbox" class="sel-chk" data-act="vg-incl" data-g="${g.id}" ${idx.length&&!todos?"":"checked"} aria-label="Incluir cuadro ${gi+1}"><b>Cuadro ${gi+1}</b><span class="num vg-sub">${money(sub)}</span>
-      <button class="btn sm" data-act="vg-copiar" data-g="${g.id}" title="Copiar este cuadro con otro vidrio">⧉ Copiar</button>${G.length>1?`<button class="btn sm danger" data-act="vg-quitar" data-g="${g.id}" aria-label="Quitar cuadro">✕</button>`:""}</div>
+    const ed=idx.find(([it,i])=>S.vrEdit===i);
+    return `<div class="vg" data-g="${g.id}"><div class="vg-h"><input type="checkbox" class="sel-chk" data-act="vg-incl" data-g="${g.id}" ${idx.length&&!todos?"":"checked"} aria-label="Incluir cuadro ${gi+1}"><b>Cuadro ${gi+1}</b><span class="num vg-sub">${money(sub)}</span>${G.length>1?`<button class="btn sm danger" data-act="vg-quitar" data-g="${g.id}" aria-label="Quitar cuadro">✕</button>`:""}</div>
      <select class="cin vg-sel" data-vg-vid="${g.id}" aria-label="Vidrio del cuadro ${gi+1}">${op(g.vidrio)}</select>
-     <div class="vr-l"><div class="vr-g lote-h"><span></span><span>Ancho</span><span>Alto</span><span>Cant</span><span></span></div>
-     ${idx.map(([it,i])=>`<div class="vr${it.fuera?" sel-off":""}"><div class="vr-g"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="__draft" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir vidrio">
-       <input id="vr-${i}-ancho" class="cin" inputmode="decimal" data-vr="${i}.ancho" value="${it.ancho?cm(it.ancho):""}" placeholder="cm" aria-label="Ancho">
-       <input id="vr-${i}-alto" class="cin" inputmode="decimal" data-vr="${i}.alto" value="${it.alto?cm(it.alto):""}" placeholder="cm" aria-label="Alto">
-       <input id="vr-${i}-cant" class="cin" inputmode="numeric" data-vr="${i}.cant" value="${it.cant||1}" aria-label="Cantidad">
-       <button class="btn sm" data-act="vr-mas" data-i="${i}" aria-expanded="${!!S.vrOpen?.[i]}" aria-label="Más opciones">⋯</button></div>
-       <div class="small muted vr-info" id="vr-${i}-info">${esc(vidInfo(it,calc.lineas?.[i]))}</div>
-       ${S.vrOpen?.[i]?`<div class="lote-x"><label for="vr-${i}-ubicacion">Ubicación</label><input id="vr-${i}-ubicacion" class="cin" data-vr="${i}.ubicacion" value="${esc(it.ubicacion||"")}" placeholder="Ej: Ventana sala">
-         <label for="vr-${i}-instalacion">Instalación de este vidrio ($ por pieza)</label><input id="vr-${i}-instalacion" class="cin" inputmode="numeric" data-vr="${i}.instalacion" value="${it.instalacion??""}" placeholder="${money(instDe("vidrio"))} (la general)">
-         <label for="vr-${i}-mover">Mover a</label><select id="vr-${i}-mover" class="cin" data-vr-mover="${i}"><option value="">— Escoge el cuadro —</option>${G.filter(x=>x.id!==g.id).map(x=>`<option value="${x.id}">Cuadro ${G.indexOf(x)+1} · ${esc(vidrioDe(x.vidrio).nombre)}</option>`).join("")}<option value="nuevo">Un cuadro nuevo</option></select>
-         <button class="btn sm danger" data-act="vr-del" data-i="${i}">Quitar este vidrio</button></div>`:""}</div>`).join("")}
-     <div class="vr vr-new"><div class="vr-g"><span></span>
-       <input id="vr-n${g.id}-ancho" class="cin" inputmode="decimal" data-vr="n${g.id}.ancho" placeholder="cm" aria-label="Ancho nuevo">
-       <input id="vr-n${g.id}-alto" class="cin" inputmode="decimal" data-vr="n${g.id}.alto" placeholder="cm" aria-label="Alto nuevo">
-       <input id="vr-n${g.id}-cant" class="cin" inputmode="numeric" data-vr="n${g.id}.cant" value="1" aria-label="Cantidad nueva"><span></span></div></div></div></div>`}).join("")+
+     <div class="vchips">${idx.map(([it,i])=>`<div class="vchip${it.fuera?" off":""}${S.vrEdit===i?" on":""}" id="vc-${i}" data-vchip="${i}" role="button" tabindex="0" aria-label="Medida ${cm(it.ancho)} por ${cm(it.alto)}, toca para editar o arrastra a otro cuadro">${vchipIn(it,calc.lineas?.[i])}</div>`).join("")||`<span class="small muted">Arrastra aquí medidas de otro cuadro o escríbelas abajo.</span>`}</div>
+     ${ed?(([it,i])=>`<div class="lote-x"><div class="row sp"><b class="small">Editar medida</b><label class="row small" style="gap:6px"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="__draft" data-i="${i}" ${it.fuera?"":"checked"}> Incluir</label></div>
+       <div class="vr-g vr-e"><input id="vr-${i}-ancho" class="cin" inputmode="decimal" data-vr="${i}.ancho" value="${it.ancho?cm(it.ancho):""}" placeholder="Ancho" aria-label="Ancho"><input id="vr-${i}-alto" class="cin" inputmode="decimal" data-vr="${i}.alto" value="${it.alto?cm(it.alto):""}" placeholder="Alto" aria-label="Alto"><input id="vr-${i}-cant" class="cin" inputmode="numeric" data-vr="${i}.cant" value="${it.cant||1}" aria-label="Cantidad"></div>
+       <input id="vr-${i}-ubicacion" class="cin" data-vr="${i}.ubicacion" value="${esc(it.ubicacion||"")}" placeholder="Ubicación (opcional)">
+       <label for="vr-${i}-instalacion">Instalación de este vidrio ($ por pieza)</label><input id="vr-${i}-instalacion" class="cin" inputmode="numeric" data-vr="${i}.instalacion" value="${it.instalacion??""}" placeholder="${money(instDe("vidrio"))} (la general)">
+       <div class="row" style="gap:8px"><button class="btn sm danger" data-act="vr-del" data-i="${i}">Quitar</button><button class="btn sm pri grow" data-act="vr-listo">Listo</button></div></div>`)(ed):""}
+     <div class="vr-g vr-n"><input id="vn-${g.id}-ancho" class="cin" inputmode="decimal" data-vn="${g.id}" data-f="ancho" placeholder="Ancho" aria-label="Ancho nuevo"><input id="vn-${g.id}-alto" class="cin" inputmode="decimal" data-vn="${g.id}" data-f="alto" placeholder="Alto" aria-label="Alto nuevo"><input id="vn-${g.id}-cant" class="cin" inputmode="numeric" data-vn="${g.id}" data-f="cant" value="1" aria-label="Cantidad nueva" enterkeyhint="done"><button class="btn sm pri" data-act="vn-add" data-g="${g.id}" aria-label="Agregar medida">+</button></div></div>`}).join("")+
    `<button class="btn block" data-act="vg-nuevo">+ Otro cuadro (otro tipo de vidrio)</button>
-   <span class="small muted">Cada cuadro lleva un solo tipo de vidrio: cámbialo arriba del cuadro y cambian todas sus medidas. ⧉ Copiar repite las mismas medidas con otro vidrio para dar varios precios (desmarca el cuadro que no quieras sumar). En ⋯ puedes mover una medida a otro cuadro.</span>`}
+   <span class="small muted">Escribe ancho y alto y toca + (o Enter). Cada medida queda como un bloque: tócalo para editarlo o arrástralo a otro cuadro. Cada cuadro lleva un solo vidrio: cámbialo arriba y cambian todas sus medidas.</span>`}
+/* Arrastrar bloques de medida entre cuadros (dedo o mouse) */
+(function(){let st=null;
+  document.addEventListener("pointerdown",e=>{const c=e.target.closest&&e.target.closest("[data-vchip]");if(!c||e.button>0)return;st={c,i:+c.dataset.vchip,x:e.clientX,y:e.clientY,drag:false,ghost:null}});
+  document.addEventListener("pointermove",e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
+    if(!st.drag&&Math.hypot(dx,dy)>8){st.drag=true;const r=st.c.getBoundingClientRect(),g=st.c.cloneNode(true);g.classList.add("vchip-ghost");g.style.width=r.width+"px";g.style.left=r.left+"px";g.style.top=r.top+"px";document.body.appendChild(g);st.ghost=g;st.ox=e.clientX-r.left;st.oy=e.clientY-r.top;st.c.classList.add("vchip-src")}
+    if(st.drag){e.preventDefault();st.ghost.style.left=(e.clientX-st.ox)+"px";st.ghost.style.top=(e.clientY-st.oy)+"px";
+      document.querySelectorAll(".vg.drop").forEach(x=>x.classList.remove("drop"));const t=document.elementFromPoint(e.clientX,e.clientY)?.closest(".vg");if(t)t.classList.add("drop")}},{passive:false});
+  document.addEventListener("pointerup",e=>{if(!st)return;const s0=st;st=null;
+    if(!s0.drag){S.vrEdit=S.vrEdit===s0.i?null:s0.i;vidPanel();return}
+    s0.ghost.remove();document.querySelectorAll(".vg.drop").forEach(x=>x.classList.remove("drop"));
+    const t=document.elementFromPoint(e.clientX,e.clientY)?.closest(".vg"),it=S.draft?.items[s0.i];
+    if(t&&it&&t.dataset.g!==it.g){it.g=t.dataset.g;vidGrupos(S.draft);toast("Medida movida al "+(t.querySelector(".vg-h b")?.textContent||"cuadro"))}vidPanel()});
+  document.addEventListener("pointercancel",()=>{if(st?.ghost)st.ghost.remove();st=null});
+})();
+function vnAgregar(gid){const d=S.draft,g=(d.grupos||[]).find(x=>x.id===gid);if(!g)return;const a=Math.round(num($("#vn-"+gid+"-ancho")?.value)*10),h=Math.round(num($("#vn-"+gid+"-alto")?.value)*10),c=Math.max(1,Math.round(num($("#vn-"+gid+"-cant")?.value))||1);
+  if(!(a>0&&h>0)){toast("Escribe ancho y alto");return}d.items.push({tipo:"vidrio",g:gid,vidrio:g.vidrio,ancho:a,alto:h,cant:c,ubicacion:"",precioManual:0});S.ultVidrio=g.vidrio;vidPanel();const e=$("#vn-"+gid+"-ancho");if(e)e.focus()}
 function subtotalesCuadros(o,calc){const G=o.grupos||[];return G.map((g,gi)=>({t:"Cuadro "+(gi+1)+" · "+vidrioDe(g.vidrio).nombre,v:(o.items||[]).reduce((a,it,i)=>a+(it.g===g.id&&!it.fuera?(calc.lineas?.[i]?.totalVid||0):0),0)})).filter(x=>x.v>0)}
 const vidSigVidrio=d=>{const usados=new Set((d.grupos||[]).map(g=>g.vidrio));return (S.cfg.vidrios.find(v=>!usados.has(v.id))||S.cfg.vidrios[0])?.id||""};
 const vidPanel=()=>{const e=$("#vid-items");if(e)e.innerHTML=vidItemsHtml(S.draft,calcCot(S.draft.items,S.draft));vidRefrescar()};
 let vrTimer=null;
 function vidRefrescar(){clearTimeout(vrTimer);vrTimer=setTimeout(()=>{const d=S.draft;if(!d||S.view!=="cotizar")return;const calc=calcCot(d.items,d);
-  d.items.forEach((it,i)=>{const e=document.getElementById("vr-"+i+"-info");if(e)e.textContent=vidInfo(it,calc.lineas?.[i])});
+  d.items.forEach((it,i)=>{const e=document.getElementById("vc-"+i);if(e)e.innerHTML=vchipIn(it,calc.lineas?.[i])});
+  (d.grupos||[]).forEach(g=>{const e=document.querySelector('.vg[data-g="'+g.id+'"] .vg-sub');if(e)e.textContent=money(d.items.reduce((a,it,i)=>a+(it.g===g.id&&!it.fuera?(calc.lineas?.[i]?.totalVid||0):0),0))});
   const r=$("#cot-res");if(r)r.innerHTML=d.items.length?resumenHtml(calc,0,d.items,true,null,"__draft"):""},250)}
 function resumenHtml(calc,total,items,editable,todos,ctx){const F=faltanItems(items);items=todos||items;if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
   <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v" style="font-size:18px">Falta precio</span></div>`;
@@ -2232,13 +2249,15 @@ document.addEventListener("click",async ev=>{
       if(t==="cocina"){const d=S.itemTmp;d.alto=Math.round((+S.cfg.cocina?.alto||61.5)*10);d.forma=d.forma||"recta";d.parte="superior";if(d.ancho>4000)d.ancho=1500}
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
     case"vg-nuevo":{vidGrupos(S.draft);S.draft.grupos.push({id:uid(),vidrio:vidSigVidrio(S.draft)});vidPanel();break}
+    case"vn-add":vnAgregar(b.dataset.g);break;
+    case"vr-listo":S.vrEdit=null;vidPanel();break;
     case"vg-copiar":{const g0=S.draft.grupos.find(x=>x.id===b.dataset.g);if(!g0)break;const g={id:uid(),vidrio:vidSigVidrio(S.draft)};S.draft.grupos.push(g);
       S.draft.items.filter(it=>it.g===g0.id).forEach(it=>S.draft.items.push({...clone(it),g:g.id,vidrio:g.vidrio}));vidPanel();toast("Cuadro copiado: cámbiale el vidrio");break}
     case"vg-quitar":{const gid=b.dataset.g,n=S.draft.items.filter(it=>it.g===gid).length,quita=()=>{S.draft.items=S.draft.items.filter(it=>it.g!==gid);S.draft.grupos=S.draft.grupos.filter(x=>x.id!==gid);S.vrOpen={};render()};
       if(n)confirmar("Se quitan las "+n+" medida(s) de este cuadro.","Quitar cuadro",async()=>quita());else quita();break}
     case"vg-incl":{const gid=b.dataset.g,its=S.draft.items.filter(it=>it.g===gid),todos=its.every(it=>!it.fuera);its.forEach(it=>{if(todos)it.fuera=true;else delete it.fuera});render();break}
     case"vr-mas":{S.vrOpen=S.vrOpen||{};const k=+b.dataset.i;S.vrOpen[k]=!S.vrOpen[k];vidPanel();break}
-    case"vr-del":{S.draft.items.splice(+b.dataset.i,1);S.vrOpen={};render();break}
+    case"vr-del":{S.draft.items.splice(+b.dataset.i,1);S.vrOpen={};S.vrEdit=null;render();break}
     case"vid-inst-incl":S.draft.sinInst=!b.checked;render();break;
     case"vid-inst-todos":{const v=Math.round(num($("#vi-todos")?.value));S.draft.items.forEach(x=>{if(x.tipo==="vidrio")x.instalacion=v});
       if(!S.readonly&&v!==instDe("vidrio")){const c=clone(S.cfg);c.instalacionTipo={...(c.instalacionTipo||{}),vidrio:v};guardarCfg(c).catch(()=>{})}toast("Instalación de "+money(v)+" para todos los vidrios");render();break}
@@ -2379,7 +2398,8 @@ document.addEventListener("change",ev=>{const t=ev.target;
   if(t.dataset.actChange==="cortes-obra"){S.cortesObra=t.value;render()}
   if(t.id==="cb-obra"&&t.value){const o=obra(t.value);if(o&&!$("#cb-cli").value)$("#cb-cli").value=o.clienteId||""}
 });
-document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&sheetFn)closeSheet()});
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&sheetFn)closeSheet();
+  if(ev.key==="Enter"&&ev.target.dataset&&ev.target.dataset.vn){ev.preventDefault();const f=ev.target.dataset.f,g=ev.target.dataset.vn;if(f==="ancho"){$("#vn-"+g+"-alto")?.focus()}else vnAgregar(g)}});
 
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 iniciar();
