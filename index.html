@@ -204,8 +204,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surf
 a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}a.btn:not(.pri):not(.dark){color:inherit}
 .pf-foto{display:flex;flex-direction:column;align-items:center;gap:1px}.pf-foto-t{font-size:10px;color:var(--accent);font-weight:600}
 .sel-chk{width:20px;height:20px;margin:2px 0 0;cursor:pointer;accent-color:var(--accent)}
-tr.sel-on td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
-.sel-panel{border-color:var(--accent);gap:8px}
+tr.sel-off td:not(:first-child){opacity:.45}
 .mc{display:grid;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:4px}
 .mc-f{display:flex;gap:8px;align-items:flex-start;padding:10px;border-top:1px solid var(--line)}.mc-f:first-child{border-top:0}
 .mc-t{flex:1;min-width:0;display:grid;gap:2px}.mc-aj{padding:4px 8px;flex:none}
@@ -261,7 +260,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.48.0";
+const APP_VER="1.48.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1169,7 +1168,7 @@ function vObra(){
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
     ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
-  ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items)}
+  ${(()=>{const T=o.items||[],M=itemsMarcados(T,o.id);return M.length===T.length?resumenHtml(calc,0,calcCongelado(o)?[]:T):M.length?resumenHtml(calcCot(M,o),0,M,false,[M.length,T.length]):`<div class="panel"><h2>Resumen</h2><span class="small muted">No hay ítems marcados.</span></div>`})()}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
     <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
@@ -1204,25 +1203,18 @@ function seccionFalta(f){if(/melamina|fondo 3|Canto/i.test(f))return "aj-melamin
   return /^[A-Z]{1,2}\d+$|^Nave de ducha$| · /.test(f)?"aj-perfiles":"aj-accesorios"}
 function avisoFaltan(F){const sec=[...new Set(F.map(seccionFalta))];
   return `<div class="note"><b>Faltan precios</b>, por eso no se muestra el total: ${esc(F.join(", "))}.<div class="row" style="margin-top:6px;gap:8px">${sec.map(x=>`<button class="btn sm pri" data-act="ir-precios" data-v="${x}">Poner precio · ${esc(({"aj-melamina":"Melamina","aj-templados":"Vidrios templados","aj-pvc":"PVC","aj-vidrios":"Vidrios","aj-accesorios":"Accesorios","aj-perfiles":"Perfiles de aluminio"})[x])}</button>`).join("")}</div></div>`}
-/* Selección de ítems: para responder "¿cuánto me cuestan solo estos?" sin tocar la cotización */
-const selDe=ctx=>{S.sel=S.sel||{};const st=S.sel[ctx]||(S.sel[ctx]=new Set());return st};
-function selPanel(items,ctx,opts){const st=selDe(ctx),idx=[...st].filter(i=>i<items.length).sort((a,b)=>a-b);if(!idx.length)return "";
-  const L=idx.map(i=>items[i]),F=faltanItems(L),c=F.length?null:calcCot(L,opts||{}),R=c&&c.resumen,und=L.reduce((a,x)=>a+(x.cant||1),0);
-  const f=(t,v)=>v?`<tr><td>${t}</td><td class="n">${money(v)}</td></tr>`:"";
-  return `<div class="panel sel-panel"><div class="row sp"><h3>Solo los seleccionados</h3><span class="small muted">${idx.length} ítem(s) · ${und} unidad(es)</span></div>
-   ${F.length?avisoFaltan(F):`<div class="tbl-wrap"><table><tbody>${f("Perfilería",R.perfiles)}${f("Vidrio",R.vidrio)}${f("Tableros",R.tableros)}${f("Accesorios",R.accesorios)}${f("Instalación",R.instalacion)}${f("Precio manual",R.manual)}</tbody>
-    <tfoot><tr><td>Total de estos ítems</td><td class="n">${money(R.total)}</td></tr></tfoot></table></div>
-    <span class="small muted">Recalculado solo con estos ítems (materiales juntos entre ellos)${ctx!=="__draft"?", con los precios de hoy":""}.</span>`}
-   <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-act="sel-nueva" data-ctx="${esc(ctx)}">Hacer cotización con estos</button><button class="btn sm" data-act="sel-limpiar" data-ctx="${esc(ctx)}">Quitar selección</button></div></div>`}
+/* Casillas de los ítems: por defecto todos marcados; al desmarcar, el resumen se recalcula solo con los marcados (solo para consultar) */
+const selDe=ctx=>{S.excl=S.excl||{};return S.excl[ctx]||(S.excl[ctx]=new Set())};
+const itemsMarcados=(items,ctx)=>{const ex=selDe(ctx);return (items||[]).filter((_,i)=>!ex.has(i))};
 function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
-  const st=ctx?selDe(ctx):null,todos=st&&items.length&&items.every((_,i)=>st.has(i));
+  const st=ctx?selDe(ctx):null,todos=st&&!items.some((_,i)=>st.has(i));
   return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Seleccionar todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
-  ${items.map((it,i)=>`<tr${st&&st.has(i)?' class="sel-on"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${st.has(i)?"checked":""} aria-label="Seleccionar ítem ${i+1}"></td>`:""}<td><b>${esc(describeItem(it))}</b><div class="small muted">${esc(detalleItem(it))}${TIPOS[it.tipo]?.serie?" · rodamiento "+(it.rod==="abb"?"ABB":"nylon"):""}${it.ubicacion?" · "+esc(it.ubicacion):""}</div><div class="mono small" style="margin-top:2px"><b>${medidaTxt(it)?medidaTxt(it)+" cm":""}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></td>
+  ${items.map((it,i)=>`<tr${st&&st.has(i)?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${st.has(i)?"":"checked"} aria-label="Seleccionar ítem ${i+1}"></td>`:""}<td><b>${esc(describeItem(it))}</b><div class="small muted">${esc(detalleItem(it))}${TIPOS[it.tipo]?.serie?" · rodamiento "+(it.rod==="abb"?"ABB":"nylon"):""}${it.ubicacion?" · "+esc(it.ubicacion):""}</div><div class="mono small" style="margin-top:2px"><b>${medidaTxt(it)?medidaTxt(it)+" cm":""}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></td>
    <td class="n" style="vertical-align:top">${!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
      return `<div class="small muted" title="Lo que valdría este ítem cotizado solo" style="white-space:nowrap"><s>${money(l.tSolo)}</s>${it.cant>1?`<br><s>c/u ${money(l.uSolo)}</s>`:""}<br><span style="font-size:10px">si fuera solo</span></div>`})()}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
    ${editable?`<td class="n" style="vertical-align:top"><button class="btn sm" data-act="editar-item" data-i="${i}">Editar</button></td>`:""}</tr>`).join("")}
-  </tbody></table></div>${ctx?selPanel(items,ctx,opts):""}`;
+  </tbody></table></div>`;
 }
 
 /* Revisión de lo que se cobra: vidrio (m² o lámina, por referencia) y perfiles, con atajo a su precio en Ajustes */
@@ -1240,11 +1232,11 @@ function materialesCobradosHtml(calc,editable){const V=calc.vidRes||[],M=calc.ma
       `${m.color?esc(m.color)+" · ":""}${money(m.tira)}/tira · usa ${m.m.toFixed(2).replace(".",",")} m · cobra ${esc(typeof m.cobrado==="number"?m.cobrado.toFixed(2).replace(".",",")+" m":m.cobrado)}`,"",m.valor,"aj-perfiles","pf:"+angKey(m.serie,m.perfil))).join("")}</div>`:""}
    <span class="small muted">⚙ te lleva al precio de ese material en Ajustes; con Atrás vuelves aquí.</span>
   </details>`}
-function resumenHtml(calc,total,items,editable){const F=faltanItems(items);if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
+function resumenHtml(calc,total,items,editable,parcial){const F=faltanItems(items);if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
   <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v" style="font-size:18px">Falta precio</span></div>`;
   const R=calc.resumen,f=(t,v)=>v?`<tr><td>${t}</td><td class="n">${money(v)}</td></tr>`:"";
   const mats=calc.materiales||[];
-  return `<div class="panel"><h2>Resumen</h2>
+  return `<div class="panel"><h2>Resumen${parcial?` · ${parcial[0]} de ${parcial[1]} ítems`:""}</h2>${parcial?`<div class="note" style="border-color:var(--warn)">Solo los ítems marcados, recalculado entre ellos. Para ver todo, marca todas las casillas. El PDF, el WhatsApp y lo que se guarda llevan todos los ítems.</div>`:""}
    <div class="tbl-wrap"><table><tbody>${f("Materiales (perfilería)",R.perfiles)||`<tr><td>Materiales (perfilería)</td><td class="n">${money(0)}</td></tr>`}${f("Vidrio",R.vidrio)}${f("Tableros PVC (puertas)",R.tableros)}${f("Accesorios (rodamientos, empaque, chapas, bisagras y otros)",R.accesorios)}${f("Instalación",R.instalacion)}${f("Ítems con precio manual",R.manual)}${Math.abs(R.ajuste)>=1?`<tr><td>${S.cfg.margen?"Margen "+S.cfg.margen+" % y redondeo":"Redondeo"}</td><td class="n">${money(R.ajuste)}</td></tr>`:""}</tbody>
    <tfoot><tr><td>Total</td><td class="n">${money(R.total)}</td></tr></tfoot></table></div>
 
@@ -1254,7 +1246,7 @@ function resumenHtml(calc,total,items,editable){const F=faltanItems(items);if(F.
     ${calc.tableros.map(t=>`<tr><td>${esc(t.nombre)}<div class="small muted">${esc(t.detalle)}</div></td><td class="n">${esc(t.cobrado)}</td><td class="n">${money(t.valor)}</td></tr>`).join("")}
     </tbody></table></div></details>`:""}
   </div>
-  <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v">${money(R.total)}</span></div>`;
+  <div class="total-bar"><span class="eyebrow" style="color:inherit">${parcial?"Total ítems marcados":"Total cotización"}</span><span class="v">${money(R.total)}</span></div>`;
 }
 
 /* --- Cotizar --- */
@@ -1336,7 +1328,7 @@ function vCotizar(){
     ${d.items.length?tablaItems(d.items,calc,true,false,"__draft",d):emptyBox("Sin ítems","Agrega ventanas, puertas, divisiones o vidrios con sus medidas.",`<button class="btn pri" data-act="nuevo-item">+ Agregar ítem</button>`)}
   </div>
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
-  ${d.items.length?resumenHtml(calc,0,d.items,true):""}
+  ${d.items.length?(()=>{const M=itemsMarcados(d.items,"__draft");return M.length===d.items.length?resumenHtml(calc,0,d.items,true):M.length?resumenHtml(calcCot(M,d),0,M,true,[M.length,d.items.length]):`<div class="panel"><h2>Resumen</h2><span class="small muted">No hay ítems marcados.</span></div>`})():""}
   ${d.items.length?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
@@ -2116,11 +2108,7 @@ document.addEventListener("click",async ev=>{
       if(t==="cocina"){const d=S.itemTmp;d.alto=Math.round((+S.cfg.cocina?.alto||61.5)*10);d.forma=d.forma||"recta";d.parte="superior";if(d.ancho>4000)d.ancho=1500}
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
     case"sel-item":{const st=selDe(b.dataset.ctx),k=+b.dataset.i;st.has(k)?st.delete(k):st.add(k);render();break}
-    case"sel-todos":{const st=selDe(b.dataset.ctx),it=b.dataset.ctx==="__draft"?S.draft.items:(obra(b.dataset.ctx)?.items||[]);if(it.every((_,i)=>st.has(i)))st.clear();else it.forEach((_,i)=>st.add(i));render();break}
-    case"sel-limpiar":selDe(b.dataset.ctx).clear();render();break;
-    case"sel-nueva":{const ctx=b.dataset.ctx,o=ctx==="__draft"?S.draft:obra(ctx);if(!o)break;const idx=[...selDe(ctx)].filter(i=>i<(o.items||[]).length).sort((a,b)=>a-b);if(!idx.length)break;
-      const nueva=()=>{S.draft={...nuevoDraft(),clienteId:o.clienteId||"",clienteNombre:o.clienteNombre||"",direccion:o.direccion||"",nombre:(o.nombre||"Cotización")+" (parcial)",notas:o.notas||"",marmoMedia:o.marmoMedia,vidrioLamina:o.vidrioLamina,vidrioModo:o.vidrioModo,items:clone(idx.map(i=>o.items[i]))};S.draftBase=null;selDe(ctx).clear();go("cotizar");toast("Cotización nueva con "+idx.length+" ítem(s)")};
-      if(ctx==="__draft"&&draftConDatos(S.draft)&&!S.readonly){try{await guardarBorrador();toast("La cotización completa quedó en Pendientes")}catch(e){}}nueva();break}
+    case"sel-todos":{const st=selDe(b.dataset.ctx),it=b.dataset.ctx==="__draft"?S.draft.items:(obra(b.dataset.ctx)?.items||[]);if(st.size)st.clear();else it.forEach((_,i)=>st.add(i));render();break}
     case"vid-modo":S.draft.vidrioModo={...(S.draft.vidrioModo||{}),[b.dataset.k]:b.dataset.v};render();break;
     case"marmo-media":S.draft.marmoMedia=b.dataset.v==="1";render();break;
     case"it-alto":S.itemTmp.alto=+b.dataset.v;refreshSheet();break;
