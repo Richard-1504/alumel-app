@@ -223,7 +223,9 @@ tr.sel-off td:not(:first-child){opacity:.45}
 .lote-x{display:grid;gap:4px;padding:8px;border:1px dashed var(--line);border-radius:8px;background:var(--surface-2);font-size:13px}
 .lote.con-v .lote-r{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px minmax(0,1.6fr) 32px}
 .vr-l{display:grid;gap:6px}.vr{display:grid;gap:3px;padding-bottom:6px;border-bottom:1px solid var(--line)}.vr-new{border-bottom:0}
-.vr-g{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 42px minmax(0,1.5fr) 32px;gap:5px;align-items:center}
+.vr-g{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 54px 36px;gap:6px;align-items:center}
+.vg{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--surface)}
+.vg-h{display:flex;align-items:center;gap:8px}.vg-h b{flex:none}.vg-sub{flex:1;text-align:right;font-weight:700}.vg-h .btn{padding:6px 8px;min-height:34px}.vg-sel{width:100%;font-weight:600}
 .vr-g .cin{width:100%;min-width:0;padding:8px 6px}.vr-g .btn{padding:6px 0;min-height:36px}.vr-info{padding-left:27px}
 .vr.sel-off .vr-g .cin{opacity:.45}
 .lote-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -271,7 +273,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.54.0";
+const APP_VER="1.55.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1200,8 +1202,8 @@ function vObra(){
   ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id)}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
-    <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
-    <button class="btn" data-act="cortes-obra" data-id="${o.id}">Ver cortes</button>
+    ${areaDe(o)==="vidrios"?"":`<button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
+    <button class="btn" data-act="cortes-obra" data-id="${o.id}">Ver cortes</button>`}
     <button class="btn" data-act="pdf-cot" data-id="${o.id}">PDF</button>
     <button class="btn full" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button>
     <button class="btn" data-act="hoja-taller" data-id="${o.id}">Hoja de taller (PDF)</button>
@@ -1282,25 +1284,37 @@ function tableroDespieceHtml(g,ctx){const o=ctx==="__draft"?S.draft:obra(ctx);if
    ${rects.length?`<h3>Cómo sale de la lámina</h3>${opcionesLamHtml(g,rects,W,H,0,k)}`:""}`}
 /* Área Vidrios: la lista de ítems es directamente la tabla de medidas (como "varias medidas") */
 function vidInfo(it,l){if(!(it.ancho>0&&it.alto>0))return "Escribe ancho y alto";return [(l&&l.m2?(Math.round(l.m2*100)/100).toString().replace(".",",")+" m²":""),l&&l.totalVid!=null?money(l.totalVid):"",it.ubicacion||"",it.instalacion!=null&&it.instalacion!==""&&+it.instalacion!==instDe("vidrio")?"inst. "+money(+it.instalacion):""].filter(Boolean).join(" · ")}
-function vidItemsHtml(d,calc){const ult=[...d.items].reverse().find(x=>x.tipo==="vidrio")?.vidrio||S.ultVidrio||S.cfg.vidrios[0]?.id||"";
-  const op=sel=>S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===sel?"selected":""}>${esc(v.nombre)}</option>`).join("");
-  return `<div class="vr-l"><div class="vr-g lote-h"><span></span><span>Ancho</span><span>Alto</span><span>Cant</span><span>Vidrio</span><span></span></div>
-   ${d.items.map((it,i)=>it.tipo!=="vidrio"?"":`<div class="vr${it.fuera?" sel-off":""}"><div class="vr-g"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="__draft" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir vidrio ${i+1}">
-     <input id="vr-${i}-ancho" class="cin" inputmode="decimal" data-vr="${i}.ancho" value="${it.ancho?cm(it.ancho):""}" placeholder="cm" aria-label="Ancho ${i+1}">
-     <input id="vr-${i}-alto" class="cin" inputmode="decimal" data-vr="${i}.alto" value="${it.alto?cm(it.alto):""}" placeholder="cm" aria-label="Alto ${i+1}">
-     <input id="vr-${i}-cant" class="cin" inputmode="numeric" data-vr="${i}.cant" value="${it.cant||1}" aria-label="Cantidad ${i+1}">
-     <select id="vr-${i}-vidrio" class="cin" data-vr="${i}.vidrio" aria-label="Vidrio ${i+1}">${op(it.vidrio)}</select>
-     <button class="btn sm" data-act="vr-mas" data-i="${i}" aria-expanded="${!!S.vrOpen?.[i]}" aria-label="Más opciones">⋯</button></div>
-     <div class="small muted vr-info" id="vr-${i}-info">${esc(vidInfo(it,calc.lineas?.[i]))}</div>
-     ${S.vrOpen?.[i]?`<div class="lote-x"><label for="vr-${i}-ubicacion">Ubicación</label><input id="vr-${i}-ubicacion" class="cin" data-vr="${i}.ubicacion" value="${esc(it.ubicacion||"")}" placeholder="Ej: Ventana sala">
-       <label for="vr-${i}-instalacion">Instalación de este vidrio ($ por pieza)</label><input id="vr-${i}-instalacion" class="cin" inputmode="numeric" data-vr="${i}.instalacion" value="${it.instalacion??""}" placeholder="${money(instDe("vidrio"))} (la general)">
-       <button class="btn sm danger" data-act="vr-del" data-i="${i}">Quitar este vidrio</button></div>`:""}</div>`).join("")}
-   <div class="vr vr-new"><div class="vr-g"><span></span>
-     <input id="vr-n-ancho" class="cin" inputmode="decimal" data-vr="n.ancho" placeholder="cm" aria-label="Ancho nuevo">
-     <input id="vr-n-alto" class="cin" inputmode="decimal" data-vr="n.alto" placeholder="cm" aria-label="Alto nuevo">
-     <input id="vr-n-cant" class="cin" inputmode="numeric" data-vr="n.cant" value="1" aria-label="Cantidad nueva">
-     <select id="vr-n-vidrio" class="cin" data-vr="n.vidrio" aria-label="Vidrio nuevo">${op(ult)}</select><span></span></div></div></div>
-   <span class="small muted">Escribe las medidas y la fila nueva aparece sola. Cambia el vidrio en cada fila si es de otra referencia. ⋯ para ubicación, instalación o quitar.</span>`}
+/* Cuadros: cada cuadro tiene su tipo de vidrio y sus medidas; se puede cambiar el vidrio del cuadro de una vez, copiarlo y mover medidas */
+function vidGrupos(d){if(!d.grupos||!d.grupos.length){d.grupos=[];for(const it of d.items){if(it.tipo!=="vidrio")continue;let g=d.grupos.find(x=>x.vidrio===it.vidrio);if(!g){g={id:uid(),vidrio:it.vidrio};d.grupos.push(g)}it.g=g.id}
+    if(!d.grupos.length)d.grupos.push({id:uid(),vidrio:S.ultVidrio||S.cfg.vidrios[0]?.id||""})}
+  for(const it of d.items)if(it.tipo==="vidrio"&&!d.grupos.some(g=>g.id===it.g)){it.g=d.grupos[0].id}
+  for(const it of d.items){const g=d.grupos.find(x=>x.id===it.g);if(g&&it.vidrio!==g.vidrio)it.vidrio=g.vidrio}return d.grupos}
+function vidItemsHtml(d,calc){const G=vidGrupos(d);
+  const op=sel=>S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===sel?"selected":""}>${esc(v.nombre)} · ${money(+v.m2||0)}/m²</option>`).join("");
+  return G.map((g,gi)=>{const idx=d.items.map((it,i)=>[it,i]).filter(([it])=>it.g===g.id),sub=idx.reduce((a,[it,i])=>a+(it.fuera?0:(calc.lineas?.[i]?.totalVid||0)),0),todos=idx.length&&idx.every(([it])=>!it.fuera);
+    return `<div class="vg"><div class="vg-h"><input type="checkbox" class="sel-chk" data-act="vg-incl" data-g="${g.id}" ${idx.length&&!todos?"":"checked"} aria-label="Incluir cuadro ${gi+1}"><b>Cuadro ${gi+1}</b><span class="num vg-sub">${money(sub)}</span>
+      <button class="btn sm" data-act="vg-copiar" data-g="${g.id}" title="Copiar este cuadro con otro vidrio">⧉ Copiar</button>${G.length>1?`<button class="btn sm danger" data-act="vg-quitar" data-g="${g.id}" aria-label="Quitar cuadro">✕</button>`:""}</div>
+     <select class="cin vg-sel" data-vg-vid="${g.id}" aria-label="Vidrio del cuadro ${gi+1}">${op(g.vidrio)}</select>
+     <div class="vr-l"><div class="vr-g lote-h"><span></span><span>Ancho</span><span>Alto</span><span>Cant</span><span></span></div>
+     ${idx.map(([it,i])=>`<div class="vr${it.fuera?" sel-off":""}"><div class="vr-g"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="__draft" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir vidrio">
+       <input id="vr-${i}-ancho" class="cin" inputmode="decimal" data-vr="${i}.ancho" value="${it.ancho?cm(it.ancho):""}" placeholder="cm" aria-label="Ancho">
+       <input id="vr-${i}-alto" class="cin" inputmode="decimal" data-vr="${i}.alto" value="${it.alto?cm(it.alto):""}" placeholder="cm" aria-label="Alto">
+       <input id="vr-${i}-cant" class="cin" inputmode="numeric" data-vr="${i}.cant" value="${it.cant||1}" aria-label="Cantidad">
+       <button class="btn sm" data-act="vr-mas" data-i="${i}" aria-expanded="${!!S.vrOpen?.[i]}" aria-label="Más opciones">⋯</button></div>
+       <div class="small muted vr-info" id="vr-${i}-info">${esc(vidInfo(it,calc.lineas?.[i]))}</div>
+       ${S.vrOpen?.[i]?`<div class="lote-x"><label for="vr-${i}-ubicacion">Ubicación</label><input id="vr-${i}-ubicacion" class="cin" data-vr="${i}.ubicacion" value="${esc(it.ubicacion||"")}" placeholder="Ej: Ventana sala">
+         <label for="vr-${i}-instalacion">Instalación de este vidrio ($ por pieza)</label><input id="vr-${i}-instalacion" class="cin" inputmode="numeric" data-vr="${i}.instalacion" value="${it.instalacion??""}" placeholder="${money(instDe("vidrio"))} (la general)">
+         <label for="vr-${i}-mover">Mover a</label><select id="vr-${i}-mover" class="cin" data-vr-mover="${i}"><option value="">— Escoge el cuadro —</option>${G.filter(x=>x.id!==g.id).map(x=>`<option value="${x.id}">Cuadro ${G.indexOf(x)+1} · ${esc(vidrioDe(x.vidrio).nombre)}</option>`).join("")}<option value="nuevo">Un cuadro nuevo</option></select>
+         <button class="btn sm danger" data-act="vr-del" data-i="${i}">Quitar este vidrio</button></div>`:""}</div>`).join("")}
+     <div class="vr vr-new"><div class="vr-g"><span></span>
+       <input id="vr-n${g.id}-ancho" class="cin" inputmode="decimal" data-vr="n${g.id}.ancho" placeholder="cm" aria-label="Ancho nuevo">
+       <input id="vr-n${g.id}-alto" class="cin" inputmode="decimal" data-vr="n${g.id}.alto" placeholder="cm" aria-label="Alto nuevo">
+       <input id="vr-n${g.id}-cant" class="cin" inputmode="numeric" data-vr="n${g.id}.cant" value="1" aria-label="Cantidad nueva"><span></span></div></div></div></div>`}).join("")+
+   `<button class="btn block" data-act="vg-nuevo">+ Otro cuadro (otro tipo de vidrio)</button>
+   <span class="small muted">Cada cuadro lleva un solo tipo de vidrio: cámbialo arriba del cuadro y cambian todas sus medidas. ⧉ Copiar repite las mismas medidas con otro vidrio para dar varios precios (desmarca el cuadro que no quieras sumar). En ⋯ puedes mover una medida a otro cuadro.</span>`}
+function subtotalesCuadros(o,calc){const G=o.grupos||[];return G.map((g,gi)=>({t:"Cuadro "+(gi+1)+" · "+vidrioDe(g.vidrio).nombre,v:(o.items||[]).reduce((a,it,i)=>a+(it.g===g.id&&!it.fuera?(calc.lineas?.[i]?.totalVid||0):0),0)})).filter(x=>x.v>0)}
+const vidSigVidrio=d=>{const usados=new Set((d.grupos||[]).map(g=>g.vidrio));return (S.cfg.vidrios.find(v=>!usados.has(v.id))||S.cfg.vidrios[0])?.id||""};
+const vidPanel=()=>{const e=$("#vid-items");if(e)e.innerHTML=vidItemsHtml(S.draft,calcCot(S.draft.items,S.draft));vidRefrescar()};
 let vrTimer=null;
 function vidRefrescar(){clearTimeout(vrTimer);vrTimer=setTimeout(()=>{const d=S.draft;if(!d||S.view!=="cotizar")return;const calc=calcCot(d.items,d);
   d.items.forEach((it,i)=>{const e=document.getElementById("vr-"+i+"-info");if(e)e.textContent=vidInfo(it,calc.lineas?.[i])});
@@ -1346,7 +1360,7 @@ function resumenHtml(calc,total,items,editable,todos,ctx){const F=faltanItems(it
     <div class="rs-tot"><span>Total</span><span class="num">${money(R.total)}</span></div></div>`}
    <span class="small muted">Toca cada línea para ver el detalle; ⚙ te lleva a ese precio en Ajustes y con Atrás vuelves.</span>
   </div>
-  <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v">${money(R.total)}</span></div>`;
+  <div class="total-bar"><span class="eyebrow" style="color:inherit">${soloM2&&(ctx==="__draft"?S.draft:obra(ctx))?.sinInst?"Total sin instalación":"Total cotización"}</span><span class="v">${money(R.total)}</span></div>`;
 }
 
 /* --- Cotizar --- */
@@ -1429,7 +1443,7 @@ function vCotizar(){
   </div>`}
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
   <div id="cot-res">${d.items.length?resumenHtml(calc,0,d.items,true,null,"__draft"):""}</div>
-  ${d.items.length?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
+  ${d.items.length&&areaDe(d)!=="vidrios"?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
 function itemSheet(i){
@@ -2056,8 +2070,8 @@ async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("C
 function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   return `*Cotización ${numCot(o)}*\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
   (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).map(([it,i],n)=>`${n+1}. ${[describeItem(it)+(medidaTxt(it)?" "+medidaTxt(it)+" cm":""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
-  (areaDe(o)==="vidrios"?(()=>{const R=calcDe(o).resumen;return `\n\nVidrios: ${money(R.vidrio+R.ajuste)}`+(R.instalacion>0?`\nInstalación: ${money(R.instalacion)}`:R.instSug>0?`\nInstalación sugerida (no incluida): ${money(R.instSug)}`:"")})():"")+
-  `\n\n*TOTAL: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
+  (areaDe(o)==="vidrios"?(()=>{const C=calcDe(o),R=C.resumen,GS=subtotalesCuadros(o,C);return (GS.length>1?"\n\n"+GS.map(g=>`${g.t}: ${money(g.v)}`).join("\n"):"")+`\n\nVidrios: ${money(R.vidrio+R.ajuste)}`+(R.instalacion>0?`\nInstalación: ${money(R.instalacion)}`:R.instSug>0?`\nInstalación sugerida (no incluida): ${money(R.instSug)}`:"")})():"")+
+  `\n\n*TOTAL${areaDe(o)==="vidrios"&&o.sinInst?" SIN INSTALACIÓN":""}: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
   return `CUENTA DE COBRO No. ${numCobro(c)}\n${e.ciudad?e.ciudad+", ":""}${fechaLarga(c.fecha)}\n\n${cl?cl.nombre+(cl.nit?"\nNIT/C.C. "+cl.nit:""):""}\n\nDEBE A:\n${e.propietario||e.nombre}${e.cc?"\nC.C. "+e.cc:""}\n\nLA SUMA DE: ${letras(+c.valor||0)} PESOS M/CTE (${money(c.valor)})\n\nPOR CONCEPTO DE: ${c.concepto}\n\n${e.nota||""}${e.banco?"\nPago a: "+e.banco:""}`}
 /* Entregar un archivo: verlo en pantalla, descargarlo o compartirlo (WhatsApp, correo…) */
@@ -2104,8 +2118,9 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
   y+=3;if(y>215){doc.addPage();y=20}doc.setFontSize(10);
 
   if(areaDe(o)==="vidrios"){doc.setFontSize(10);const fl=(t,v,b)=>{doc.setFont("helvetica",b?"bold":"normal");doc.text(t,124,y);doc.text(money(v),200,y,{align:"right"});y+=6};
+    const GS=subtotalesCuadros(o,calc);if(GS.length>1){doc.setFontSize(9);for(const g of GS){doc.text(g.t,124,y);doc.text(money(g.v),200,y,{align:"right"});y+=5}doc.setFontSize(10);y+=1}
     fl("Vidrios",R.vidrio+R.ajuste);if(R.instalacion>0)fl("Instalación",R.instalacion);else if(R.instSug>0){doc.setFontSize(8.5);doc.setTextColor(106,95,88);doc.text("Instalación sugerida (no incluida): "+money(R.instSug),124,y);doc.setTextColor(31,26,23);y+=6}y+=2}
-  y+=4;doc.setFillColor(40,34,30);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(31,26,23);
+  y+=4;doc.setFillColor(40,34,30);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(areaDe(o)==="vidrios"&&o.sinInst?10:12);doc.text(areaDe(o)==="vidrios"&&o.sinInst?"TOTAL SIN INSTALACIÓN":"TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(31,26,23);
   y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5);y+=doc.splitTextToSize(o.notas,180).length*4+8}
   if(S.cfg.empresa.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
   guardarArchivo("Cotizacion_"+numCot(o)+".pdf",doc)}
@@ -2216,7 +2231,13 @@ document.addEventListener("click",async ev=>{
         if(d.alto<1800)d.alto=2100;if(d.ancho>1300)d.ancho=900}
       if(t==="cocina"){const d=S.itemTmp;d.alto=Math.round((+S.cfg.cocina?.alto||61.5)*10);d.forma=d.forma||"recta";d.parte="superior";if(d.ancho>4000)d.ancho=1500}
       if(t==="puerta"&&S.itemTmp.alto<1800)S.itemTmp.alto=2100;refreshSheet();break}
-    case"vr-mas":{S.vrOpen=S.vrOpen||{};const k=+b.dataset.i;S.vrOpen[k]=!S.vrOpen[k];$("#vid-items").innerHTML=vidItemsHtml(S.draft,calcCot(S.draft.items,S.draft));break}
+    case"vg-nuevo":{vidGrupos(S.draft);S.draft.grupos.push({id:uid(),vidrio:vidSigVidrio(S.draft)});vidPanel();break}
+    case"vg-copiar":{const g0=S.draft.grupos.find(x=>x.id===b.dataset.g);if(!g0)break;const g={id:uid(),vidrio:vidSigVidrio(S.draft)};S.draft.grupos.push(g);
+      S.draft.items.filter(it=>it.g===g0.id).forEach(it=>S.draft.items.push({...clone(it),g:g.id,vidrio:g.vidrio}));vidPanel();toast("Cuadro copiado: cámbiale el vidrio");break}
+    case"vg-quitar":{const gid=b.dataset.g,n=S.draft.items.filter(it=>it.g===gid).length,quita=()=>{S.draft.items=S.draft.items.filter(it=>it.g!==gid);S.draft.grupos=S.draft.grupos.filter(x=>x.id!==gid);S.vrOpen={};render()};
+      if(n)confirmar("Se quitan las "+n+" medida(s) de este cuadro.","Quitar cuadro",async()=>quita());else quita();break}
+    case"vg-incl":{const gid=b.dataset.g,its=S.draft.items.filter(it=>it.g===gid),todos=its.every(it=>!it.fuera);its.forEach(it=>{if(todos)it.fuera=true;else delete it.fuera});render();break}
+    case"vr-mas":{S.vrOpen=S.vrOpen||{};const k=+b.dataset.i;S.vrOpen[k]=!S.vrOpen[k];vidPanel();break}
     case"vr-del":{S.draft.items.splice(+b.dataset.i,1);S.vrOpen={};render();break}
     case"vid-inst-incl":S.draft.sinInst=!b.checked;render();break;
     case"vid-inst-todos":{const v=Math.round(num($("#vi-todos")?.value));S.draft.items.forEach(x=>{if(x.tipo==="vidrio")x.instalacion=v});
@@ -2323,8 +2344,11 @@ document.addEventListener("input",ev=>{
     if(c){S.draft.clienteId=c.id;S.draft.clienteNombre="";if(!S.draft.direccion&&c.direccion){S.draft.direccion=c.direccion;const di=$("#d-dir");if(di)di.value=c.direccion}}else{S.draft.clienteId="";S.draft.clienteNombre=v}
     const h=$("#d-cli-hint");if(h)h.textContent=cliHint(S.draft);return}
   if(t.dataset.draft&&S.draft){S.draft[t.dataset.draft]=t.value;if(t.tagName==="SELECT"&&t.dataset.draft==="clienteId"){const c=cliente(t.value);if(c&&!S.draft.direccion){S.draft.direccion=c.direccion||"";render()}}return}
+  if(t.dataset.vgVid&&S.draft){const g=(S.draft.grupos||[]).find(x=>x.id===t.dataset.vgVid);if(g){g.vidrio=t.value;S.ultVidrio=t.value;S.draft.items.forEach(it=>{if(it.g===g.id)it.vidrio=g.vidrio});vidPanel()}return}
+  if(t.dataset.vrMover!==undefined&&S.draft){const it=S.draft.items[+t.dataset.vrMover];if(it&&t.value){let gid=t.value;if(gid==="nuevo"){const g={id:uid(),vidrio:vidSigVidrio(S.draft)};S.draft.grupos.push(g);gid=g.id}
+    it.g=gid;S.vrOpen={};vidGrupos(S.draft);vidPanel();toast("Medida movida")}return}
   if(t.dataset.vr&&S.draft){const [ix,f]=t.dataset.vr.split("."),val=f==="ancho"||f==="alto"?Math.round(num(t.value)*10):f==="cant"?Math.max(1,Math.round(num(t.value))||1):f==="instalacion"?(t.value.trim()===""?null:Math.round(num(t.value))):t.value;
-    if(ix==="n"){if(f==="cant"||f==="vidrio")return;const vid=$("#vr-n-vidrio")?.value||S.cfg.vidrios[0]?.id,it={tipo:"vidrio",cant:Math.max(1,Math.round(num($("#vr-n-cant")?.value))||1),vidrio:vid,ancho:0,alto:0,ubicacion:"",precioManual:0};it[f]=val;S.draft.items.push(it);S.ultVidrio=vid;
+    if(ix[0]==="n"){if(f==="cant")return;const gid=ix.slice(1),g=(S.draft.grupos||[]).find(x=>x.id===gid);if(!g)return;const it={tipo:"vidrio",g:gid,cant:Math.max(1,Math.round(num($("#vr-n"+gid+"-cant")?.value))||1),vidrio:g.vidrio,ancho:0,alto:0,ubicacion:"",precioManual:0};it[f]=val;S.draft.items.push(it);S.ultVidrio=g.vidrio;
       const k=S.draft.items.length-1,pos=t.selectionStart;$("#vid-items").innerHTML=vidItemsHtml(S.draft,calcCot(S.draft.items,S.draft));const e=document.getElementById("vr-"+k+"-"+f);if(e){e.focus();try{e.setSelectionRange(pos,pos)}catch(er){}}vidRefrescar();return}
     const it=S.draft.items[+ix];if(!it)return;if(val===null)delete it[f];else it[f]=val;if(f==="vidrio")S.ultVidrio=val;vidRefrescar();return}
   if(t.dataset.lote&&S.itemTmp?.lote){const [i,f]=t.dataset.lote.split("."),L=S.itemTmp.lote,r=L[+i];if(!r)return;
