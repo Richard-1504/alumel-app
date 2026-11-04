@@ -264,7 +264,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.50.1";
+const APP_VER="1.50.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -789,7 +789,7 @@ function preciosLista(c){const L=[],add=(key,lab,o,k,f)=>{if(o&&o[k]!=null&&o[k]
   add("empaqueMl","Empaque de vidrio (metro)",c,"empaqueMl");for(const k of Object.keys(c.accesorios||{}))if(TIPOS[k])add("acc."+k,"Otros accesorios "+TIPOS[k].corto,c.accesorios,k);
   for(const [k,t] of PTA_ACC)add("pacc."+k,t,c.puertas.acc,k);
   [["bisagra","Bisagras cocina (par)"],["manija","Manija cocina"],["empaque","Empaque PVC cocina (metro)"],["losero","Losero"],["vidrioHueco","Vidrio por hueco cocina"]].forEach(([k,t])=>add("cacc."+k,t,c.cocina,k));
-  for(const k of Object.keys(c.instalacionTipo||{}))if(TIPOS[k])add("ins."+k,"Instalación "+TIPOS[k].corto,c.instalacionTipo,k);
+  for(const k of Object.keys(c.instalacionTipo||{}))if(TIPOS[k])add("ins."+k,"Mano de obra "+TIPOS[k].corto,c.instalacionTipo,k);
   add("margen","Margen de ganancia",c,"margen","%");add("pasaRec","Recargo pasamanos",c,"pasamanosRecargo","%");add("redondeo","Redondeo de precios",c,"redondeo");
   return L}
 function preciosSnap(c){const m={};for(const [k,,o,f] of preciosLista(c||S.cfg))m[k]=+o[f]||0;return m}
@@ -1174,7 +1174,7 @@ function vObra(){
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
     ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
-  ${resumenHtml(calc,0,calcCongelado(o)?(o.items||[]).filter(x=>x.fuera):o.items)}
+  ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[])}
   <div class="fgrid">
     <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
     <button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
@@ -1224,7 +1224,7 @@ function tablaItems(items,calc,editable,cong,ctx,opts){
   </tbody></table></div>`;
 }
 
-function resumenHtml(calc,total,items,editable){const F=faltanItems(items);if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
+function resumenHtml(calc,total,items,editable,todos){const F=faltanItems(items);items=todos||items;if(F.length)return `<div class="panel"><h2>Resumen</h2>${avisoFaltan(F)}</div>
   <div class="total-bar"><span class="eyebrow" style="color:inherit">Total cotización</span><span class="v" style="font-size:18px">Falta precio</span></div>`;
   const R=calc.resumen,nf=(items||[]).filter(x=>x.fuera).length,num2=v=>(Math.round(v*100)/100).toString().replace(".",",");
   const aj=(sec,hl)=>`<button class="btn sm mc-aj" data-act="ir-precios" data-v="${sec}" data-hl="${esc(hl||"")}" aria-label="Ver precio en Ajustes" title="Ver precio en Ajustes">⚙</button>`;
@@ -1248,11 +1248,11 @@ function resumenHtml(calc,total,items,editable){const F=faltanItems(items);if(F.
   const bI=(items||[]).map((it,i)=>{if(it.fuera||it.precioManual>0)return "";const u=it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instDe(it.tipo),q=it.cant||1;
     return `<div class="mc-f"><div class="mc-t"><div class="row sp" style="gap:6px;flex-wrap:nowrap"><b>${i+1}. ${esc(describeItem(it))}</b><b class="num" style="white-space:nowrap">${money(u*q)}</b></div>
      <div class="small muted">${medidaTxt(it)?medidaTxt(it)+" cm · ":""}${it.ubicacion?esc(it.ubicacion)+" · ":""}${q} und</div>
-     ${editable?`<div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:4px"><span class="small">$ por unidad</span><input class="cin" inputmode="numeric" data-it-inst="${i}" value="${u}" aria-label="Instalación por unidad ítem ${i+1}" style="width:120px;text-align:right"></div>`:`<div class="small muted">${money(u)} por unidad</div>`}</div></div>`}).join("");
+     ${editable?`<div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:4px"><span class="small">$ por unidad</span><input class="cin" inputmode="numeric" data-it-inst="${i}" value="${u}" aria-label="Mano de obra por unidad ítem ${i+1}" style="width:120px;text-align:right"></div>`:`<div class="small muted">${money(u)} por unidad</div>`}</div></div>`}).join("");
   // ganancia
   const mg=+S.cfg.margen||0,bG=Math.abs(R.ajuste)>=1?fila("",mg?"Margen "+String(mg).replace(".",",")+" % y redondeo":"Redondeo",`Margen en ventanas y puertas; en divisiones solo sobre la mano de obra; cocinas y pasamanos con su recargo. Precios redondeados a ${money(+S.cfg.redondeo||1)}.`,"",R.ajuste,"aj-instalacion"):"";
   return `<div class="panel"><h2>Resumen</h2>${nf?`<div class="note" style="border-color:var(--warn)">${nf} ítem(s) sin marcar no van en esta cotización: no suman, no salen en el PDF ni en el WhatsApp, pero quedan guardados. Márcalos de nuevo cuando los necesites.</div>`:""}
-   <div class="rs">${grupo("Perfilería",R.perfiles,bP)}${grupo("Vidrio",R.vidrio,bV,editable&&V.some(v=>v.puedeLam))}${grupo("Tableros (PVC, melamina)",R.tableros,bT)}${grupo("Accesorios",R.accesorios,bA)}${grupo("Instalación",R.instalacion,bI?bI+(editable?`<div class="mc-f"><span class="small muted">Cambia el valor y sal del campo para recalcular. El valor general por sistema está en Ajustes.</span>${aj("aj-instalacion")}</div>`:""):"")}${R.manual?grupo("Ítems con precio manual",R.manual,""):""}${Math.abs(R.ajuste)>=1?grupo(mg?"Margen y redondeo":"Redondeo",R.ajuste,bG):""}
+   <div class="rs">${grupo("Perfilería",R.perfiles,bP)}${grupo("Vidrio",R.vidrio,bV,editable&&V.some(v=>v.puedeLam))}${grupo("Tableros (PVC, melamina)",R.tableros,bT)}${grupo("Accesorios",R.accesorios,bA)}${grupo("Mano de obra",R.instalacion,bI?bI+(editable?`<div class="mc-f"><span class="small muted">Cambia el valor y sal del campo para recalcular. El valor general por sistema está en Ajustes.</span>${aj("aj-instalacion")}</div>`:""):"")}${R.manual?grupo("Ítems con precio manual",R.manual,""):""}${Math.abs(R.ajuste)>=1?grupo(mg?"Margen y redondeo":"Redondeo",R.ajuste,bG):""}
     <div class="rs-tot"><span>Total</span><span class="num">${money(R.total)}</span></div></div>
    <span class="small muted">Toca cada línea para ver el detalle; ⚙ te lleva a ese precio en Ajustes y con Atrás vuelves.</span>
   </div>
@@ -1318,7 +1318,7 @@ function vCotizar(){
   ${S.hist.length?backBtn():""}
   <div class="head"><div><div class="eyebrow">${d.id?"Editando COT-"+pad(obra(d.id)?.numero||0)+" · al guardar se usan los precios de hoy":"Nueva cotización"}</div><h1>Cotizar</h1></div>
    ${d.id||d.items.length?`<button class="btn sm" data-act="descartar">Descartar</button>`:""}</div>
-  ${S.cfg.preciosEjemplo?`<div class="note">Los precios de vidrio, rodamientos, empaque e instalación son de ejemplo. Ponle los tuyos en <button class="linkish" data-act="go" data-v="ajustes">Ajustes</button> para que las cotizaciones salgan bien.</div>`:""}
+  ${S.cfg.preciosEjemplo?`<div class="note">Los precios de vidrio, rodamientos, empaque y mano de obra son de ejemplo. Ponle los tuyos en <button class="linkish" data-act="go" data-v="ajustes">Ajustes</button> para que las cotizaciones salgan bien.</div>`:""}
   <div class="panel">
     <div class="fgrid">
       <div class="field full"><label for="d-cliente">Cliente</label>
@@ -1363,7 +1363,7 @@ function itemSheetHtml(){
   ${it.tipo==="division"?`<div class="field"><label>Vidrios</label><div class="seg"><button data-act="it-set" data-k="divModo" data-v="estandar" aria-pressed="${it.divModo!=="especial"}">Estándar (inventario)</button><button data-act="it-set" data-k="divModo" data-v="especial" aria-pressed="${it.divModo==="especial"}">Mandar a hacer · ${money(S.cfg.division.especialM2)}/m²</button></div></div>`:""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
   ${puedeLote(it)?`<div class="field"><label>Medidas</label><div class="seg"><button data-act="it-lote" data-v="0" aria-pressed="${!it.loteOn}">Una medida</button><button data-act="it-lote" data-v="1" aria-pressed="${!!it.loteOn}">Varias medidas</button></div>
-    ${it.loteOn?`<span class="hint">Todas con la misma referencia, color, vidrio e instalación de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.${distsLote(it).length?" En <b>Fija</b> tocas para cambiar el lado de cada ventana (Izq / Der"+((it.naves||2)===2?" / Corr = ambas corredizas":"")+").":""}</span>`:""}</div>`:""}
+    ${it.loteOn?`<span class="hint">Todas con la misma referencia, color, vidrio y mano de obra de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.${distsLote(it).length?" En <b>Fija</b> tocas para cambiar el lado de cada ventana (Izq / Der"+((it.naves||2)===2?" / Corr = ambas corredizas":"")+").":""}</span>`:""}</div>`:""}
   ${it.loteOn&&puedeLote(it)?loteHtml(it):it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
     <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
     ${it.tipo==="division"&&it.divModo!=="especial"?`<div class="field"><label>Alto (cm)</label><div class="seg">${[1800,1900].map(v=>`<button data-act="it-alto" data-v="${v}" aria-pressed="${it.alto===v}" style="min-height:44px">${v/10}</button>`).join("")}</div></div>`
@@ -1371,7 +1371,7 @@ function itemSheetHtml(){
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     ${it.tipo==="division"?"":`<div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>`}
     ${TIPOS[it.tipo]?.puerta||it.tipo==="division"?"":`<div class="field full"><label for="it-vidrio">Vidrio</label><select id="it-vidrio" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)} · ${money(v.m2)}/m²</option>`).join("")}</select></div>`}
-    <div class="field full"><label for="it-inst">Instalación por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"><span class="hint">Valor predeterminado para ${esc(TIPOS[it.tipo]?.corto||"")}: ${money(instDe(it.tipo))}. Si lo cambias, ese valor queda para las próximas.</span></div>
+    <div class="field full"><label for="it-inst">Mano de obra por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"><span class="hint">Valor predeterminado para ${esc(TIPOS[it.tipo]?.corto||"")}: ${money(instDe(it.tipo))}. Si lo cambias, ese valor queda para las próximas.</span></div>
     <div class="field full"><label for="it-ubic">Ubicación o descripción</label><input id="it-ubic" data-it="ubicacion" value="${esc(it.ubicacion)}" placeholder="Ej: Habitación principal"></div>
     ${it.tipo==="pasamanos"?`<div class="field full"><label><input type="checkbox" data-it="conPerfil" ${it.conPerfil?"checked":""} style="min-height:auto;width:auto"> Incluir pasamanos superior en aluminio</label><span class="hint">Alto habitual del pasamanos: 85 cm.</span></div>`:""}
   </div>
@@ -1449,7 +1449,7 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
     ${inf?`<span class="hint full">Mueble inferior: marco y T en tiras de 7 cm, divisores de 2 tiras y puertas de alto − 9 cm.</span>`:""}
     <label class="row small full" style="gap:8px;font-weight:600${inf?";display:none":""}"><input type="checkbox" data-it="espaldar" ${it.espaldar!==false?"checked":""} style="width:20px;height:20px"> Con espaldar (fondo 3 mm)</label>
     <div class="field"><label for="it-rec">Recargo (%)</label><input id="it-rec" inputmode="decimal" data-it="recargo" value="${String(recCocina(it)).replace(".",",")}"></div>
-    <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>
+    <div class="field"><label for="it-inst">Mano de obra ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div></div>
   <div class="sketch">${sketch(it)}</div>`;
   return `<div class="field"><label>Material</label>${seg("mat",[["aluminio","Aluminio"],["melamina","Melamina 15 mm"]],"aluminio")}</div>
   <div class="field"><label>Parte</label>${seg("parte",[["superior","Gabinete superior"],["inferior","Puertas inferiores"]],inf?"inferior":"superior")}</div>
@@ -1461,15 +1461,15 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
     <div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div>
     <div class="field"><label for="it-rec">Recargo (%)</label><input id="it-rec" inputmode="decimal" data-it="recargo" value="${String(recCocina(it)).replace(".",",")}"></div>
-    <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
-    <span class="hint full">El recargo se suma a los materiales; la instalación va aparte. Ambos quedan para la próxima cocina.</span></div>
+    <div class="field"><label for="it-inst">Mano de obra ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
+    <span class="hint full">El recargo se suma a los materiales; la mano de obra va aparte. Ambos quedan para la próxima cocina.</span></div>
   <div class="sketch">${sketch(it)}</div>`}
 function pasaCampos(it){return `<div class="fgrid">
     <div class="field full"><label for="it-pdesc">Descripción</label><textarea id="it-pdesc" data-it="desc" placeholder="Ej: Pasamanos en acero inoxidable con vidrio templado 10 mm, 4,5 m lineales, escalera">${esc(it.desc||"")}</textarea></div>
     <div class="field"><label for="it-acero">Acero inoxidable ($)</label><input id="it-acero" inputmode="numeric" data-it="acero" value="${it.acero||""}" placeholder="0"></div>
     <div class="field"><label for="it-vtpl">Vidrios templados ($)</label><input id="it-vtpl" inputmode="numeric" data-it="vidrioTpl" value="${it.vidrioTpl||""}" placeholder="Si aplica"></div>
     <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
-    <div class="field"><label for="it-inst">Instalación ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
+    <div class="field"><label for="it-inst">Mano de obra ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
   </div>`}
 function melInfo(it){const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
   const t=(c.tableros||[]).map(x=>esc(x.nombre)+": "+esc(x.cobrado)).join(" · "),ck=Object.keys(a).find(k=>/^Canto/.test(k));
@@ -1486,11 +1486,11 @@ function calcHtml(it){const F=faltanItem({...it,precioManual:0});
     return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
     ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
     <div class="tbl-wrap"><table><tbody><tr><td>Acero inoxidable</td><td class="n">${money(a)}</td></tr>${v?`<tr><td>Vidrios templados</td><td class="n">${money(v)}</td></tr>`:""}
-    <tr><td>Materiales + ${r} %</td><td class="n">${money(con)}</td></tr><tr><td>Instalación</td><td class="n">${money(ins)}</td></tr></tbody></table></div>`}
+    <tr><td>Materiales + ${r} %</td><td class="n">${money(con)}</td></tr><tr><td>Mano de obra</td><td class="n">${money(ins)}</td></tr></tbody></table></div>`}
   const c=calcCot([{...it,precioManual:0}]),L=c.lineas[0]||{},dp=despiece({...it,cant:1}),q=it.cant||1,pta=TIPOS[it.tipo]?.puerta;
   return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b class="num" style="font-size:18px">${money(L.unit)}</b></div>
   ${q>1?`<div class="row sp"><span class="eyebrow">Total ${q} unidades</span><b class="num" style="font-size:18px">${money(L.total)}</b></div>`:""}
-  <div class="small muted num">${esMel(it)?`Láminas ${money(L.tab/q)} · `:`Perfilería ${money(L.perf/q)} · `}${esMel(it)?"":pta||it.tipo==="cocina"?`${pta?"Tablero ":""}PVC ${money(L.tab/q)} · `:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)} · `}Accesorios ${money(L.acc/q)} · Instalación ${money(L.inst/q)}${it.tipo==="cocina"?" · Recargo "+String(recCocina(it)).replace(".",",")+" %":S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
+  <div class="small muted num">${esMel(it)?`Láminas ${money(L.tab/q)} · `:`Perfilería ${money(L.perf/q)} · `}${esMel(it)?"":pta||it.tipo==="cocina"?`${pta?"Tablero ":""}PVC ${money(L.tab/q)} · `:`Vidrio ${(L.m2/q||0).toFixed(2).replace(".",",")} m² = ${money(L.vid/q)} · `}Accesorios ${money(L.acc/q)} · Mano de obra ${money(L.inst/q)}${it.tipo==="cocina"?" · Recargo "+String(recCocina(it)).replace(".",",")+" %":S.cfg.margen?" · Margen "+S.cfg.margen+" %":""}</div>
   ${pta?ptaInfo(it,c):""}
   ${it.tipo==="cocina"?cocinaInfo(it):""}
   ${it.tipo==="division"&&it.ancho>0?divInfo(it):""}
@@ -1781,9 +1781,9 @@ function vAjustes(){
    ${Object.keys(c.desc).filter(k=>TIPOS[k]&&!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3 class="small">${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}
    <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
 
-  ${sec("aj-instalacion","Instalación y ganancia","Instalación por sistema, margen, recargos y redondeo",`
-   <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Instalación $/unidad</th></tr></thead><tbody>
-   ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto).map(([k,t])=>`<tr><td>${esc(t.corto)}</td><td class="n">${inp("instalacionTipo."+k,c.instalacionTipo[k],"Instalación "+t.corto,110)}</td></tr>`).join("")}
+  ${sec("aj-instalacion","Mano de obra y ganancia","Mano de obra por sistema, margen, recargos y redondeo",`
+   <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Mano de obra $/unidad</th></tr></thead><tbody>
+   ${Object.entries(TIPOS).filter(([k,t])=>!t.oculto).map(([k,t])=>`<tr><td>${esc(t.corto)}</td><td class="n">${inp("instalacionTipo."+k,c.instalacionTipo[k],"Mano de obra "+t.corto,110)}</td></tr>`).join("")}
    </tbody></table></div><span class="small muted">Es el valor que aparece al agregar cada ítem; en cada ítem lo puedes cambiar y queda el último usado.</span>
    <div class="fgrid">
    ${fld("c-mg","Margen de ganancia %","margen",c.margen,"Ventanas y puertas. En divisiones solo a la mano de obra; pasamanos y cocinas usan su recargo.",true)}
