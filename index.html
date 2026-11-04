@@ -226,7 +226,7 @@ tr.sel-off td:not(:first-child){opacity:.45}
 .vr-g{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 54px 36px;gap:6px;align-items:center}
 .vchips{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;align-items:flex-start}
 .vchip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);font-size:14px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-.vchip-a{color:var(--muted);font-size:12px}.vchip-m{font-family:var(--f-mono,monospace);font-weight:600}.vchip-q{font-weight:700;color:var(--accent)}.vchip-u{font-size:12px;color:var(--muted)}.vchip-v{font-size:12px;color:var(--muted)}
+.vchip-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:700}.vchip-m{font-family:var(--f-mono,monospace);font-weight:600}.vchip-q{font-weight:700;color:var(--accent)}.vchip-u{font-size:12px;color:var(--muted)}.vchip-v{font-size:12px;color:var(--muted)}
 .vchip.off{opacity:.45;text-decoration:line-through}.vchip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
 .vchip-src{opacity:.3}.vchip-ghost{position:fixed;z-index:999;pointer-events:none;box-shadow:0 8px 20px rgba(0,0,0,.25);opacity:.95}
 .vg.drop{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
@@ -280,7 +280,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.56.0";
+const APP_VER="1.56.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1250,7 +1250,7 @@ function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
   const st=!!ctx,todos=!items.some(it=>it.fuera);
   return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Incluir todos" title="Incluir todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
-  ${items.map((it,i)=>`<tr${it.fuera?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div><div class="mono small" style="margin-top:2px"><b>${medidaTxt(it)?medidaTxt(it)+" cm":""}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></td>
+  ${items.map((it,i)=>`<tr${it.fuera?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div><div class="mono small" style="margin-top:2px"><b>${medidaTxt(it)?medidaTxt(it)+" cm":""}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></td>
    <td class="n" style="vertical-align:top">${it.fuera?`<span class="small muted" style="white-space:nowrap">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
      return `<div class="small muted" title="Lo que valdría este ítem cotizado solo" style="white-space:nowrap"><s>${money(l.tSolo)}</s>${it.cant>1?`<br><s>c/u ${money(l.uSolo)}</s>`:""}<br><span style="font-size:10px">si fuera solo</span></div>`})()}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
    ${editable?`<td class="n" style="vertical-align:top"><button class="btn sm" data-act="editar-item" data-i="${i}">Editar</button></td>`:""}</tr>`).join("")}
@@ -1295,8 +1295,9 @@ function vidInfo(it,l){if(!(it.ancho>0&&it.alto>0))return "Escribe ancho y alto"
 function vidGrupos(d){if(!d.grupos||!d.grupos.length){d.grupos=[];for(const it of d.items){if(it.tipo!=="vidrio")continue;let g=d.grupos.find(x=>x.vidrio===it.vidrio);if(!g){g={id:uid(),vidrio:it.vidrio};d.grupos.push(g)}it.g=g.id}
     if(!d.grupos.length)d.grupos.push({id:uid(),vidrio:S.ultVidrio||S.cfg.vidrios[0]?.id||""})}
   for(const it of d.items)if(it.tipo==="vidrio"&&!d.grupos.some(g=>g.id===it.g)){it.g=d.grupos[0].id}
-  for(const it of d.items){const g=d.grupos.find(x=>x.id===it.g);if(g&&it.vidrio!==g.vidrio)it.vidrio=g.vidrio}return d.grupos}
-function vchipIn(it,l){const m=it.ancho>0&&it.alto>0?cm(it.ancho)+" × "+cm(it.alto):"sin medida";return `<span class="vchip-a" aria-hidden="true">⠿</span><span class="vchip-m">${m}</span>${(it.cant||1)>1?`<span class="vchip-q">×${it.cant}</span>`:""}${it.ubicacion?`<span class="vchip-u">${esc(it.ubicacion)}</span>`:""}<span class="vchip-v">${l&&l.totalVid?money(l.totalVid):""}</span>`}
+  for(const it of d.items){const g=d.grupos.find(x=>x.id===it.g);if(g&&it.vidrio!==g.vidrio)it.vidrio=g.vidrio}
+  let mx=Math.max(0,...d.items.map(x=>+x.n||0));for(const it of d.items)if(it.tipo==="vidrio"&&!it.n)it.n=++mx;return d.grupos}
+function vchipIn(it,l){const m=it.ancho>0&&it.alto>0?cm(it.ancho)+" × "+cm(it.alto):"sin medida";return `<span class="vchip-n">${it.n||""}</span><span class="vchip-m">${m}</span>${(it.cant||1)>1?`<span class="vchip-q">×${it.cant}</span>`:""}${it.ubicacion?`<span class="vchip-u">${esc(it.ubicacion)}</span>`:""}<span class="vchip-v">${l&&l.totalVid?money(l.totalVid):""}</span>`}
 function vidItemsHtml(d,calc){const G=vidGrupos(d);
   const op=sel=>S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===sel?"selected":""}>${esc(v.nombre)} · ${money(+v.m2||0)}/m²</option>`).join("");
   return G.map((g,gi)=>{const idx=d.items.map((it,i)=>[it,i]).filter(([it])=>it.g===g.id),sub=idx.reduce((a,[it,i])=>a+(it.fuera?0:(calc.lineas?.[i]?.totalVid||0)),0),todos=idx.length&&idx.every(([it])=>!it.fuera);
@@ -1304,7 +1305,7 @@ function vidItemsHtml(d,calc){const G=vidGrupos(d);
     return `<div class="vg" data-g="${g.id}"><div class="vg-h"><input type="checkbox" class="sel-chk" data-act="vg-incl" data-g="${g.id}" ${idx.length&&!todos?"":"checked"} aria-label="Incluir cuadro ${gi+1}"><b>Cuadro ${gi+1}</b><span class="num vg-sub">${money(sub)}</span>${G.length>1?`<button class="btn sm danger" data-act="vg-quitar" data-g="${g.id}" aria-label="Quitar cuadro">✕</button>`:""}</div>
      <select class="cin vg-sel" data-vg-vid="${g.id}" aria-label="Vidrio del cuadro ${gi+1}">${op(g.vidrio)}</select>
      <div class="vchips">${idx.map(([it,i])=>`<div class="vchip${it.fuera?" off":""}${S.vrEdit===i?" on":""}" id="vc-${i}" data-vchip="${i}" role="button" tabindex="0" aria-label="Medida ${cm(it.ancho)} por ${cm(it.alto)}, toca para editar o arrastra a otro cuadro">${vchipIn(it,calc.lineas?.[i])}</div>`).join("")||`<span class="small muted">Arrastra aquí medidas de otro cuadro o escríbelas abajo.</span>`}</div>
-     ${ed?(([it,i])=>`<div class="lote-x"><div class="row sp"><b class="small">Editar medida</b><label class="row small" style="gap:6px"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="__draft" data-i="${i}" ${it.fuera?"":"checked"}> Incluir</label></div>
+     ${ed?(([it,i])=>`<div class="lote-x"><div class="row sp"><b class="small">Editar medida #${it.n||""}</b><label class="row small" style="gap:6px"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="__draft" data-i="${i}" ${it.fuera?"":"checked"}> Incluir</label></div>
        <div class="vr-g vr-e"><input id="vr-${i}-ancho" class="cin" inputmode="decimal" data-vr="${i}.ancho" value="${it.ancho?cm(it.ancho):""}" placeholder="Ancho" aria-label="Ancho"><input id="vr-${i}-alto" class="cin" inputmode="decimal" data-vr="${i}.alto" value="${it.alto?cm(it.alto):""}" placeholder="Alto" aria-label="Alto"><input id="vr-${i}-cant" class="cin" inputmode="numeric" data-vr="${i}.cant" value="${it.cant||1}" aria-label="Cantidad"></div>
        <input id="vr-${i}-ubicacion" class="cin" data-vr="${i}.ubicacion" value="${esc(it.ubicacion||"")}" placeholder="Ubicación (opcional)">
        <label for="vr-${i}-instalacion">Instalación de este vidrio ($ por pieza)</label><input id="vr-${i}-instalacion" class="cin" inputmode="numeric" data-vr="${i}.instalacion" value="${it.instalacion??""}" placeholder="${money(instDe("vidrio"))} (la general)">
@@ -1327,7 +1328,7 @@ function vidItemsHtml(d,calc){const G=vidGrupos(d);
   document.addEventListener("pointercancel",()=>{if(st?.ghost)st.ghost.remove();st=null});
 })();
 function vnAgregar(gid){const d=S.draft,g=(d.grupos||[]).find(x=>x.id===gid);if(!g)return;const a=Math.round(num($("#vn-"+gid+"-ancho")?.value)*10),h=Math.round(num($("#vn-"+gid+"-alto")?.value)*10),c=Math.max(1,Math.round(num($("#vn-"+gid+"-cant")?.value))||1);
-  if(!(a>0&&h>0)){toast("Escribe ancho y alto");return}d.items.push({tipo:"vidrio",g:gid,vidrio:g.vidrio,ancho:a,alto:h,cant:c,ubicacion:"",precioManual:0});S.ultVidrio=g.vidrio;vidPanel();const e=$("#vn-"+gid+"-ancho");if(e)e.focus()}
+  if(!(a>0&&h>0)){toast("Escribe ancho y alto");return}d.items.push({tipo:"vidrio",n:Math.max(0,...d.items.map(x=>+x.n||0))+1,g:gid,vidrio:g.vidrio,ancho:a,alto:h,cant:c,ubicacion:"",precioManual:0});S.ultVidrio=g.vidrio;vidPanel();const e=$("#vn-"+gid+"-ancho");if(e)e.focus()}
 function subtotalesCuadros(o,calc){const G=o.grupos||[];return G.map((g,gi)=>({t:"Cuadro "+(gi+1)+" · "+vidrioDe(g.vidrio).nombre,v:(o.items||[]).reduce((a,it,i)=>a+(it.g===g.id&&!it.fuera?(calc.lineas?.[i]?.totalVid||0):0),0)})).filter(x=>x.v>0)}
 const vidSigVidrio=d=>{const usados=new Set((d.grupos||[]).map(g=>g.vidrio));return (S.cfg.vidrios.find(v=>!usados.has(v.id))||S.cfg.vidrios[0])?.id||""};
 const vidPanel=()=>{const e=$("#vid-items");if(e)e.innerHTML=vidItemsHtml(S.draft,calcCot(S.draft.items,S.draft));vidRefrescar()};
@@ -2086,7 +2087,7 @@ function confirmar(msg,okTxt,fn){S.confirmFn=fn;openSheet(()=>`<div class="sheet
 async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("Copiado")}catch(e){openSheet(()=>`<div class="sheet-h"><h2>Copia este texto</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div><textarea id="copy-area" style="width:100%;min-height:260px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);font-size:14px">${esc(txt)}</textarea>`);setTimeout(()=>{const t=$("#copy-area");t&&t.select()},50)}}
 function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   return `*Cotización ${numCot(o)}*\n${c?"Cliente: "+c.nombre+"\n":""}Obra: ${o.nombre||""}\n\n`+
-  (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).map(([it,i],n)=>`${n+1}. ${[describeItem(it)+(medidaTxt(it)?" "+medidaTxt(it)+" cm":""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
+  (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).sort(([a],[b])=>(a.n||0)-(b.n||0)).map(([it,i],n)=>`${it.n||n+1}. ${[describeItem(it)+(medidaTxt(it)?" "+medidaTxt(it)+" cm":""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
   (areaDe(o)==="vidrios"?(()=>{const C=calcDe(o),R=C.resumen,GS=subtotalesCuadros(o,C);return (GS.length>1?"\n\n"+GS.map(g=>`${g.t}: ${money(g.v)}`).join("\n"):"")+`\n\nVidrios: ${money(R.vidrio+R.ajuste)}`+(R.instalacion>0?`\nInstalación: ${money(R.instalacion)}`:R.instSug>0?`\nInstalación sugerida (no incluida): ${money(R.instSug)}`:"")})():"")+
   `\n\n*TOTAL${areaDe(o)==="vidrios"&&o.sinInst?" SIN INSTALACIÓN":""}: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
@@ -2128,9 +2129,9 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
   doc.setFont("helvetica","bold");doc.text("Obra:",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize((o.nombre||"")+(o.direccion?" · "+o.direccion:""),160),36,y);y+=10;
   const cols=[16,26,110,140,155,178];doc.setFillColor(236,230,223);doc.rect(14,y-5,188,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(9);
   ["#","Descripción","Medida (cm)","Cant","Valor unit.","Total"].forEach((h,i)=>doc.text(h,i>=3?(i===3?150:i===4?173:200):cols[i],y,{align:i>=3?"right":"left"}));y+=8;doc.setFont("helvetica","normal");
-  (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).forEach(([it,i],n)=>{const desc=doc.splitTextToSize([describeItem(it),detalleItem(it)].filter(Boolean).join(" · ")+(it.ubicacion?" · "+it.ubicacion:""),80);
+  (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).sort(([a],[b])=>(a.n||0)-(b.n||0)).forEach(([it,i],n)=>{const desc=doc.splitTextToSize([describeItem(it),detalleItem(it)].filter(Boolean).join(" · ")+(it.ubicacion?" · "+it.ubicacion:""),80);
     if(y+desc.length*4>250){doc.addPage();y=20}
-    doc.text(String(n+1),16,y);doc.text(desc,26,y);doc.text(medidaTxt(it),110,y);doc.text(String(it.cant),150,y,{align:"right"});doc.text(money(valLinea(calc,i).unit),173,y,{align:"right"});doc.text(money(valLinea(calc,i).total),200,y,{align:"right"});
+    doc.text(String(it.n||n+1),16,y);doc.text(desc,26,y);doc.text(medidaTxt(it),110,y);doc.text(String(it.cant),150,y,{align:"right"});doc.text(money(valLinea(calc,i).unit),173,y,{align:"right"});doc.text(money(valLinea(calc,i).total),200,y,{align:"right"});
     y+=desc.length*4+3;doc.setDrawColor(203,211,219);doc.line(14,y-2,202,y-2);});
   y+=3;if(y>215){doc.addPage();y=20}doc.setFontSize(10);
 
