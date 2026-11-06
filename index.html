@@ -280,7 +280,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.56.1";
+const APP_VER="1.57.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -608,13 +608,13 @@ function despieceMelamina(it,M,F,acc){const H=it.alto||0,FD=it.fondo||0,esp=it.e
       pz("Marco · tiras horizontales",70,A,2,A);
       pz("T · tiras",70,A-30,2,A-30);
       pz("Divisores · tiras",70,H-115,2*div,H-115);
-      pz("Puertas",pw,H-90,N,2*(pw+H-90));puertas+=N;continue}
+      if(!it.sinPuertas){pz("Puertas",pw,H-90,N,2*(pw+H-90));puertas+=N}continue}
     pz("Superior e inferior",A,FD-15,2,A+2*(FD-15));          // canto: frente y las dos puntas
     pz("Laterales",FD-15,H-30,2,H-30);                          // canto: frente
     pz("Divisores",FD-30-(esp?3:0),H-30,div,H-30);              // canto: frente
     pz("Reengruese divisores",70,H-30,div,0);
     pz("Fichas laterales (soporte espaldar)",70,H-30,2,0);
-    pz("Puertas",pw,H+10,N,2*(pw+H+10));puertas+=N;
+    if(!it.sinPuertas){pz("Puertas",pw,H+10,N,2*(pw+H+10));puertas+=N}
     if(esp&&A>30&&H>30)F.push({pieza:"Espaldar",ancho:Math.round(A-30),alto:Math.round(H-30),cant:1})}
   acc.push(["Bisagras (par)",puertas,"bisagra"],["Manijas",puertas,"manija"],["Canto "+(it.canto==="rigido"?"rígido":"flex")+" (m)",Math.round(canto/10)/100,"canto"])}
 function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+cc.descPvc||0)*10;
@@ -628,15 +628,14 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
     for(const [k,{A,Ap}] of tramosEf(it).entries()){const g=gabinete(Ap,true,puertasTramo(it,k));
       P.push({nombre:"T77 (marco)",largo:Math.round(A),cant:2,ref:"T77",sis},{nombre:"T77 (marco)",largo:Math.round(H),cant:2,ref:"T77",sis});
       if(g.divisores)P.push({nombre:"T78 (divisor)",largo:Math.round(H-50),cant:g.divisores,ref:"T78",sis});
-      marco(g.puerta,H-30,g.N);puertas+=g.N}}
+      if(!it.sinPuertas){marco(g.puerta,H-30,g.N);puertas+=g.N}}}
   else for(const [k,{A,Ap}] of tramosEf(it).entries()){const g=gabinete(Ap,false,puertasTramo(it,k));
     marco(300,A,2);            // superior e inferior: 30 × ancho
     marco(300,585,2);          // laterales: 30 × 58,5
     marco(585,260,g.divisores);// divisores: 58,5 × 26
     if(g.divisores)P.push({nombre:"T78 (divisor)",largo:585,cant:g.divisores,ref:"T78",sis}); // 1 T78 de 58,5 por divisor
     marco(585,A-30,1);         // espaldar: 58,5 × (ancho − 3)
-    marco(g.puerta,605,g.N);   // puertas: ancho × 60,5
-    puertas+=g.N;
+    if(!it.sinPuertas){marco(g.puerta,605,g.N);puertas+=g.N} // puertas: ancho × 60,5
     // A61: 2 de 58,5 por gabinete; el hueco del losero lleva 4 de 30 y cada uno de los demás huecos 2 de 30 con su vidrio
     const huecos=g.P+g.sola,conLosero=it.losero!==false&&!loseros?1:0;
     A61(585,2);A61(300,4*conLosero+2*(huecos-conLosero));loseros+=conLosero;vidrios+=huecos-conLosero}
@@ -839,6 +838,7 @@ function tableroTxt(it){const tb=tableroPta(it);return TAB_NOM[tb.mat]+(tb.mat==
 const vidrioDivTxt=()=>"Vidrio templado "+(S.cfg.division?.espesor||"8 mm");
 const medidaTxt=it=>it.tipo==="pasamanos"?"":esMel(it)?tramosCocina(it).map(cm).join(" + ")+" × "+cm(it.alto||0):it.tipo==="cocina"?tramosCocina(it).map(cm).join(" + ")+" × "+(esInf(it)?cm(it.alto||0):String(S.cfg.cocina?.alto||61.5).replace(".",",")):cm(it.ancho)+" × "+cm(it.alto);
 function detalleItem(it){if(it.tipo==="pasamanos")return "";if(it.tipo==="vidrio")return "";
+  if(it.tipo==="cocina"&&it.sinPuertas)return "Sin puertas (solo estructura) · "+(esMel(it)?colorEst(it):(it.color||""));
   if(esMel(it))return tramosCocina(it).map((A,k)=>puertasTramo(it,k)).join(" + ")+" puertas · "+colorEst(it)+(colorPta(it)!==colorEst(it)?", puertas "+colorPta(it):"")+(esInf(it)?"":" · fondo "+cm(it.fondo||0)+(it.espaldar===false?" · sin espaldar":""));
   if(it.tipo==="cocina"){const g=tramosEf(it).map((t,k)=>gabinete(t.Ap,esInf(it),puertasTramo(it,k)));return g.map(x=>x.N).join(" + ")+" puertas · "+(it.color||"")}if(TIPOS[it.tipo]?.puerta)return it.color||"";
   if(it.tipo==="division"){const r=vidriosDivision(it);return vidrioDivTxt()+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
@@ -1006,15 +1006,16 @@ function sketch(it){
     for(const [kt,{A,Ap,ci,cd}] of T.entries()){const N=puertasTramo(it,kt),tw=A*sc,pw=Ap*sc/N,x0=cx+ci*sc,top=y+dd,hh=h-dd,col="#d9c3a5";
       if(dd)inner+=`<path d="M${cx} ${top}L${cx+dd} ${y}H${cx+tw+dd}L${cx+tw} ${top}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/><path d="M${cx+tw} ${top}L${cx+tw+dd} ${y}V${y+hh}L${cx+tw} ${top+hh}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/>`;
       inner+=`<rect x="${cx}" y="${top}" width="${tw}" height="${hh}" fill="var(--surface)" ${s} stroke-width="2"/>`+ciegos(cx,top,tw,hh,ci*sc,cd*sc);
-      for(let k=0;k<N;k++){const px=x0+k*pw,izq=k%2===0&&k<N-(N%2),my=inf?top+hh/2-6:top+hh-16;inner+=`<rect x="${px+1}" y="${top+2}" width="${Math.max(1,pw-2)}" height="${hh-2}" fill="${col}" ${s} stroke-width="1.2"/><line x1="${izq?px+pw-6:px+5}" y1="${my}" x2="${izq?px+pw-6:px+5}" y2="${my+12}" ${s} stroke-width="2"/>`}
+      if(it.sinPuertas){const div=Math.max(0,Math.floor(N/2)+N%2-1);for(let j=1;j<=div;j++){const lx=x0+2*j*pw;inner+=`<rect x="${lx-2}" y="${top+2}" width="4" height="${hh-4}" fill="${col}" ${s} stroke-width="1"/>`}}
+      else for(let k=0;k<N;k++){const px=x0+k*pw,izq=k%2===0&&k<N-(N%2),my=inf?top+hh/2-6:top+hh-16;inner+=`<rect x="${px+1}" y="${top+2}" width="${Math.max(1,pw-2)}" height="${hh-2}" fill="${col}" ${s} stroke-width="1.2"/><line x1="${izq?px+pw-6:px+5}" y1="${my}" x2="${izq?px+pw-6:px+5}" y2="${my+12}" ${s} stroke-width="2"/>`}
       cx+=tw+gap}}
   else if(it.tipo==="cocina"){const inf=esInf(it),T=tramosEf(it),tot=T.reduce((a,t)=>a+t.A,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
     const dd=inf?0:Math.min(18,300*sc*0.45);  // profundidad (30 cm) en perspectiva para el gabinete superior
     for(const [kt,{A,Ap,ci,cd}] of T.entries()){const g=gabinete(Ap,inf,puertasTramo(it,kt)),tw=A*sc,e=(inf?30:20)*sc,pw=g.puerta*sc,top=y+dd,hh=h-dd;let px=cx+ci*sc+e;
       if(dd)inner+=`<path d="M${cx} ${top}L${cx+dd} ${y}H${cx+tw+dd}L${cx+tw} ${top}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/><path d="M${cx+tw} ${top}L${cx+tw+dd} ${y}V${y+hh}L${cx+tw} ${top+hh}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/>`;
       inner+=`<rect x="${cx}" y="${top}" width="${tw}" height="${hh}" fill="var(--surface)" ${s} stroke-width="2"/>`+ciegos(cx,top,tw,hh,ci*sc,cd*sc);
-      for(let k=0;k<g.N;k++){inner+=`<rect x="${px+1}" y="${top+3}" width="${Math.max(1,pw-2)}" height="${hh-6}" fill="var(--surface-2)" ${s} stroke-width="1.2"/>`;
-        const izq=k<2*g.P&&k%2===0,my=inf?top+8:top+hh-14;inner+=`<line x1="${izq?px+pw-6:px+5}" y1="${my}" x2="${izq?px+pw-6:px+5}" y2="${my+8}" ${s} stroke-width="2"/>`;
+      for(let k=0;k<g.N;k++){if(!it.sinPuertas){inner+=`<rect x="${px+1}" y="${top+3}" width="${Math.max(1,pw-2)}" height="${hh-6}" fill="var(--surface-2)" ${s} stroke-width="1.2"/>`;
+        const izq=k<2*g.P&&k%2===0,my=inf?top+8:top+hh-14;inner+=`<line x1="${izq?px+pw-6:px+5}" y1="${my}" x2="${izq?px+pw-6:px+5}" y2="${my+8}" ${s} stroke-width="2"/>`}
         px+=pw;if(k%2===1&&k<2*g.P-1){inner+=`<rect x="${px+0.5}" y="${top}" width="${Math.max(1,38*sc-1)}" height="${hh}" fill="currentColor" opacity=".5"/>`;px+=38*sc}
         else if(k===2*g.P-1&&g.sola){inner+=`<rect x="${px+0.5}" y="${top}" width="${Math.max(1,25*sc-1)}" height="${hh}" fill="currentColor" opacity=".5"/>`;px+=25*sc}}
       cx+=tw+gap}}
@@ -1565,6 +1566,7 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
   if(esMel(it))return `<div class="field"><label>Material</label>${seg("mat",[["aluminio","Aluminio"],["melamina","Melamina 15 mm"]],"melamina")}</div>
   <div class="field"><label>Mueble</label>${seg("parte",[["superior","Superior"],["inferior","Inferior"]],inf?"inferior":"superior")}</div>
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
+  <div class="field"><label>Puertas</label>${seg("sinPuertas",[["","Con puertas"],["1","Sin puertas (solo estructura)"]],it.sinPuertas?"1":"")}${it.sinPuertas?`<span class="hint">Las puertas no se cotizan (ni bisagras ni manijas). El número de puertas de abajo solo sirve para ubicar los divisores.</span>`:""}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
       `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}</span></div>`).join("")}
     ${an("alto","Alto")}${inf?"":an("fondo","Fondo")}
@@ -1581,6 +1583,7 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
   <div class="field"><label>Parte</label>${seg("parte",[["superior","Gabinete superior"],["inferior","Puertas inferiores"]],inf?"inferior":"superior")}</div>
   ${inf?"":`<label class="row small" style="gap:8px;font-weight:600"><input type="checkbox" data-it="losero" ${it.losero!==false?"checked":""} style="width:20px;height:20px"> Lleva losero (en un hueco)</label>`}
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
+  <div class="field"><label>Puertas</label>${seg("sinPuertas",[["","Con puertas"],["1","Sin puertas (solo estructura)"]],it.sinPuertas?"1":"")}${it.sinPuertas?`<span class="hint">Las puertas no se cotizan (ni bisagras ni manijas). El número de puertas de abajo solo sirve para ubicar los divisores.</span>`:""}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
       `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}</span></div>`).join("")}
     ${inf?`<div class="field"><label for="it-alto">Alto (cm)</label><input id="it-alto" inputmode="decimal" data-it="alto" value="${cm(it.alto)}"></div>`:`<div class="field"><label>Alto × fondo</label><input value="${String(S.cfg.cocina?.alto||61.5).replace(".",",")} × 30 cm" disabled></div>`}
