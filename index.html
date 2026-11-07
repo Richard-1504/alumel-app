@@ -215,7 +215,7 @@ tr.sel-off td:not(:first-child){opacity:.45}
 .mc-t{flex:1;min-width:0;display:grid;gap:2px}.mc-aj{padding:4px 8px;flex:none}
 .mc-seg{display:flex;flex-wrap:nowrap;margin-top:6px;max-width:280px}.mc-seg button{flex:1;min-height:34px;padding:6px}
 .area-seg{margin-bottom:12px}.area-seg button{font-weight:700}
-.it-cel{display:flex;gap:10px;align-items:flex-start}.it-thumb{flex:none;width:68px;height:54px;display:grid;place-items:center;border-radius:6px;background:var(--surface-2);overflow:hidden;padding:3px}
+.it-cel{display:flex;gap:10px;align-items:center;margin-top:6px}.it-thumb{flex:none;width:100px;height:70px;display:grid;place-items:center;border-radius:6px;background:var(--surface-2);overflow:hidden;padding:3px}
 .it-thumb svg{width:100%;height:100%;display:block}
 .lote{display:grid;gap:6px}
 .lote-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px minmax(0,1.3fr) 34px;gap:5px;align-items:center}
@@ -282,7 +282,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.58.1";
+const APP_VER="1.59.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -992,8 +992,18 @@ function sumarDespiece(items){
 /* Zona de esquina tapada por el otro mueble (rayada) */
 function ciegos(x,y,w,h,ci,cd){const z=(a,b)=>b>0?`<rect x="${a}" y="${y}" width="${b}" height="${h}" fill="url(#rayado)" stroke="none"/>`:"";return z(x,ci)+z(x+w-cd,cd)}
 /* Miniatura del ítem para las listas: el mismo dibujo, sin textos ni medidas */
-function miniatura(it){try{if(!(it.ancho>0)&&it.tipo!=="cocina")return "";let sv=sketch(it);
-  sv=sv.replace(/viewBox="0 0 260 ([\d.]+)"/,(m,v)=>`viewBox="16 6 228 ${Math.max(40,+v-38)}"`).replace(/ width="260"/,"").replace(/<text[\s\S]*?<\/text>/g,"");return sv}catch(e){return ""}}
+function miniatura(it){try{const coc=it.tipo==="cocina",anS=coc?tramosEf(it).reduce((a,t)=>a+t.A,0):it.ancho,alt=coc&&!esInf(it)&&!esMel(it)?(S.cfg.cocina?.alto||61.5)*10:it.alto;
+  if(!(anS>0&&alt>0))return "";const ar=anS&&it.alto?anS/it.alto:1.4;  // misma proporción que usa sketch()
+  // mismo encuadre que sketch(): dibujo de w × h centrado en 260 de ancho, desde y=12
+  let w=220,h=220/ar;if(h>150){h=150;w=150*ar}const x0=(260-w)/2,extra=coc&&!esInf(it)?Math.min(18,300*(w/anS)*0.45):0;
+  let sv=sketch(it).replace(/<text[\s\S]*?<\/text>/g,"");const inner=sv.slice(sv.indexOf(">")+1,sv.lastIndexOf("</svg>"));
+  // caja de 66 × 48 para el dibujo, cota del ancho abajo y del alto a la derecha
+  const BW=66,BH=48;let bw=BW,bh=BW/ar;if(bh>BH){bh=BH;bw=BH*ar}const bx=4+(BW-bw)/2,by=3+(BH-bh)/2,m=2;
+  const wl=coc?tramosCocina(it).map(cm).join("+"):cm(anS),hl=cm(alt),c='stroke="currentColor" stroke-width=".6"';
+  return `<svg viewBox="0 0 100 70" style="color:var(--fg)"><svg x="${bx}" y="${by}" width="${bw}" height="${bh}" viewBox="${x0-m} ${12-extra-m} ${w+extra+2*m} ${h+extra+2*m}" preserveAspectRatio="xMidYMid meet" overflow="visible">${inner}</svg>
+   <g opacity=".75"><path d="M${bx} ${by+bh+4}H${bx+bw}M${bx} ${by+bh+2}v4M${bx+bw} ${by+bh+2}v4" ${c} fill="none"/><path d="M${bx+bw+4} ${by}V${by+bh}M${bx+bw+2} ${by}h4M${bx+bw+2} ${by+bh}h4" ${c} fill="none"/></g>
+   <text x="${bx+bw/2}" y="${by+bh+13}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="${wl.length>9?7.5:9.5}" font-weight="600" fill="currentColor">${wl}</text>
+   <text x="${bx+bw+8}" y="${by+bh/2+3.2}" font-family="IBM Plex Mono,monospace" font-size="9.5" font-weight="600" fill="currentColor">${hl}</text></svg>`}catch(e){return ""}}
 function sketch(it){
   const W=220,Hh=150,anS=it.tipo==="cocina"?tramosEf(it).reduce((a,t)=>a+t.A,0):it.ancho,ar=anS&&it.alto?anS/it.alto:1.4;let w=W,h=W/ar;if(h>Hh){h=Hh;w=Hh*ar}
   const x=(260-w)/2,y=12,s='stroke="currentColor"';let inner="";
@@ -1258,7 +1268,8 @@ function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
   const st=!!ctx,todos=!items.some(it=>it.fuera);
   return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Incluir todos" title="Incluir todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
-  ${items.map((it,i)=>`<tr${it.fuera?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><div class="it-cel"><div class="it-thumb" aria-hidden="true">${miniatura(it)}</div><div style="min-width:0"><b>${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div><div class="mono small" style="margin-top:2px"><b>${medidaLbl(it)}</b>${medidaTxt(it)?" · ":""}× ${it.cant}</div></div></div></td>
+  ${items.map((it,i)=>`<tr${it.fuera?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div>
+     <div class="it-cel">${miniatura(it)?`<div class="it-thumb" role="img" aria-label="${esc(medidaLbl(it,true))}">${miniatura(it)}</div>`:""}<div class="mono small"><b>× ${it.cant}</b>${miniatura(it)?"":`<div>${medidaLbl(it)}</div>`}</div></div></td>
    <td class="n" style="vertical-align:top">${it.fuera?`<span class="small muted" style="white-space:nowrap">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
      return `<div class="small muted" title="Lo que valdría este ítem cotizado solo" style="white-space:nowrap"><s>${money(l.tSolo)}</s>${it.cant>1?`<br><s>c/u ${money(l.uSolo)}</s>`:""}<br><span style="font-size:10px">si fuera solo</span></div>`})()}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
    ${editable?`<td class="n" style="vertical-align:top"><button class="btn sm" data-act="editar-item" data-i="${i}">Editar</button></td>`:""}</tr>`).join("")}
