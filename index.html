@@ -282,7 +282,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.60.0";
+const APP_VER="1.60.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1700,7 +1700,8 @@ function vCortes(){
   ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
    <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th><th class="n">m²</th></tr></thead><tbody>
    ${res.vid.map(v=>`<tr><td>${esc(v.vidrio)}${v.nota?`<div class="small muted">${esc(v.nota)}</div>`:""}</td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="n">${v.cant}</td><td class="n">${(v.ancho*v.alto*v.cant/1e6).toFixed(2).replace(".",",")}</td></tr>`).join("")}
-   </tbody></table></div><span class="small muted">Medidas en cm.</span></div>`:""}
+   </tbody></table></div><span class="small muted">Medidas en cm.</span>
+   <div class="row" style="gap:6px;flex-wrap:wrap">${[...new Set(res.vid.map(v=>v.vidrio))].map(vn=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn);return vv?`<button class="btn sm" data-act="vid-despiece" data-k="${esc(vv.id)}" data-ctx="${esc(sel)}">▦ ${esc(vn)} en lámina</button>`:""}).join("")}</div></div>`:""}
   <div class="panel"><h2>Accesorios</h2><div class="tbl-wrap"><table><tbody>${res.acc.map(([n,c])=>`<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join("")}</tbody></table></div></div>`}`;
 }
 
@@ -2030,7 +2031,7 @@ function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(L.length)t+=`\n*${tt}*\n`+L.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)} · ${x.pieza}`).join("\n")+"\n"}
   if(D.res.pvc.length)t+=`\n*PVC marmolizado* — ${D.lam} lámina${D.lam===1?"":"s"} de ${D.mm.ancho} × ${D.mm.alto}\n`+D.res.pvc.map(x=>`   ${x.cant} × ${cm(x.ancho)} × ${cm(x.alto)}`).join("\n")+"\n";
   if(D.res.esc)t+=`\n*Escuadras A15* — ${D.res.esc} unidades (4 por marco)\n`;
-  if(D.res.vid.length)t+=`\n*Vidrios*\n`+D.res.vid.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
+  for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})))t+=`\n*Vidrio ${vn.replace(/^Vidrio /i,"")}*\n`+L.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
 /* Plano de corte de láminas en el PDF (misma forma que escogiste en Cortes) */
 function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){doc.addPage();y=20}};const O=opcionesLam(rects,W,H,k);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
@@ -2074,8 +2075,13 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
     for(const x of D.res.pvc){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto),20,y);y+=4.5}y+=3;
     {const rr=[];D.res.pvc.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,"PVC marmolizado","pvc",rr,D.mm.ancho*10,D.mm.alto*10,0)}}
   if(D.res.esc){nl(10);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Escuadras A15: "+D.res.esc+" unidades (4 por marco)",16,y);doc.setFont("helvetica","normal");y+=7}
-  if(D.res.vid.length){nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Vidrios",16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
-    for(const v of D.res.vid){nl(5);doc.text(v.cant+" × "+cm(v.ancho)+" × "+cm(v.alto)+" · "+v.vidrio+(v.nota?" ("+v.nota+")":""),20,y);y+=4.5}}
+  // despiece de vidrios: por referencia, cantidad × ancho × alto y el plano de la lámina
+  for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{}))){const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},n=L.reduce((a,v)=>a+v.cant,0),m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
+    nl(22);doc.setFillColor(220,234,240);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text("Vidrio "+vn.replace(/^Vidrio /i,""),16,y);doc.setFontSize(9.5);doc.text(n+" pieza"+(n===1?"":"s")+" · "+m2.toFixed(2).replace(".",",")+" m²",200,y,{align:"right"});y+=8;
+    L.forEach((v,k)=>{const x=16+(k%2)*94;if(k&&k%2===0)y+=7;nl(8);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(String(v.cant),x+7,y,{align:"right"});doc.setFont("helvetica","normal");doc.text("x  "+cm(v.ancho)+" × "+cm(v.alto),x+10,y);
+      if(v.nota){doc.setFontSize(8);doc.setTextColor(106,95,88);doc.text(v.nota,x+60,y);doc.setTextColor(31,26,23)}});y+=8;
+    const Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
+    if(vv.id&&+vv.lam>0){const rr=[];L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,"Vidrio "+vn.replace(/^Vidrio /i,""),"vid:"+vv.id,rr,la*10,lh*10,0)}}
   S.cortesSel=selPrev;if(ext)return y;
   guardarArchivo("Cortes_"+(o.numero?numCot(o):"cotizacion")+".pdf",doc)}
 
