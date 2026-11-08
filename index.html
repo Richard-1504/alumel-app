@@ -414,7 +414,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.67.0";
+const APP_VER="1.67.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1373,10 +1373,10 @@ function vObra(){
   <div class="sec-t">Ítems · ${(o.items||[]).length}</div>
   ${catTabs(o.id,o)}
   <div class="panel ipanel">
-    ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o,catActiva(o.id))}
+    ${(()=>{const k=catActiva(o.id);return tablaItems(o.items||[],k?calcCat(o,calc,k):calc,false,calcCongelado(o),o.id,o,k)})()}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
   <div class="totbar-sp"></div>
-  <button class="totbar" data-act="ver-resumen" data-id="${o.id}">${(()=>{const k=catActiva(o.id);return k?`<span>${esc(catLbl(k))}</span><b class="num">${money(subtotalCat(calc,o,k))}</b><span class="totbar-de">de ${money(tot)}</span>`:`<span>Total</span><b class="num">${money(tot)}</b>`})()}<span class="totbar-v">Ver resumen <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 15l6-6 6 6"/></svg></span></button>`;
+  <button class="totbar" data-act="ver-resumen" data-id="${o.id}">${(()=>{const k=catActiva(o.id);return k?`<span>${esc(catLbl(k))}</span><b class="num">${money(calcCat(o,calc,k).resumen.total)}</b><span class="totbar-de">· todo ${money(tot)}</span>`:`<span>Total</span><b class="num">${money(tot)}</b>`})()}<span class="totbar-v">Ver resumen <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 15l6-6 6 6"/></svg></span></button>`;
 }
 function resumenSheet(oid){const o=obra(oid);if(!o)return;openSheet(()=>{const o=obra(oid),calc=calcDe(o);return `<div class="sheet-h">${catTabs(o.id,o)||"<span></span>"}<button class="btn sm" data-act="cerrar">Listo</button></div>
   ${resumenCtx(o,calc,o.id)}`})}
@@ -1667,12 +1667,13 @@ function vistaCat(o,k){if(!o||!k)return o;return {...o,items:(o.items||[]).map(i
 function subtotalCat(calc,o,k){return (o.items||[]).reduce((a,it,i)=>a+(!it.fuera&&catDe(it)===k?(calc.lineas?.[i]?.total||0):0),0)}
 function catTabs(ctx,o){const C=catsDe(o);if(C.length<2)return "";const k=catActiva(ctx);
   return `<div class="seg cat-seg">${[["","Todo",(o.items||[]).length],...C.map(c=>[c.k,c.lbl,c.idx.length])].map(([v,t,n])=>`<button data-act="cat-set" data-ctx="${esc(ctx)}" data-v="${v}" aria-pressed="${(k||"")===v}">${t}${v?` <span class="cat-n">${n}</span>`:""}</button>`).join("")}</div>`}
-/* Resumen de una sola categoría: se calcula con sus ítems y se cuadra con lo que valen dentro de la cotización completa */
-function calcCat(o,calc,k){const sub=(o.items||[]).filter(it=>!it.fuera&&catDe(it)===k),fijo=subtotalCat(calc,o,k);const o2={...o,items:sub,totalManual:null,totalFijo:fijo};return o.precios?calcPreciosIniciales(o2):calcCot(sub,o2)}
+/* Una sola categoría: se calcula como si la cotización tuviera solo esos ítems. lineas queda con los índices de la cotización completa */
+function calcCat(o,calc,k){const idx=[];(o.items||[]).forEach((it,i)=>{if(!it.fuera&&catDe(it)===k)idx.push(i)});const sub=idx.map(i=>o.items[i]);const o2={...o,items:sub,totalManual:null};
+  const c=o.precios&&o.id!==undefined&&o!==S.draft?calcPreciosIniciales(o2):calcCot(sub,o2),L=(o.items||[]).map(()=>({fuera:true,total:0,unit:0}));idx.forEach((i,j)=>L[i]=c.lineas[j]);return {...c,lineasSub:c.lineas,lineas:L}}
 function resumenCtx(o,calc,ctx,editable){const k=catActiva(ctx);
   if(!k)return ctx==="__draft"?resumenHtml(calc,0,o.items,editable,null,"__draft"):resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id);
   const sub=(o.items||[]).filter(it=>!it.fuera&&catDe(it)===k);if(!sub.length)return `<div class="panel"><h2>Resumen · ${catLbl(k)}</h2><span class="muted small">No hay ítems incluidos de esta categoría.</span></div>`;
-  return resumenHtml(calcCat(o,calc,k),0,sub,false,sub,null).replace("<h2>Resumen</h2>",`<h2>Resumen · ${esc(catLbl(k))}</h2>`).replace(">Total cotización<",`>Total ${esc(catLbl(k).toLowerCase())} <span style="opacity:.7">de ${money(calc.resumen.total)}</span><`)}
+  const cc=calcCat(o,calc,k);return resumenHtml({...cc,lineas:cc.lineasSub},0,sub,false,sub,null).replace("<h2>Resumen</h2>",`<h2>Resumen · ${esc(catLbl(k))}</h2>`).replace(">Total cotización<",`>Total ${esc(catLbl(k).toLowerCase())}<`)}
 const CAT_NOM={s744:["ventana","ventanas"],s8025:["ventana","ventanas"],p1:["puerta","puertas"],p15:["puerta","puertas"],cocina:["cocina","cocinas"],division:["división de baño","divisiones de baño"],pasamanos:["pasamanos","pasamanos"],vidrio:["vidrio","vidrios"]};
 function trabajosTxt(o){const cnt={},ord=[];for(const it of o.items||[]){if(it.fuera)continue;const c=CAT_NOM[it.tipo]||[(TIPOS[it.tipo]?.corto||it.tipo).toLowerCase(),(TIPOS[it.tipo]?.corto||it.tipo).toLowerCase()],key=c[1];
     if(!(key in cnt)){cnt[key]={n:0,c};ord.push(key)}cnt[key].n+=it.cant||1}
@@ -1703,7 +1704,7 @@ function vCotizar(){
     ${d.items.some(it=>(TIPOS[it.tipo]?.puerta&&tableroPta(it).mat==="marmo"||it.tipo==="cocina")&&!(it.precioManual>0))?(()=>{const mt=(calc.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),ms=S.cfg.puertas.marmo;
       return `<div class="field"><label>PVC marmolizado${mt?" · "+esc(mt.detalle):""}</label><div class="seg"><button data-act="marmo-media" data-v="1" aria-pressed="${d.marmoMedia!==false}">Media lámina cuando alcance</button><button data-act="marmo-media" data-v="0" aria-pressed="${d.marmoMedia===false}">Solo láminas enteras</button></div>
       <span class="hint">Media lámina = ${ms.ancho} × ${ms.alto/2} cm. Se cobra: ${mt?esc(mt.cobrado)+" · "+money(mt.valor):"—"}</span></div>`})():""}
-    ${catTabs("__draft",d)}${d.items.length?tablaItems(d.items,calc,true,false,"__draft",d,catActiva("__draft")):emptyBox("Sin ítems","Agrega ventanas, puertas, divisiones o vidrios con sus medidas.",`<button class="btn pri" data-act="nuevo-item">+ Agregar ítem</button>`)}
+    ${catTabs("__draft",d)}${d.items.length?tablaItems(d.items,catActiva("__draft")?calcCat(d,calc,catActiva("__draft")):calc,true,false,"__draft",d,catActiva("__draft")):emptyBox("Sin ítems","Agrega ventanas, puertas, divisiones o vidrios con sus medidas.",`<button class="btn pri" data-act="nuevo-item">+ Agregar ítem</button>`)}
   </div>`}
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
   <div id="cot-res">${d.items.length?resumenCtx(d,calc,"__draft",true):""}</div>
