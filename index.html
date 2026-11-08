@@ -381,7 +381,7 @@ nav.tabs{background:color-mix(in srgb,var(--surface) 86%,transparent);-webkit-ba
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.64.0";
+const APP_VER="1.64.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1226,7 +1226,7 @@ function go(v,param,{sinHist}={}){if(S.view==="login")return;
   window.scrollTo(0,0)}
 function atras(){if(sheetFn){closeSheet();return}let p=S.hist.pop();while(p&&p[1]&&!({obra,cobro:id=>S.cobros.find(x=>x.id===id),cliente})[p[0]]?.(p[1])&&["obra","cobro","cliente"].includes(p[0]))p=S.hist.pop();
   go(p?p[0]:"obras",p?p[1]:null,{sinHist:true})}
-window.addEventListener("popstate",()=>{if(S.view!=="login")atras()});
+window.addEventListener("popstate",()=>{if(S.ignPop){S.ignPop=false;return}if(S.view!=="login")atras()});
 const CHEV=`<svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L2 10l8 8"/></svg>`;
 function backLbl(){const p=S.hist[S.hist.length-1];return ({obras:"Obras",cotizar:"Cotizar",cobros:"Cobros",cobro:"Cuenta",clientes:"Clientes",cliente:"Cliente",ajustes:"Ajustes",cortes:"Cortes",obra:"Cotización"})[p?.[0]]||"Atrás"}
 const backBtn=()=>`<button class="nav-back solo" data-act="atras">${CHEV}${esc(backLbl())}</button>`;
@@ -1241,7 +1241,7 @@ function navScroll(){const t=document.querySelector(".top");if(t)document.docume
 window.addEventListener("scroll",()=>navScroll(),{passive:true});window.addEventListener("resize",()=>navScroll());
 /* Deslizar un ítem a la izquierda muestra Editar / Eliminar */
 (function(){let row=null,x0=0,y0=0,dx=0,on=false,base=0;const W=164;const cl=(r)=>{r.classList.remove("abierto");r.querySelector(".irow-c").style.transform=""};
-  document.addEventListener("pointerdown",e=>{const r=e.target.closest&&e.target.closest("[data-sw] .irow-c");document.querySelectorAll(".irow.abierto").forEach(o=>{if(!r||o!==r.parentNode){cl(o);S.swCerro=true;setTimeout(()=>S.swCerro=false,350)}});if(!r||e.target.closest("input,button"))return;row=r.parentNode;x0=e.clientX;y0=e.clientY;dx=0;on=false;base=row.classList.contains("abierto")?-W:0});
+  document.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest(".irow-acts"))return;const r=e.target.closest&&e.target.closest("[data-sw] .irow-c");document.querySelectorAll(".irow.abierto").forEach(o=>{if(!r||o!==r.parentNode){cl(o);S.swCerro=true;setTimeout(()=>S.swCerro=false,350)}});if(!r||e.target.closest("input,button"))return;row=r.parentNode;x0=e.clientX;y0=e.clientY;dx=0;on=false;base=row.classList.contains("abierto")?-W:0});
   document.addEventListener("pointermove",e=>{if(!row)return;const mx=e.clientX-x0,my=e.clientY-y0;if(!on){if(Math.abs(my)>10&&Math.abs(my)>Math.abs(mx)){row=null;return}if(Math.abs(mx)>10){on=true;row.classList.add("arr")}else return}
     dx=Math.max(-W-30,Math.min(0,base+mx));row.querySelector(".irow-c").style.transform=`translateX(${dx}px)`});
   const fin=()=>{if(!row)return;row.classList.remove("arr");if(on){S.swCerro=true;setTimeout(()=>S.swCerro=false,350);if(dx<-W/2){row.classList.add("abierto");row.querySelector(".irow-c").style.transform=`translateX(${-W}px)`}else cl(row)}row=null};
@@ -1520,8 +1520,10 @@ async function guardarDraftObra(quedarse){const d=S.draft;if(areaDe(d)==="vidrio
       d.nombre=nombreAuto(d);
       const id2=d.id||uid();const prev=d.id?obra(d.id):null;
       d.area=d.area||S.area;const numero=prev?.numero||Math.max(0,...S.obras.filter(o=>areaDe(o)===areaDe(d)).map(o=>o.numero||0))+1;
-      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total,calcFalta:faltanItems(d.items).length>0,preciosFecha:hoy(),precios:preciosSnap(),preciosIgnorados:null});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;if(quedarse)render();else go("obra",id2);return true}catch(e){return false}}
+      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total,calcFalta:faltanItems(d.items).length>0,preciosFecha:hoy(),precios:preciosSnap(),preciosIgnorados:null});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;if(quedarse)render();else if(prev)volverAObra(id2);else go("obra",id2);return true}catch(e){return false}}
 /* Edición directa desde la cotización guardada: se toma una copia, se edita el ítem y se guarda sin pasar por "Editar cotización" */
+/* Al terminar de editar una cotización se vuelve a ella como si nunca se hubiera salido (el regreso sigue llevando a Obras) */
+function volverAObra(id){const h=S.hist,k=h.length?h[h.length-1]:null;if(k&&k[0]==="obra"&&k[1]===id){h.pop();try{history.back()}catch(e){}S.ignPop=true;setTimeout(()=>S.ignPop=false,400)}go("obra",id,{sinHist:!!(k&&k[0]==="obra"&&k[1]===id)})}
 function editarItemDirecto(oid,i){const o=obra(oid);if(!o||S.readonly)return;S.prevDraft={d:S.draft,base:S.draftBase};S.draft=clone(o);S.draftBase=JSON.stringify(S.draft);S.editDirecto=oid;itemSheet(i)}
 function finEditDirecto(){if(!S.editDirecto)return;S.editDirecto=null;const p=S.prevDraft;S.prevDraft=null;if(p){S.draft=p.d;S.draftBase=p.base}}
 function clienteObraSheet(oid){const o=obra(oid);if(!o||S.readonly)return;const cl=[...S.clientes].sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
@@ -1615,10 +1617,9 @@ function vCotizar(){
   <div class="panel">
     <div class="fgrid">
       <div class="field full"><label for="d-cliente">Cliente</label>
-        <div class="row"><input id="d-cliente" class="grow" list="dl-clientes" data-draft-cli="1" autocomplete="off" value="${esc(cliente(d.clienteId)?.nombre||d.clienteNombre||"")}" placeholder="Escribe el nombre o apodo, o elige uno guardado">
-        <button class="btn sm" data-act="nuevo-cliente" data-from="cotizar">+ Guardar</button></div>
+        <div class="row"><input id="d-cliente" class="grow" list="dl-clientes" data-draft-cli="1" autocomplete="off" value="${esc(cliente(d.clienteId)?.nombre||d.clienteNombre||"")}" placeholder="Nombre del cliente"></div>
         <datalist id="dl-clientes">${clientes.map(c=>`<option value="${esc(c.nombre)}"></option>`).join("")}</datalist>
-        <span class="hint" id="d-cli-hint">${cliHint(d)}</span></div>
+</div>
       <div class="field"><label for="d-dir">Dirección</label><input id="d-dir" data-draft="direccion" value="${esc(d.direccion)}"></div>
       <div class="field"><label for="d-fecha">Fecha</label><input id="d-fecha" type="date" data-draft="fecha" value="${esc(d.fecha)}"></div>
     </div>
@@ -2409,7 +2410,7 @@ document.addEventListener("click",async ev=>{
     case"nueva-cot":S.draft=nuevoDraft();S.draftBase=null;go("cotizar");break;
     case"nueva-cot-cliente":S.draft={...nuevoDraft(),clienteId:id,direccion:cliente(id)?.direccion||""};go("cotizar");break;
     case"editar-obra":S.draft=clone(obra(id));S.draftBase=JSON.stringify(S.draft);go("cotizar");break;
-    case"descartar":{const bid=S.draft?.borradorId;S.draft=nuevoDraft();S.draftBase=null;if(bid)await borrar("borradores",bid);render();break}
+    case"descartar":{const bid=S.draft?.borradorId,eid=S.draft?.id;S.draft=nuevoDraft();S.draftBase=null;if(bid)await borrar("borradores",bid);if(eid&&obra(eid))volverAObra(eid);else render();break}
     case"cortes-obra":S.cortesObra=id;go("cortes");break;
     case"aprobar-obra":{const F=faltanObra(obra(id));if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pagoSheet(id,"aprobar");break}
     case"abono-obra":pagoSheet(id,"pago");break;
