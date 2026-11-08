@@ -183,7 +183,7 @@ tfoot td{font-weight:700;background:var(--surface-2)}
 /* Bottom nav */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);
   padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabs-in{max-width:920px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tabs-in{max-width:920px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
 .tab{background:none;border:0;padding:8px 2px 9px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(--muted);font-size:11px;font-weight:600}
 .tab svg{width:22px;height:22px}
 .tab[aria-current="page"]{color:var(--accent)}
@@ -277,14 +277,13 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
     <button class="tab" data-act="go" data-v="obras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M12 3v18M3 12h9"/></svg>Obras</button>
     <button class="tab" data-act="go" data-v="cotizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M8 18h2M12 18h4"/></svg>Cotizar</button>
     <button class="tab" data-act="go" data-v="cobros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Cobros</button>
-    <button class="tab" data-act="go" data-v="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.8 3 2.5 3.5 5.2"/></svg>Clientes</button>
   </div>
 </nav>
 
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.61.0";
+const APP_VER="1.61.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1199,7 +1198,7 @@ function vObra(){
   const pg=pagosObra(o),sig=SIGUIENTE[o.estado],abonos=(o.abonos||[]).map((a,i)=>({...a,i})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   return `
   ${backBtn()}
-  <div class="head"><div class="grow"><div class="eyebrow">Cotización ${numCot(o)} · ${fechaCorta(o.fecha)}</div><h1>${esc(tituloObra(o))}</h1></div>${estadoPill(o.estado)}</div>
+  <div class="head"><div class="grow"><div class="eyebrow">Cotización ${numCot(o)} · ${fechaCorta(o.fecha)}</div><h1 class="lp" data-lp="cliente" data-id="${o.id}" title="Doble clic o deja presionado para cambiar el cliente">${esc(tituloObra(o))}</h1></div>${estadoPill(o.estado)}</div>
   ${(()=>{const v=variacionObra(o);if(!v)return "";return `<div class="note" style="border-color:var(--warn)"><b>Los precios tuvieron variaciones</b> desde que se hizo esta cotización${o.preciosFecha?" ("+fechaCorta(o.preciosFecha)+")":""}.
     ${v.V.length?`<ul style="margin:6px 0;padding-left:18px">${v.V.map(x=>`<li>${esc(x.lab)}: <span style="white-space:nowrap">${fmtPrecio(x.antes,x.fm)}</span> → <b style="white-space:nowrap">${fmtPrecio(x.ahora,x.fm)}</b></li>`).join("")}</ul>`:`<div class="small" style="margin:6px 0">Cambiaron precios o medidas en Ajustes que la afectan.</div>`}
     Precio inicial: <b>${money(v.tot)}</b> · con los precios de hoy: <b>${money(v.vivo)}</b> (${v.vivo>v.tot?"+":"−"}${money(Math.abs(v.vivo-v.tot))})${o.estado!=="cotizacion"?`<div class="small muted">Está aprobada: si la actualizas, cambia también lo que debe el cliente.</div>`:""}
@@ -1210,11 +1209,7 @@ function vObra(){
     ${o.fechaAprobada?`<span class="small muted">Aprobada el ${fechaCorta(o.fechaAprobada)}</span>`:""}
     ${o.estado==="instalada"?`<button class="btn sm" data-act="estado-obra" data-id="${o.id}" data-v="produccion" data-confirma="1">Volver a producción</button>`:""}
     ${o.estado!=="cotizacion"?`<button class="btn sm danger" data-act="cancelar-aprob" data-id="${o.id}">Cancelar aprobación</button>`:""}</div>
-  <div class="cols2">
-    <div class="panel lp" data-lp="cliente" data-id="${o.id}"><div class="eyebrow">Cliente</div>
-      ${c?.suelto?`<dl class="kv"><dt>Nombre</dt><dd>${esc(c.nombre)}</dd>${o.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion)}</dd>`:""}</dl>
-        <span class="small muted">Escrito solo para esta cotización.</span><button class="btn sm" data-act="cliente-de-obra" data-id="${o.id}">Guardar en Clientes</button>`:""}
-      ${c?.suelto?"":c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}${S.readonly?"":`<span class="small muted">Doble clic o deja presionado para cambiarlo.</span>`}</div>
+  <div>
     <div class="panel"><div class="row sp"><div class="eyebrow">Pagos del cliente</div>${o.estado!=="cotizacion"&&o.estado!=="anulada"?(pg.debe>0?pill("Debe","st-pen"):pill("Pagada","st-pag")):""}</div>
       <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Abonado</dt><dd class="num">${money(pg.pagado)}</dd><dt>Debe</dt><dd class="num" style="font-weight:700;color:${pg.debe>0?"var(--bad)":"var(--ok)"}">${money(pg.debe)}</dd></dl>
       ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Pago</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}${a.rc?`<div class="small muted">RC-${pad(a.rc)}</div>`:""}</td><td>${esc([a.forma,a.nota].filter(Boolean).join(" · "))}</td><td class="n">${money(a.valor)}</td><td class="n" style="white-space:nowrap"><button class="btn sm" data-act="recibo-abono" data-id="${o.id}" data-i="${a.i}">Recibo</button> <button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
@@ -1427,7 +1422,7 @@ function obraMenu(oid){const o=obra(oid);if(!o)return;openSheet(()=>`<div class=
 function compartirMenu(oid){const o=obra(oid);if(!o)return;openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
    <div class="stack" style="gap:8px"><button data-cierra="1" class="btn pri block" data-act="pdf-cot" data-id="${o.id}">Ver PDF</button><button data-cierra="1" class="btn block" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button><button data-cierra="1" class="btn block" data-act="dup-obra" data-id="${o.id}">Duplicar cotización</button>
    ${S.readonly?"":`<button data-cierra="1" class="btn block" data-act="editar-obra" data-id="${o.id}">Editar todo (dirección, fecha, notas…)</button>`}</div>
-   <span class="small muted">Para cambiar un ítem o el cliente, haz doble clic o deja presionado sobre él.</span>`)}
+   <span class="small muted">Para cambiar un ítem, haz doble clic o deja presionado sobre él. Para el cliente, sobre el título.</span>`)}
 /* Dejar presionado (dedo) o doble clic (mouse) sobre elementos con data-lp */
 (function(){let t=null,el=null,x0=0,y0=0;const fire=e2=>{const d=e2.dataset;S.lpFired=true;setTimeout(()=>S.lpFired=false,600);if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
     if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
@@ -1855,6 +1850,7 @@ function vAjustes(){
   return `${backBtn()}
   <div class="head"><div><div class="eyebrow">Configuración compartida</div><h1>Ajustes</h1></div><button class="btn sm" data-act="aj-todo">${S.ajOpen?.size?"Cerrar todo":"Abrir todo"}</button></div>
   <div class="note info">Los cambios se guardan solos mientras escribes. <b id="cfg-estado"></b>${S.offline?"<br>Ojo: la base de datos en la nube no está conectada, así que estos ajustes quedan solo en este equipo y en este navegador.":""}</div>
+  <button class="btn block" data-act="go" data-v="clientes">Clientes guardados (${S.clientes.length})</button>
   ${sec("aj-empresa","Empresa y firma","Datos que salen en cotizaciones, cuentas de cobro y recibos",`
    <h3>Firma</h3>
    ${e.firma?`<div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;justify-content:center"><img src="${e.firma}" alt="Tu firma" style="max-height:90px;max-width:100%"></div>`:`<span class="small muted">Aún no hay firma. Dibújala con el dedo o sube una foto de tu firma hecha en papel blanco.</span>`}
