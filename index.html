@@ -394,7 +394,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.64.2";
+const APP_VER="1.64.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1308,7 +1308,7 @@ function vObras(){const OB=S.obras.filter(enArea);
   ${qb?`<span class="small muted">Buscando en todas las obras · ${list.length} resultado(s)</span>`:`<div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>`}
   ${list.length?`<div class="list">${list.map(o=>{const c=clienteDe(o);return `
     <div class="li lp" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}" data-lp="obra">
-      <div class="grow"><div class="t">${esc(trabajosTxt(o)||"Cotización")}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${numCot(o)} · ${fechaCorta(o.fecha)}</div></div>
+      <div class="grow"><div class="t">${esc(tituloObra(o))}</div><div class="small muted">${numCot(o)} · ${fechaCorta(o.fecha)}${c?"":" · Sin cliente"}</div></div>
       <div class="r">${faltanObra(o).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<span class="num" style="font-weight:600">${money(totalObra(o))}</span>`}${estadoPill(o.estado)}${!["cotizacion","anulada"].includes(o.estado)?(()=>{const pg=pagosObra(o);return pg.debe>0?`<span class="small num" style="color:var(--bad);font-weight:600">Debe ${money(pg.debe)}</span>`:`<span class="small" style="color:var(--ok);font-weight:600">Pagada</span>`})():""}</div>
     </div>`}).join("")}</div>`
   :emptyBox(OB.length?"Nada en este filtro":"Aún no hay obras",OB.length?"Cambia el filtro para ver otras obras.":"Crea tu primera cotización: agregas ventanas, puertas o vidrios con sus medidas y el sistema calcula precio y cortes.",`<button class="btn pri" data-act="nueva-cot">Crear cotización</button>`)}`;
