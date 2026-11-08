@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Alumel">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -370,6 +370,19 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 
 .rs-man{display:grid;gap:6px;margin-top:4px}
 .stat .v{white-space:nowrap}.v-full{font-size:12px;color:var(--muted);white-space:nowrap;margin-top:2px;font-variant-numeric:tabular-nums}
+/* Diseño de app: encabezado arriba, contenido que se desplaza en el medio y barras abajo, sin elementos "fijos" que iOS pueda despegar */
+html{height:100%;overflow:hidden}
+body{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.top{position:relative;top:auto;flex:none}
+main{flex:1 1 auto;min-height:0;width:100%;max-width:none;margin:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;
+  padding-left:max(16px,env(safe-area-inset-left,0px),calc((100% - 888px)/2));padding-right:max(16px,env(safe-area-inset-right,0px),calc((100% - 888px)/2));padding-bottom:12px}
+main>*{flex-shrink:0}
+nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:none;-webkit-transform:none}
+.navbar{top:-18px;margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px),calc((100% - 888px)/2)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px),calc((100% - 888px)/2)));padding-left:max(16px,env(safe-area-inset-left,0px),calc((100% - 888px)/2));padding-right:max(16px,env(safe-area-inset-right,0px),calc((100% - 888px)/2))}
+.totbar{position:sticky;left:auto;bottom:0;transform:none;-webkit-transform:none;width:100%;margin-top:auto}
+.totbar-sp{display:none}
+.toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+
 </style>
 
 <header class="top">
@@ -396,7 +409,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.65.2";
+const APP_VER="1.65.3";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1244,8 +1257,8 @@ function go(v,param,{sinHist}={}){if(S.view==="login")return;
   if(!sinHist&&S.view&&S.view!=="cargando"&&(S.view!==v||S.param!==(param??null))){S.hist.push([S.view,S.param]);if(S.hist.length>40)S.hist.shift();try{history.pushState({v},"")}catch(e){}}
   S.view=v;S.param=param??null;if(v==="cotizar"&&!S.draft)S.draft=nuevoDraft();render();
   // al volver a la cotización, se reabre el ítem que se estaba editando
-  if(v==="cotizar"&&S.reabrir){const r=S.reabrir;S.reabrir=null;window.scrollTo(0,r.scroll||0);S.itemTmp=r.tmp;S.itemIdx=r.idx;openSheet(()=>itemSheetHtml());const sh=$(".sheet");if(sh)sh.scrollTop=r.sheetScroll||0;return}
-  window.scrollTo(0,0)}
+  if(v==="cotizar"&&S.reabrir){const r=S.reabrir;S.reabrir=null;$("#main").scrollTop=r.scroll||0;S.itemTmp=r.tmp;S.itemIdx=r.idx;openSheet(()=>itemSheetHtml());const sh=$(".sheet");if(sh)sh.scrollTop=r.sheetScroll||0;return}
+  $("#main").scrollTop=0}
 function atras(){if(sheetFn){closeSheet();return}let p=S.hist.pop();while(p&&p[1]&&!({obra,cobro:id=>S.cobros.find(x=>x.id===id),cliente})[p[0]]?.(p[1])&&["obra","cobro","cliente"].includes(p[0]))p=S.hist.pop();
   go(p?p[0]:"obras",p?p[1]:null,{sinHist:true})}
 window.addEventListener("popstate",()=>{if(S.ignPop){S.ignPop=false;return}if(S.view!=="login")atras()});
@@ -1263,7 +1276,7 @@ function render(){
 let _toph=0,_navT=null;
 function navScroll(medir){const t=document.querySelector(".top");if(medir&&t&&t.offsetHeight!==_toph){_toph=t.offsetHeight;document.documentElement.style.setProperty("--toph",_toph+"px")}
   const n=document.getElementById("navbar"),h=document.getElementById("obra-h1");if(n&&h){const v=h.getBoundingClientRect().bottom<n.getBoundingClientRect().bottom;if(v!==n.classList.contains("con-t"))n.classList.toggle("con-t",v)}}
-window.addEventListener("scroll",()=>{if(_navT)return;_navT=requestAnimationFrame(()=>{_navT=null;navScroll()})},{passive:true});window.addEventListener("resize",()=>navScroll(true));
+document.getElementById("main").addEventListener("scroll",()=>{if(_navT)return;_navT=requestAnimationFrame(()=>{_navT=null;navScroll()})},{passive:true});window.addEventListener("resize",()=>navScroll(true));
 /* Deslizar un ítem a la izquierda muestra Editar / Eliminar */
 (function(){let row=null,x0=0,y0=0,dx=0,on=false,base=0;const W=164;const cl=(r)=>{r.classList.remove("abierto");r.querySelector(".irow-c").style.transform=""};
   document.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest(".irow-acts"))return;const r=e.target.closest&&e.target.closest("[data-sw] .irow-c");document.querySelectorAll(".irow.abierto").forEach(o=>{if(!r||o!==r.parentNode){cl(o);S.swCerro=true;setTimeout(()=>S.swCerro=false,350)}});if(!r||e.target.closest("input,button"))return;row=r.parentNode;x0=e.clientX;y0=e.clientY;dx=0;on=false;base=row.classList.contains("abierto")?-W:0});
@@ -2411,9 +2424,9 @@ document.addEventListener("click",async ev=>{
   if(a==="scrim"){if(ev.target===b)closeSheet();return}
   switch(a){
     case"go":await guardarCfgYa();S.cfgEdit=null;if(b.classList.contains("tab")){S.hist=[]}go(b.dataset.v);break;
-    case"ir-precios":{if(sheetFn&&S.itemTmp&&S.view==="cotizar")S.reabrir={tmp:clone(S.itemTmp),idx:S.itemIdx,sheetScroll:$(".sheet")?.scrollTop||0,scroll:window.scrollY};
+    case"ir-precios":{if(sheetFn&&S.itemTmp&&S.view==="cotizar")S.reabrir={tmp:clone(S.itemTmp),idx:S.itemIdx,sheetScroll:$(".sheet")?.scrollTop||0,scroll:$("#main").scrollTop};
       sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";S.ajOpen.add(b.dataset.v);go("ajustes");const hl=b.dataset.hl&&[...document.querySelectorAll("[data-hl]")].find(x=>x.dataset.hl===b.dataset.hl),el=hl||document.getElementById(b.dataset.v);
-      if(el){el.scrollIntoView({block:hl?"center":"start"});if(!hl)window.scrollBy(0,-70);el.style.transition="box-shadow .3s";el.style.boxShadow="0 0 0 3px var(--accent)";setTimeout(()=>{el.style.boxShadow=""},2500)}break}
+      if(el){el.scrollIntoView({block:hl?"center":"start"});if(!hl)$("#main").scrollBy(0,-70);el.style.transition="box-shadow .3s";el.style.boxShadow="0 0 0 3px var(--accent)";setTimeout(()=>{el.style.boxShadow=""},2500)}break}
     case"aj-todo":{const ids=[...document.querySelectorAll("details[data-aj]")].map(d=>d.dataset.aj);if(S.ajOpen.size)S.ajOpen.clear();else ids.forEach(x=>S.ajOpen.add(x));render();break}
     case"atras":await guardarCfgYa();S.cfgEdit=null;if(S.hist.length&&history.state&&history.state.v)history.back();else atras();break;
     case"filtro-obras":S.filtroObras=b.dataset.v;render();break;
