@@ -414,7 +414,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.68.0";
+const APP_VER="1.68.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -929,14 +929,18 @@ function calcCot(items,opts){opts=opts||{};
     if(rest){const t=act.filter(([,i])=>(items[i].cant||1)===1).sort((a,b)=>w(b)-w(a))[0]||act.slice().sort((a,b)=>w(b)-w(a))[0];t.ad+=rest}
     act.forEach(x=>{const [l,i]=x,q=items[i].cant||1;if(!x.ad)return;l.total+=x.ad;l.unit=l.total/q;l[marca]=(l[marca]||0)+x.ad;if(l.totalVid!=null){l.totalVid+=x.ad;l.unitVid=l.totalVid/q}})};
   /* Valor manual por categoría: cada categoría se cuadra a su valor y el total es la suma */
-  const TMC=!opts.solo&&opts.totalManualCat?Object.entries(opts.totalManualCat).filter(([k,v])=>+v>0&&items.some((it,i)=>!lineas[i].fuera&&catDe(it)===k)):[];
-  if(TMC.length){R.totalCalc=R.total;let dT=0;for(const [k,v] of TMC){const fl=i=>catDe(items[i])===k,cur=lineas.reduce((a,l,i)=>a+(!l.fuera&&fl(i)?l.total:0),0),diff=Math.round(+v)-cur;repartir(diff,"ajMan",fl);dT+=diff}
-    if(Math.abs(dT)>=1)R.ajusteManual=dT;R.total+=dT;R.porCat=true}
+  /* Varias categorías (ventanas, puertas…): cada una se cuadra a lo que vale cotizada sola (con su redondeo o su valor manual), y el total es la suma. Así el subtotal de cada categoría coincide con su pestaña */
+  const catsAct=!opts.solo&&!opts.sinCat?[...new Set(items.filter((it,i)=>!lineas[i].fuera).map(catDe))]:[];let TMC=[];
+  if(catsAct.length>1){R.totalCalc=R.total;let tot=0;const MC=opts.totalManualCat||{};
+    for(const k of catsAct){const fl=i=>!lineas[i].fuera&&catDe(items[i])===k,sub=items.filter((it,i)=>fl(i)),man=+MC[k]>0?Math.round(+MC[k]):0;
+      const T=man||calcCot(sub,{...opts,items:sub,sinCat:true,totalManual:null,totalManualCat:null}).resumen.total,cur=lineas.reduce((a,l,i)=>a+(fl(i)?l.total:0),0),diff=T-cur;
+      if(diff)repartir(diff,man?"ajMan":"ajRed",fl);if(man){TMC.push(k);if(Math.abs(diff)>=1)R.ajusteManual=(R.ajusteManual||0)+diff}else R.ajuste+=diff;tot+=T}
+    R.total=tot;R.porCat=true}
   if(!opts.solo&&+opts.totalFijo>0){const T=Math.round(+opts.totalFijo),diff=T-R.total;repartir(diff,"ajCot");if(Math.abs(diff)>=1)R.ajusteCot=diff;R.total=T}
   /* Valor total manual de toda la cotización */
   else if(!opts.solo&&+opts.totalManual>0){const M=Math.round(+opts.totalManual),diff=M-R.total;if(!TMC.length)R.totalCalc=R.total;repartir(diff,"ajMan");if(Math.abs(diff)>=1)R.ajusteManual=(R.ajusteManual||0)+diff;R.total=M}
   /* Redondeo de precios: solo al total (cada ítem va redondeado a $1.000) */
-  else if(rTot>r&&R.total>0&&!TMC.length){const T=Math.ceil(R.total/rTot-1e-9)*rTot,diff=T-R.total;if(diff>0){repartir(diff,"ajRed");R.ajuste+=diff;R.total=T}}
+  else if(rTot>r&&R.total>0&&!R.porCat){const T=Math.ceil(R.total/rTot-1e-9)*rTot,diff=T-R.total;if(diff>0){repartir(diff,"ajRed");R.ajuste+=diff;R.total=T}}
     /* Cada renglón también se calcula solo; la diferencia con el total junto es el ahorro por aprovechar material entre ítems */
   let ahorro=0;if(!opts.solo&&items.length>1){let suma=0;lineas.forEach((l,i)=>{if(l.fuera)return;if(l.manual){l.uSolo=l.unit;l.tSolo=l.total}else{const c1=calcCot([items[i]],{...opts,solo:true}).lineas[0];l.uSolo=c1.unit;l.tSolo=c1.total}suma+=l.tSolo});
     ahorro=suma-R.total;if(ahorro<1000)ahorro=0}
