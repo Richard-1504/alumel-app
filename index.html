@@ -218,6 +218,7 @@ tr.sel-off td:not(:first-child){opacity:.45}
 .it-cel{display:flex;gap:10px;align-items:center;margin-top:6px}.it-thumb{flex:none;width:100px;height:70px;display:grid;place-items:center;border-radius:6px;background:var(--surface-2);overflow:hidden;padding:3px}
 .it-thumb svg{width:100%;height:100%;display:block}
 .vgc{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line)}.vgc:first-of-type{border-top:0}
+.lp{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .lote{display:grid;gap:6px}
 .lote-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px minmax(0,1.3fr) 34px;gap:5px;align-items:center}
 .lote-r .cin{width:100%;min-width:0;padding:8px 6px}.lote-r .btn{padding:6px 0;min-height:36px}
@@ -283,7 +284,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.60.2";
+const APP_VER="1.61.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1185,7 +1186,7 @@ function vObras(){const OB=S.obras.filter(enArea);
   <div class="field"><input id="buscar-obra" data-buscar-obra type="search" value="${esc(S.buscarObra||"")}" placeholder="Buscar por nombre, cliente o número (ej. 25)" aria-label="Buscar obras"></div>
   ${qb?`<span class="small muted">Buscando en todas las obras · ${list.length} resultado(s)</span>`:`<div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>`}
   ${list.length?`<div class="list">${list.map(o=>{const c=clienteDe(o);return `
-    <div class="li" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}">
+    <div class="li lp" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}" data-lp="obra">
       <div class="grow"><div class="eyebrow">${numCot(o)} · ${fechaCorta(o.fecha)}</div><div class="t">${esc(tituloObra(o))}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(o.items||[]).length} ítem(s)</div>
         ${o.estado==="cotizacion"?`<button class="btn sm pri" style="margin-top:8px" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button>`:""}</div>
       <div class="r">${faltanObra(o).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<span class="num" style="font-weight:600">${money(totalObra(o))}</span>`}${estadoPill(o.estado)}${!["cotizacion","anulada"].includes(o.estado)?(()=>{const pg=pagosObra(o);return pg.debe>0?`<span class="small num" style="color:var(--bad);font-weight:600">Debe ${money(pg.debe)}</span>`:`<span class="small" style="color:var(--ok);font-weight:600">Pagada</span>`})():""}</div>
@@ -1210,11 +1211,10 @@ function vObra(){
     ${o.estado==="instalada"?`<button class="btn sm" data-act="estado-obra" data-id="${o.id}" data-v="produccion" data-confirma="1">Volver a producción</button>`:""}
     ${o.estado!=="cotizacion"?`<button class="btn sm danger" data-act="cancelar-aprob" data-id="${o.id}">Cancelar aprobación</button>`:""}</div>
   <div class="cols2">
-    <div class="panel"><div class="eyebrow">Cliente</div>
+    <div class="panel lp" data-lp="cliente" data-id="${o.id}"><div class="eyebrow">Cliente</div>
       ${c?.suelto?`<dl class="kv"><dt>Nombre</dt><dd>${esc(c.nombre)}</dd>${o.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion)}</dd>`:""}</dl>
         <span class="small muted">Escrito solo para esta cotización.</span><button class="btn sm" data-act="cliente-de-obra" data-id="${o.id}">Guardar en Clientes</button>`:""}
-    <div class="panel"><div class="eyebrow">Cliente</div>
-      ${c?.suelto?"":c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}</div>
+      ${c?.suelto?"":c?`<dl class="kv"><dt>Nombre</dt><dd><button class="linkish" data-act="ver-cliente" data-id="${c.id}">${esc(c.nombre)}</button></dd>${c.telefono?`<dt>Teléfono</dt><dd class="mono">${esc(c.telefono)}</dd>`:""}${c.nit?`<dt>NIT / C.C.</dt><dd class="mono">${esc(c.nit)}</dd>`:""}${o.direccion||c.direccion?`<dt>Dirección</dt><dd>${esc(o.direccion||c.direccion)}</dd>`:""}</dl>`:`<span class="muted">Sin cliente asignado</span>`}${S.readonly?"":`<span class="small muted">Doble clic o deja presionado para cambiarlo.</span>`}</div>
     <div class="panel"><div class="row sp"><div class="eyebrow">Pagos del cliente</div>${o.estado!=="cotizacion"&&o.estado!=="anulada"?(pg.debe>0?pill("Debe","st-pen"):pill("Pagada","st-pag")):""}</div>
       <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Abonado</dt><dd class="num">${money(pg.pagado)}</dd><dt>Debe</dt><dd class="num" style="font-weight:700;color:${pg.debe>0?"var(--bad)":"var(--ok)"}">${money(pg.debe)}</dd></dl>
       ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Pago</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}${a.rc?`<div class="small muted">RC-${pad(a.rc)}</div>`:""}</td><td>${esc([a.forma,a.nota].filter(Boolean).join(" · "))}</td><td class="n">${money(a.valor)}</td><td class="n" style="white-space:nowrap"><button class="btn sm" data-act="recibo-abono" data-id="${o.id}" data-i="${a.i}">Recibo</button> <button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
@@ -1223,17 +1223,15 @@ function vObra(){
       ${o.estado==="cotizacion"?`<span class="small muted">Los abonos se registran cuando la cotización esté aprobada.</span>`:(pg.debe>0?`<button class="btn pri" data-act="abono-obra" data-id="${o.id}">+ Registrar pago</button>`:"")}</div>
   </div>
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
+    ${S.readonly?"":`<span class="small muted">Doble clic o deja presionado un ítem para editarlo.</span>`}
     ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
   ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id)}
   <div class="fgrid">
-    <button class="btn dark" data-act="editar-obra" data-id="${o.id}">Editar cotización</button>
-    ${areaDe(o)==="vidrios"?"":`<button class="btn pri" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
-    <button class="btn" data-act="cortes-obra" data-id="${o.id}">Ver cortes</button>`}
-    <button class="btn" data-act="pdf-cot" data-id="${o.id}">PDF</button>
-    <button class="btn full" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button>
-    <button class="btn" data-act="hoja-taller" data-id="${o.id}">Hoja de taller (PDF)</button>
-    <button class="btn" data-act="dup-obra" data-id="${o.id}">Duplicar cotización</button>
+    <button class="btn pri full" data-act="compartir" data-id="${o.id}">PDF · WhatsApp · Duplicar</button>
+    ${areaDe(o)==="vidrios"?"":`<button class="btn" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
+    <button class="btn" data-act="cortes-obra" data-id="${o.id}">Ver cortes</button>
+    <button class="btn full" data-act="hoja-taller" data-id="${o.id}">Hoja de taller (PDF)</button>`}
   </div>
   <div class="row" style="justify-content:space-between">
     <button class="btn sm" data-act="nuevo-cobro" data-obra="${o.id}">Hacer cuenta de cobro</button>
@@ -1269,7 +1267,7 @@ function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
   const st=!!ctx,todos=!items.some(it=>it.fuera);
   return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Incluir todos" title="Incluir todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
-  ${items.map((it,i)=>`<tr${it.fuera?' class="sel-off"':""}>${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div>
+  ${items.map((it,i)=>`<tr class="${it.fuera?"sel-off":""}${!editable&&ctx&&ctx!=="__draft"&&!S.readonly?` lp" data-lp="item" data-id="${esc(ctx)}" data-i="${i}`:""}">${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div>
      <div class="it-cel">${miniatura(it)?`<div class="it-thumb" role="img" aria-label="${esc(medidaLbl(it,true))}">${miniatura(it)}</div>`:""}<div class="mono small"><b>× ${it.cant}</b>${miniatura(it)?"":`<div>${medidaLbl(it)}</div>`}</div></div></td>
    <td class="n" style="vertical-align:top">${it.fuera?`<span class="small muted" style="white-space:nowrap">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
      return `<div class="small muted" title="Lo que valdría este ítem cotizado solo" style="white-space:nowrap"><s>${money(l.tSolo)}</s>${it.cant>1?`<br><s>c/u ${money(l.uSolo)}</s>`:""}<br><span style="font-size:10px">si fuera solo</span></div>`})()}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
@@ -1410,6 +1408,35 @@ function guardarItemTmp(){const it=S.itemTmp;
       if(it.instalacion!=null&&it.instalacion!==""&&+it.instalacion!==instDe(it.tipo)&&!S.readonly){const c=clone(S.cfg);c.instalacionTipo={...(c.instalacionTipo||{}),[it.tipo]:+it.instalacion};guardarCfg(c).catch(()=>{})}
       it.cant=Math.max(1,Math.round(it.cant||1));delete it.precioCalc;
       if(S.itemIdx!=null)S.draft.items[S.itemIdx]=it;else S.draft.items.push(it);return true}
+async function guardarDraftObra(quedarse){const d=S.draft;if(areaDe(d)==="vidrios")d.items=d.items.filter(it=>it.tipo!=="vidrio"||(it.ancho>0&&it.alto>0));if(!d.items.length){toast("Agrega al menos un ítem");return false}
+      d.nombre=nombreAuto(d);
+      const id2=d.id||uid();const prev=d.id?obra(d.id):null;
+      d.area=d.area||S.area;const numero=prev?.numero||Math.max(0,...S.obras.filter(o=>areaDe(o)===areaDe(d)).map(o=>o.numero||0))+1;
+      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total,calcFalta:faltanItems(d.items).length>0,preciosFecha:hoy(),precios:preciosSnap(),preciosIgnorados:null});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;if(quedarse)render();else go("obra",id2);return true}catch(e){return false}}
+/* Edición directa desde la cotización guardada: se toma una copia, se edita el ítem y se guarda sin pasar por "Editar cotización" */
+function editarItemDirecto(oid,i){const o=obra(oid);if(!o||S.readonly)return;S.prevDraft={d:S.draft,base:S.draftBase};S.draft=clone(o);S.draftBase=JSON.stringify(S.draft);S.editDirecto=oid;itemSheet(i)}
+function finEditDirecto(){if(!S.editDirecto)return;S.editDirecto=null;const p=S.prevDraft;S.prevDraft=null;if(p){S.draft=p.d;S.draftBase=p.base}}
+function clienteObraSheet(oid){const o=obra(oid);if(!o||S.readonly)return;const cl=[...S.clientes].sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+  openSheet(()=>`<div class="sheet-h"><h2>Cliente de ${numCot(o)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <div class="field"><label for="co-cli">Cliente</label><input id="co-cli" list="dl-co" autocomplete="off" value="${esc(clienteNom(o))}" placeholder="Escribe el nombre o elige uno guardado"><datalist id="dl-co">${cl.map(c=>`<option value="${esc(c.nombre)}"></option>`).join("")}</datalist></div>
+   <div class="field"><label for="co-dir">Dirección</label><input id="co-dir" value="${esc(o.direccion||"")}"></div>
+   <button class="btn pri block" data-act="cli-obra-ok" data-id="${o.id}">Guardar</button>`);setTimeout(()=>$("#co-cli")?.focus(),50)}
+function obraMenu(oid){const o=obra(oid);if(!o)return;openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)} · ${esc(trabajosTxt(o)||"Cotización")}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <div class="stack" style="gap:8px"><button data-cierra="1" class="btn block" data-act="ver-obra" data-id="${o.id}">Abrir</button><button data-cierra="1" class="btn block" data-act="pdf-cot" data-id="${o.id}">Ver PDF</button><button data-cierra="1" class="btn block" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button>
+   <button data-cierra="1" class="btn block" data-act="dup-obra" data-id="${o.id}">Duplicar</button>${S.readonly?"":`<button data-cierra="1" class="btn block danger" data-act="borrar-obra" data-id="${o.id}">Eliminar</button>`}</div>`)}
+function compartirMenu(oid){const o=obra(oid);if(!o)return;openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <div class="stack" style="gap:8px"><button data-cierra="1" class="btn pri block" data-act="pdf-cot" data-id="${o.id}">Ver PDF</button><button data-cierra="1" class="btn block" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button><button data-cierra="1" class="btn block" data-act="dup-obra" data-id="${o.id}">Duplicar cotización</button>
+   ${S.readonly?"":`<button data-cierra="1" class="btn block" data-act="editar-obra" data-id="${o.id}">Editar todo (dirección, fecha, notas…)</button>`}</div>
+   <span class="small muted">Para cambiar un ítem o el cliente, haz doble clic o deja presionado sobre él.</span>`)}
+/* Dejar presionado (dedo) o doble clic (mouse) sobre elementos con data-lp */
+(function(){let t=null,el=null,x0=0,y0=0;const fire=e2=>{const d=e2.dataset;S.lpFired=true;setTimeout(()=>S.lpFired=false,600);if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
+    if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
+  document.addEventListener("pointerdown",e=>{const c=e.target.closest&&e.target.closest("[data-lp]");if(!c||e.target.closest("input,select,button.btn"))return;el=c;x0=e.clientX;y0=e.clientY;clearTimeout(t);t=setTimeout(()=>{if(el)fire(el);el=null},550)});
+  document.addEventListener("pointermove",e=>{if(el&&Math.hypot(e.clientX-x0,e.clientY-y0)>10){clearTimeout(t);el=null}});
+  ["pointerup","pointercancel","scroll"].forEach(k=>document.addEventListener(k,()=>{clearTimeout(t);el=null},true));
+  document.addEventListener("dblclick",e=>{const c=e.target.closest&&e.target.closest("[data-lp]");if(c&&!e.target.closest("input,select")){e.preventDefault();fire(c)}});
+  document.addEventListener("contextmenu",e=>{if(e.target.closest&&e.target.closest("[data-lp]"))e.preventDefault()});
+})();
 /* Cotización a medias: al tocar el logo se guarda como "pendiente de completar" */
 const draftConDatos=d=>!!d&&((d.items||[]).length>0||!!String(d.nombre||"").trim())&&JSON.stringify(d)!==S.draftBase;
 async function guardarBorrador(){const d=clone(S.draft),bid=d.borradorId||uid();const ed=d.id;delete d.id;delete d.borradorId;delete d.calc;
@@ -2115,7 +2142,7 @@ function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de PDF. R
 let sheetFn=null;
 function openSheet(fn){sheetFn=fn;$("#sheet-root").innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${fn()}</div></div>`;document.body.style.overflow="hidden"}
 function refreshSheet(){const sh=$(".sheet");if(!sh||!sheetFn)return;const st=sh.scrollTop,a=document.activeElement?.id;sh.innerHTML=sheetFn();sh.scrollTop=st;if(a){const el=document.getElementById(a);if(el){el.focus();if(el.setSelectionRange&&el.type!=="number")try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}}}
-function closeSheet(){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";render()}
+function closeSheet(){if(S.editDirecto)finEditDirecto();sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";render()}
 function confirmar(msg,okTxt,fn){S.confirmFn=fn;openSheet(()=>`<div class="sheet-h"><h2>¿Seguro?</h2></div><p style="margin:0">${esc(msg)}</p><div class="row"><button class="btn danger grow" data-act="confirm-ok">${esc(okTxt)}</button><button class="btn grow" data-act="cerrar">Cancelar</button></div>`)}
 
 /* ============ Texto y PDF ============ */
@@ -2224,7 +2251,8 @@ function pdfCobro(c){if(!window.jspdf){toast("No cargó el generador de PDF. Rev
 
 /* ============ Eventos ============ */
 document.addEventListener("click",async ev=>{
-  const b=ev.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;
+  if(S.lpFired&&!ev.target.closest(".sheet")){S.lpFired=false;ev.preventDefault();return}
+  const b=ev.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;if(b.dataset.cierra){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow=""}
   if(a==="scrim"){if(ev.target===b)closeSheet();return}
   switch(a){
     case"go":await guardarCfgYa();S.cfgEdit=null;if(b.classList.contains("tab")){S.hist=[]}go(b.dataset.v);break;
@@ -2238,6 +2266,9 @@ document.addEventListener("click",async ev=>{
     case"ver-obra":go("obra",id);break;
     case"ver-cobro":go("cobro",id);break;
     case"ver-cliente":go("cliente",id);break;
+    case"cli-obra-ok":{const o=obra(id);if(!o)break;const nom=($("#co-cli")?.value||"").trim(),c=S.clientes.find(x=>(x.nombre||"").toLowerCase()===nom.toLowerCase());
+      const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
+    case"compartir":compartirMenu(id);break;
     case"area-set":{S.area=b.dataset.v==="vidrios"?"vidrios":"taller";try{localStorage.setItem("alumel-area",S.area)}catch(e){}S.cortesObra="";S.buscarObra="";render();break}
     case"inicio":{if(S.view==="login")break;if(sheetFn){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow=""}
       if(draftConDatos(S.draft)&&!S.readonly){try{await guardarBorrador();toast("La cotización quedó en Pendientes de completar")}catch(e){}}
@@ -2318,14 +2349,10 @@ document.addEventListener("click",async ev=>{
     case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"FI":n===3?"FI":"FCCF";refreshSheet();break}
     case"it-dist":S.itemTmp.dist=b.dataset.v;refreshSheet();break;
     case"it-rod":S.itemTmp.rod=b.dataset.v;refreshSheet();break;
-    case"guardar-item":if(guardarItemTmp())closeSheet();break;
+    case"guardar-item":if(guardarItemTmp()){if(S.editDirecto){const oid=S.editDirecto;sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";S.editDirecto=null;await guardarDraftObra(true);const p=S.prevDraft;S.prevDraft=null;if(p){S.draft=p.d;S.draftBase=p.base}render()}else closeSheet()}break;
     case"dup-item":if(guardarItemTmp()){S.itemTmp=clone(S.draft.items[S.itemIdx!=null?S.itemIdx:S.draft.items.length-1]);S.itemIdx=null;render();openSheet(()=>itemSheetHtml());const sh=$(".sheet");if(sh)sh.scrollTop=0;toast("Copia lista: cambia la medida y agrégala")}break;
-    case"quitar-item":S.draft.items.splice(S.itemIdx,1);closeSheet();break;
-    case"guardar-obra":{const d=S.draft;if(areaDe(d)==="vidrios")d.items=d.items.filter(it=>it.tipo!=="vidrio"||(it.ancho>0&&it.alto>0));if(!d.items.length){toast("Agrega al menos un ítem");return}
-      d.nombre=nombreAuto(d);
-      const id2=d.id||uid();const prev=d.id?obra(d.id):null;
-      d.area=d.area||S.area;const numero=prev?.numero||Math.max(0,...S.obras.filter(o=>areaDe(o)===areaDe(d)).map(o=>o.numero||0))+1;
-      const calc=calcCot(d.items,d),bid=d.borradorId;try{await guardar("obras",id2,{...d,id:undefined,borradorId:undefined,numero,calc,total:calc.resumen.total,calcFalta:faltanItems(d.items).length>0,preciosFecha:hoy(),precios:preciosSnap(),preciosIgnorados:null});if(bid)await borrar("borradores",bid);toast("Cotización guardada");S.draft=nuevoDraft();S.draftBase=null;go("obra",id2)}catch(e){}break}
+    case"quitar-item":if(S.editDirecto){S.draft.items.splice(S.itemIdx,1);sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";S.editDirecto=null;if(S.draft.items.length)await guardarDraftObra(true);else toast("La cotización necesita al menos un ítem");const p=S.prevDraft;S.prevDraft=null;if(p){S.draft=p.d;S.draftBase=p.base}render();break}S.draft.items.splice(S.itemIdx,1);closeSheet();break;
+    case"guardar-obra":await guardarDraftObra();break;
     case"nuevo-cliente":clienteSheet(null,b.dataset.from,b.dataset.from==="cotizar"?S.draft?.clienteNombre:"");break;
     case"cliente-de-obra":{const o=obra(id);S.clienteObra=id;clienteSheet(null,"obra",o?.clienteNombre||"");break}
     case"editar-cliente":clienteSheet(id);break;
