@@ -22,7 +22,7 @@
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Cinzel:wght@500;600&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&display=swap">
 <style>
 /* Layout: app de taller — encabezado fijo, contenido de una columna (máx 920px), barra inferior de pestañas. Aluminio anodizado + verde de canto de vidrio. */
 :root{
@@ -259,6 +259,102 @@ details.aj td,details.aj th{padding:8px 3px}details.aj td .cin{padding:6px 4px}d
 .aj-chev{font-size:18px;color:var(--muted);transition:transform .15s}
 details.aj[open] .aj-chev{transform:rotate(180deg)}
 .kv dt{color:var(--muted)} .kv dd{margin:0;word-break:break-word}
+/* ===== Estilo iOS: letra del sistema, fondo gris claro, tarjetas blancas sin borde ===== */
+:root{--bg:#f2f2f7;--surface:#fff;--surface-2:#f2f2f7;--line:#e3e3e8;--fg:#1c1c1e;--muted:#8a8a8e;--fill:rgba(120,120,128,.12);
+  --f-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;--f-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;--f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--r:14px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#000;--surface:#1c1c1e;--surface-2:#2c2c2e;--line:#38383a;--fg:#f5f5f7;--muted:#8e8e93;--fill:rgba(120,120,128,.24)}}
+:root[data-theme="dark"]{--bg:#000;--surface:#1c1c1e;--surface-2:#2c2c2e;--line:#38383a;--fg:#f5f5f7;--muted:#8e8e93;--fill:rgba(120,120,128,.24)}
+body{font-size:16px;letter-spacing:-.01em}
+h1,h2,h3{font-family:var(--f-display);text-transform:none;letter-spacing:-.02em}
+h1{font-size:32px;line-height:1.1;font-weight:700}
+h2{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.eyebrow,.field label,.pf-h,.lote-h{font:500 13px/1.25 var(--f-body);letter-spacing:0;text-transform:none;color:var(--muted)}
+.mono{font-family:var(--f-body)}
+.panel,.stat,.list,.rs,.tbl-wrap{border:0}
+.panel{border-radius:var(--r)}
+.list{border-radius:var(--r)}
+.li{border-top:.5px solid var(--line);padding:12px 16px}
+.li:hover{background:var(--fill)}
+button.stat[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--accent)}
+.btn{border:0;background:var(--fill);color:var(--accent);border-radius:12px;font-weight:600}
+.btn:hover{filter:brightness(.97)}
+.btn.pri{color:var(--accent-ink)}
+.btn.danger{color:var(--bad);border:0}
+.btn.dark{border:0}
+.chip{border:0;background:var(--fill)}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.seg{background:var(--fill);padding:2px;border-radius:10px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:8px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.pill{font:600 12px/1 var(--f-body);letter-spacing:0;text-transform:none;border-radius:999px;padding:5px 10px}
+.field input,.field select,.field textarea,.cin{border-color:var(--line);border-radius:10px}
+.tbl-wrap{background:var(--surface);border-radius:12px}
+.sheet .tbl-wrap,.panel .tbl-wrap{box-shadow:inset 0 0 0 .5px var(--line)}
+th{font:600 12px/1.2 var(--f-body);letter-spacing:0;text-transform:none;background:transparent;border-bottom:.5px solid var(--line)}
+td{border-top:.5px solid var(--line)}
+.note{border-left:0;border-radius:12px}
+.empty{border:0;background:var(--surface)}
+.empty b{font-family:var(--f-display);text-transform:none;letter-spacing:-.01em}
+.rs{background:var(--surface);border-radius:var(--r)}
+.rs-g{border-bottom:.5px solid var(--line)}
+.rs-tot{background:transparent}
+nav.tabs{background:color-mix(in srgb,var(--surface) 86%,transparent);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--line)}
+.sheet{border-radius:14px 14px 0 0}
+.sel-chk{appearance:none;-webkit-appearance:none;width:22px;height:22px;flex:none;border-radius:50%;border:1.5px solid #c7c7cc;background:transparent;display:inline-grid;place-items:center;margin:0}
+.sel-chk:checked{background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;border-color:var(--accent)}
+/* Barra de navegación */
+.nav-back{display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:var(--accent);font-size:17px;font-weight:400;padding:6px 0;cursor:pointer}
+.nav-back.solo{align-self:flex-start;margin:-6px 0 -8px}
+.navbar{position:sticky;top:calc(var(--toph,60px) + env(safe-area-inset-top,0px));z-index:15;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;margin:-18px calc(-1 * max(16px,env(safe-area-inset-left,0px))) -8px;padding:6px max(16px,env(safe-area-inset-left,0px));background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-bottom:.5px solid transparent;transition:border-color .2s}
+.navbar.con-t{border-bottom-color:var(--line)}
+.nav-t{text-align:center;font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .2s}
+.navbar.con-t .nav-t{opacity:1}
+.nav-btn{background:none;border:0;color:var(--accent);width:40px;height:36px;display:grid;place-items:center;cursor:pointer;border-radius:10px}
+.nav-btn:hover{background:var(--fill)}
+.ios-head{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.ios-sub{color:var(--muted);font-size:15px}
+.pill-btn{background:none;border:0;padding:4px 0 0;display:inline-flex;align-items:center;gap:4px;color:var(--muted);cursor:pointer}
+.sec-t{font-size:13px;color:var(--muted);margin:4px 16px -10px;text-transform:uppercase;letter-spacing:.02em}
+/* Lista de ítems */
+.ipanel{padding:0;gap:0;overflow:hidden}
+.irow-todos{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);padding:10px 16px;border-bottom:.5px solid var(--line);cursor:pointer}
+.ipanel .irow-todos{margin:0}
+.ilist{display:flex;flex-direction:column}
+.irow{position:relative;overflow:hidden;border-top:.5px solid var(--line)}
+.ilist .irow:first-child{border-top:0}
+.irow-c{position:relative;z-index:1;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);transition:transform .22s ease;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+.irow.arr .irow-c{transition:none}
+.irow-c[data-act]{cursor:pointer}
+.irow-c .it-thumb{width:76px;height:58px;border-radius:10px;padding:3px}
+.irow-m{flex:1;min-width:0;display:grid;gap:2px}
+.irow-t{font-weight:600;line-height:1.25}
+.irow-c{align-items:flex-start}.irow-c .sel-chk{margin-top:18px}
+.irow-r{flex:none;display:flex;align-self:flex-start}.irow-r:empty{display:none}
+.irow-b{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:4px}
+.irow-v{text-align:right}.irow-v b{font-size:16px}
+.irow-solo{font-size:11px;line-height:1.3}
+.irow.sel-off .irow-m,.irow.sel-off .it-thumb{opacity:.45}
+.irow-acts{position:absolute;inset:0 0 0 auto;display:flex;width:164px}
+.irow-acts button{flex:1;border:0;color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+.sw-ed{background:#8e8e93}.sw-del{background:#ff3b30}
+.it-mas{display:none;background:none;border:0;color:var(--muted);width:34px;height:26px;padding:0;place-items:center;cursor:pointer;border-radius:8px}
+.it-mas:hover{background:var(--fill)}
+@media (hover:hover) and (pointer:fine){.it-mas{display:grid}}
+/* Total fijo abajo */
+.totbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(60px + env(safe-area-inset-bottom,0px));z-index:24;width:min(888px,calc(100% - 24px));display:flex;align-items:center;gap:10px;border:0;border-radius:14px;padding:12px 16px;background:var(--metal);color:var(--metal-ink);box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:pointer;font:inherit}
+.totbar>span:first-child{font-size:14px;opacity:.75}
+.totbar b{font-size:20px;font-weight:700}
+.totbar-v{margin-left:auto;font-size:13px;opacity:.75;display:inline-flex;align-items:center;gap:4px}
+.totbar-sp{height:56px}
+/* Hojas de opciones */
+.ios-acts-t{text-align:center;font-size:13px;color:var(--muted);padding:2px 8px 0}
+.ios-acts-t span{font-size:12px}
+.ios-acts{display:flex;flex-direction:column;background:var(--surface);border-radius:14px;overflow:hidden}
+.ios-acts .btn{border-radius:0;background:transparent;min-height:52px;font-size:17px;font-weight:400;border-top:.5px solid var(--line)}
+.ios-acts .btn:first-child{border-top:0}
+.ios-acts .btn:hover{background:var(--fill);filter:none}
+.ios-cancel{background:var(--surface)!important;min-height:52px;font-size:17px;border-radius:14px}
+
 </style>
 
 <header class="top">
@@ -285,7 +381,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.63.0";
+const APP_VER="1.64.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1131,14 +1227,25 @@ function go(v,param,{sinHist}={}){if(S.view==="login")return;
 function atras(){if(sheetFn){closeSheet();return}let p=S.hist.pop();while(p&&p[1]&&!({obra,cobro:id=>S.cobros.find(x=>x.id===id),cliente})[p[0]]?.(p[1])&&["obra","cobro","cliente"].includes(p[0]))p=S.hist.pop();
   go(p?p[0]:"obras",p?p[1]:null,{sinHist:true})}
 window.addEventListener("popstate",()=>{if(S.view!=="login")atras()});
-const backBtn=()=>`<button class="linkish" data-act="atras">← Atrás</button>`;
+const CHEV=`<svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L2 10l8 8"/></svg>`;
+function backLbl(){const p=S.hist[S.hist.length-1];return ({obras:"Obras",cotizar:"Cotizar",cobros:"Cobros",cobro:"Cuenta",clientes:"Clientes",cliente:"Cliente",ajustes:"Ajustes",cortes:"Cortes",obra:"Cotización"})[p?.[0]]||"Atrás"}
+const backBtn=()=>`<button class="nav-back solo" data-act="atras">${CHEV}${esc(backLbl())}</button>`;
 function render(){
   const sinNav=S.view==="login"||S.view==="cargando";document.querySelector("nav.tabs").hidden=sinNav;document.querySelector("[data-v=ajustes].icon-btn").hidden=sinNav;
   document.querySelectorAll(".tab").forEach(t=>{const v=t.dataset.v,cur=S.view;
     const map={obra:"obras",cliente:"clientes",cobro:"cobros"};t.setAttribute("aria-current",(map[cur]||cur)===v?"page":"false")});
   const V={login:vLogin,cargando:vCargando,obras:vObras,obra:vObra,cotizar:vCotizar,cortes:vCortes,cobros:vCobros,cobro:vCobro,clientes:vClientes,cliente:vCliente,ajustes:vAjustes}[S.view]||vObras;
-  $("#main").innerHTML=V();
+  $("#main").innerHTML=V();navScroll();
 }
+function navScroll(){const t=document.querySelector(".top");if(t)document.documentElement.style.setProperty("--toph",t.offsetHeight+"px");const n=document.getElementById("navbar"),h=document.getElementById("obra-h1");if(n&&h)n.classList.toggle("con-t",h.getBoundingClientRect().bottom<n.getBoundingClientRect().bottom)}
+window.addEventListener("scroll",()=>navScroll(),{passive:true});window.addEventListener("resize",()=>navScroll());
+/* Deslizar un ítem a la izquierda muestra Editar / Eliminar */
+(function(){let row=null,x0=0,y0=0,dx=0,on=false,base=0;const W=164;const cl=(r)=>{r.classList.remove("abierto");r.querySelector(".irow-c").style.transform=""};
+  document.addEventListener("pointerdown",e=>{const r=e.target.closest&&e.target.closest("[data-sw] .irow-c");document.querySelectorAll(".irow.abierto").forEach(o=>{if(!r||o!==r.parentNode){cl(o);S.swCerro=true;setTimeout(()=>S.swCerro=false,350)}});if(!r||e.target.closest("input,button"))return;row=r.parentNode;x0=e.clientX;y0=e.clientY;dx=0;on=false;base=row.classList.contains("abierto")?-W:0});
+  document.addEventListener("pointermove",e=>{if(!row)return;const mx=e.clientX-x0,my=e.clientY-y0;if(!on){if(Math.abs(my)>10&&Math.abs(my)>Math.abs(mx)){row=null;return}if(Math.abs(mx)>10){on=true;row.classList.add("arr")}else return}
+    dx=Math.max(-W-30,Math.min(0,base+mx));row.querySelector(".irow-c").style.transform=`translateX(${dx}px)`});
+  const fin=()=>{if(!row)return;row.classList.remove("arr");if(on){S.swCerro=true;setTimeout(()=>S.swCerro=false,350);if(dx<-W/2){row.classList.add("abierto");row.querySelector(".irow-c").style.transform=`translateX(${-W}px)`}else cl(row)}row=null};
+  document.addEventListener("pointerup",fin);document.addEventListener("pointercancel",fin);})();
 const pill=(txt,cls)=>`<span class="pill ${cls}">${esc(txt)}</span>`;
 const estadoPill=k=>{const e=estadoDe(k);return pill(e[1],e[2])};
 function saldoCobro(c){const ab=(c.abonos||[]).reduce((s,a)=>s+(+a.valor||0),0);return {ab,saldo:(+c.valor||0)-ab}}
@@ -1188,8 +1295,7 @@ function vObras(){const OB=S.obras.filter(enArea);
   ${qb?`<span class="small muted">Buscando en todas las obras · ${list.length} resultado(s)</span>`:`<div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>`}
   ${list.length?`<div class="list">${list.map(o=>{const c=clienteDe(o);return `
     <div class="li lp" role="button" tabindex="0" data-act="ver-obra" data-id="${o.id}" data-lp="obra">
-      <div class="grow"><div class="eyebrow">${numCot(o)} · ${fechaCorta(o.fecha)}</div><div class="t">${esc(tituloObra(o))}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(o.items||[]).length} ítem(s)</div>
-        ${o.estado==="cotizacion"?`<button class="btn sm pri" style="margin-top:8px" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button>`:""}</div>
+      <div class="grow"><div class="t">${esc(trabajosTxt(o)||"Cotización")}</div><div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${numCot(o)} · ${fechaCorta(o.fecha)}</div></div>
       <div class="r">${faltanObra(o).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<span class="num" style="font-weight:600">${money(totalObra(o))}</span>`}${estadoPill(o.estado)}${!["cotizacion","anulada"].includes(o.estado)?(()=>{const pg=pagosObra(o);return pg.debe>0?`<span class="small num" style="color:var(--bad);font-weight:600">Debe ${money(pg.debe)}</span>`:`<span class="small" style="color:var(--ok);font-weight:600">Pagada</span>`})():""}</div>
     </div>`}).join("")}</div>`
   :emptyBox(OB.length?"Nada en este filtro":"Aún no hay obras",OB.length?"Cambia el filtro para ver otras obras.":"Crea tu primera cotización: agregas ventanas, puertas o vidrios con sus medidas y el sistema calcula precio y cortes.",`<button class="btn pri" data-act="nueva-cot">Crear cotización</button>`)}`;
@@ -1199,31 +1305,40 @@ function vObra(){
   const c=clienteDe(o),calc=calcDe(o),tot=calc.resumen.total;
   const pg=pagosObra(o),sig=SIGUIENTE[o.estado],abonos=(o.abonos||[]).map((a,i)=>({...a,i})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   return `
-  ${backBtn()}
-  <div class="head"><div class="grow"><div class="eyebrow">Cotización ${numCot(o)} · ${fechaCorta(o.fecha)}</div><h1 class="lp" data-lp="cliente" data-id="${o.id}" title="Doble clic o deja presionado para cambiar el cliente">${esc(tituloObra(o))}</h1></div><div class="stack" style="gap:6px;align-items:flex-end"><button class="btn menu-btn" data-act="compartir" data-id="${o.id}" aria-label="Opciones de la cotización" title="Opciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></div>
+  <div class="navbar" id="navbar"><button class="nav-back" data-act="atras">${CHEV}${esc(backLbl())}</button><span class="nav-t">${esc(tituloObra(o))}</span><button class="nav-btn" data-act="compartir" data-id="${o.id}" aria-label="Opciones de la cotización" title="Opciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div>
+  <div class="ios-head"><h1 id="obra-h1" class="lp" data-lp="cliente" data-id="${o.id}" title="Doble clic o deja presionado para cambiar el cliente">${esc(tituloObra(o))}</h1>
+    <div class="ios-sub">${numCot(o)} · ${fechaCorta(o.fecha)}${o.direccion?" · "+esc(o.direccion):""}</div>
+    <button class="pill-btn" data-act="estado-menu" data-id="${o.id}" aria-label="Cambiar estado">${estadoPill(o.estado)}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button></div>
   ${(()=>{const v=variacionObra(o);if(!v)return "";return `<div class="note" style="border-color:var(--warn)"><b>Los precios tuvieron variaciones</b> desde que se hizo esta cotización${o.preciosFecha?" ("+fechaCorta(o.preciosFecha)+")":""}.
     ${v.V.length?`<ul style="margin:6px 0;padding-left:18px">${v.V.map(x=>`<li>${esc(x.lab)}: <span style="white-space:nowrap">${fmtPrecio(x.antes,x.fm)}</span> → <b style="white-space:nowrap">${fmtPrecio(x.ahora,x.fm)}</b></li>`).join("")}</ul>`:`<div class="small" style="margin:6px 0">Cambiaron precios o medidas en Ajustes que la afectan.</div>`}
     Precio inicial: <b>${money(v.tot)}</b> · con los precios de hoy: <b>${money(v.vivo)}</b> (${v.vivo>v.tot?"+":"−"}${money(Math.abs(v.vivo-v.tot))})${o.estado!=="cotizacion"?`<div class="small muted">Está aprobada: si la actualizas, cambia también lo que debe el cliente.</div>`:""}
     <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-act="act-precios" data-id="${o.id}">Actualizar precios</button><button class="btn sm" data-act="seguir-precio" data-id="${o.id}">Seguir con el precio inicial</button></div></div>`})()}
-  <div class="panel"><div class="row sp"><div class="eyebrow">Estado</div>${estadoPill(o.estado)}</div>
-    ${o.estado==="cotizacion"?`<button class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala: pasa directo a producción.</span>`
-     :sig?`<button class="btn dark block" data-act="${sig[0]==="instalada"&&pg.debe>0?"estado-pago":"estado-obra"}" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
-    ${o.fechaAprobada?`<span class="small muted">Aprobada el ${fechaCorta(o.fechaAprobada)}</span>`:""}
-    ${o.estado==="instalada"?`<button class="btn sm" data-act="estado-obra" data-id="${o.id}" data-v="produccion" data-confirma="1">Volver a producción</button>`:""}
-    ${o.estado!=="cotizacion"?`<button class="btn sm danger" data-act="cancelar-aprob" data-id="${o.id}">Cancelar aprobación</button>`:""}</div>
-  <div>
+  ${o.estado==="cotizacion"?"":`<div>
     <div class="panel"><div class="row sp"><div class="eyebrow">Pagos del cliente</div>${o.estado!=="cotizacion"&&o.estado!=="anulada"?(pg.debe>0?pill("Debe","st-pen"):pill("Pagada","st-pag")):""}</div>
       <dl class="kv"><dt>Valor obra</dt><dd class="num">${money(tot)}</dd><dt>Abonado</dt><dd class="num">${money(pg.pagado)}</dd><dt>Debe</dt><dd class="num" style="font-weight:700;color:${pg.debe>0?"var(--bad)":"var(--ok)"}">${money(pg.debe)}</dd></dl>
       ${abonos.length?`<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Pago</th><th class="n">Valor</th><th></th></tr></thead><tbody>${abonos.map(a=>`<tr><td class="mono">${fechaCorta(a.fecha)}${a.rc?`<div class="small muted">RC-${pad(a.rc)}</div>`:""}</td><td>${esc([a.forma,a.nota].filter(Boolean).join(" · "))}</td><td class="n">${money(a.valor)}</td><td class="n" style="white-space:nowrap"><button class="btn sm" data-act="recibo-abono" data-id="${o.id}" data-i="${a.i}">Recibo</button> <button class="btn sm danger" data-act="borrar-abono-obra" data-id="${o.id}" data-i="${a.i}" aria-label="Borrar abono">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}
       ${pg.pagado>0?`<button class="btn" data-act="estado-cuenta" data-id="${o.id}">Estado de cuenta (PDF)</button>`:""}
       ${pg.abC?`<span class="small muted">Incluye ${money(pg.abC)} abonados en cuentas de cobro de esta obra.</span>`:""}
       ${o.estado==="cotizacion"?`<span class="small muted">Los abonos se registran cuando la cotización esté aprobada.</span>`:(pg.debe>0?`<button class="btn pri" data-act="abono-obra" data-id="${o.id}">+ Registrar pago</button>`:"")}</div>
-  </div>
-  <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
+  </div>`}
+  <div class="sec-t">Ítems · ${(o.items||[]).length}</div>
+  <div class="panel ipanel">
     ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
-  ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id)}`;
+  <div class="totbar-sp"></div>
+  <button class="totbar" data-act="ver-resumen" data-id="${o.id}"><span>Total</span><b class="num">${money(tot)}</b><span class="totbar-v">Ver resumen <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 15l6-6 6 6"/></svg></span></button>`;
 }
+function resumenSheet(oid){const o=obra(oid);if(!o)return;openSheet(()=>{const o=obra(oid),calc=calcDe(o);return `<div class="sheet-h"><span></span><button class="btn sm" data-act="cerrar">Listo</button></div>
+  ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id)}`})}
+function estadoSheet(oid){const o=obra(oid);if(!o)return;openSheet(()=>{const o=obra(oid);if(!o)return "";const pg=pagosObra(o),sig=SIGUIENTE[o.estado];
+  return `<div class="sheet-h"><h2>Estado</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+  <div class="row">${estadoPill(o.estado)}</div>
+  <div class="stack" style="gap:8px">
+    ${o.estado==="cotizacion"?`<button data-cierra="1" class="btn pri block" data-act="aprobar-obra" data-id="${o.id}">✓ Aprobar cotización</button><span class="small muted">Cuando el cliente la acepte, apruébala: pasa directo a producción.</span>`
+     :sig?`<button data-cierra="1" class="btn dark block" data-act="${sig[0]==="instalada"&&pg.debe>0?"estado-pago":"estado-obra"}" data-id="${o.id}" data-v="${sig[0]}">${sig[1]}</button>`:""}
+    ${o.fechaAprobada?`<span class="small muted">Aprobada el ${fechaCorta(o.fechaAprobada)}</span>`:""}
+    ${o.estado==="instalada"?`<button data-cierra="1" class="btn sm" data-act="estado-obra" data-id="${o.id}" data-v="produccion" data-confirma="1">Volver a producción</button>`:""}
+    ${o.estado!=="cotizacion"?`<button data-cierra="1" class="btn sm danger" data-act="cancelar-aprob" data-id="${o.id}">Cancelar aprobación</button>`:""}</div>`})}
 /* ===== Precios faltantes: un ítem no se cotiza mientras falte algún precio de lo que usa ===== */
 function faltanItem(it){if(!it||it.fuera||it.precioManual>0)return [];const F=new Set(),cfg=S.cfg,z=v=>!(+v>0),dp=despiece({...it,cant:1});
   if(TIPOS[it.tipo]?.serie){const sc=cfg.series[it.tipo];for(const p of dp.perfiles){const r=sc.perfiles.find(x=>x.nombre===p.nombre);if(!r||z(r.precio))F.add(TIPOS[it.tipo].corto+" · "+p.nombre)}
@@ -1251,14 +1366,21 @@ async function marcarItems(ctx,fn){if(ctx==="__draft"){fn(S.draft.items);render(
   const o2={...o,items},calc=calcPreciosIniciales(o2);try{await guardar("obras",o.id,{...o2,calc,total:calc.resumen.total,calcFalta:faltanItems(items).length>0});render()}catch(e){}}
 function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
-  const st=!!ctx,todos=!items.some(it=>it.fuera);
-  return `<div class="tbl-wrap"><table><thead><tr>${st?`<th style="width:30px;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""} aria-label="Incluir todos" title="Incluir todos"></th>`:""}<th>Ítem</th><th class="n">Valor</th>${editable?"<th></th>":""}</tr></thead><tbody>
-  ${items.map((it,i)=>`<tr class="${it.fuera?"sel-off":""}">${st?`<td style="vertical-align:top;padding-right:0"><input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización"></td>`:""}<td><b>${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</b><div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div>
-     <div class="it-cel">${miniatura(it)?`<div class="it-thumb" role="img" aria-label="${esc(medidaLbl(it,true))}">${miniatura(it)}</div>`:""}<div class="mono small"><b>× ${it.cant}</b>${miniatura(it)?"":`<div>${medidaLbl(it)}</div>`}</div></div></td>
-   <td class="n" style="vertical-align:top">${!editable&&ctx&&ctx!=="__draft"&&!S.readonly?`<button class="btn sm it-mas" data-act="item-menu" data-id="${esc(ctx)}" data-i="${i}" aria-label="Opciones del ítem ${i+1}" title="Opciones"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>`:""}${it.fuera?`<span class="small muted" style="white-space:nowrap">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:money(valLinea(calc,i).total)}${(()=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
-     return `<div class="small muted" title="Lo que valdría este ítem cotizado solo" style="white-space:nowrap"><s>${money(l.tSolo)}</s>${it.cant>1?`<br><s>c/u ${money(l.uSolo)}</s>`:""}<br><span style="font-size:10px">si fuera solo</span></div>`})()}${it.precioManual>0?`<div class="small muted">manual</div>`:""}</td>
-   ${editable?`<td class="n" style="vertical-align:top"><button class="btn sm" data-act="editar-item" data-i="${i}">Editar</button></td>`:""}</tr>`).join("")}
-  </tbody></table></div>`;
+  const st=!!ctx,todos=!items.some(it=>it.fuera),dr=ctx==="__draft",acc=!S.readonly&&(editable||ctx);
+  const val=(it,i)=>it.fuera?`<span class="small muted">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<b class="num">${money(valLinea(calc,i).total)}</b>`;
+  const solo=(it,i)=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
+     return `<div class="small muted irow-solo" title="Lo que valdría este ítem cotizado solo"><s>${money(l.tSolo)}</s>${it.cant>1?` · <s>c/u ${money(l.uSolo)}</s>`:""}<br><span>si fuera solo</span></div>`};
+  return `${st&&items.length>1?`<label class="irow-todos"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""}> Incluir todos</label>`:""}
+  <div class="ilist">${items.map((it,i)=>`<div class="irow${it.fuera?" sel-off":""}"${acc?` data-sw="1"`:""}>
+    ${acc?`<div class="irow-acts"><button class="sw-ed" data-act="${dr?"editar-item":"item-editar"}" data-id="${esc(ctx||"")}" data-i="${i}">Editar</button><button class="sw-del" data-act="${dr?"draft-del-item":"item-eliminar"}" data-id="${esc(ctx||"")}" data-i="${i}">Eliminar</button></div>`:""}
+    <div class="irow-c"${dr&&acc?` data-act="editar-item" data-i="${i}"`:""}>
+      ${st?`<input type="checkbox" class="sel-chk" data-act="sel-item" data-ctx="${esc(ctx)}" data-i="${i}" ${it.fuera?"":"checked"} aria-label="Incluir ítem ${i+1} en la cotización">`:""}
+      ${miniatura(it)?`<div class="it-thumb" role="img" aria-label="${esc(medidaLbl(it,true))}">${miniatura(it)}</div>`:""}
+      <div class="irow-m"><div class="irow-t">${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</div>
+        <div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div>
+        <div class="irow-b"><span class="small num">${miniatura(it)?"":medidaLbl(it)+" · "}<b>× ${it.cant}</b>${it.precioManual>0?` <span class="muted">· manual</span>`:""}</span><span class="irow-v">${val(it,i)}${solo(it,i)}</span></div></div>
+      <div class="irow-r">${acc?`<button class="it-mas" data-act="item-menu" data-id="${esc(ctx||"__draft")}" data-i="${i}" aria-label="Opciones del ítem ${i+1}" title="Opciones"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>`:""}</div>
+    </div></div>`).join("")}</div>`;
 }
 
 /* Despiece de un vidrio: piezas de toda la cotización y cómo salen de la lámina (con las formas de cortar) */
@@ -1407,22 +1529,24 @@ function clienteObraSheet(oid){const o=obra(oid);if(!o||S.readonly)return;const 
    <div class="field"><label for="co-cli">Cliente</label><input id="co-cli" list="dl-co" autocomplete="off" value="${esc(clienteNom(o))}" placeholder="Escribe el nombre o elige uno guardado"><datalist id="dl-co">${cl.map(c=>`<option value="${esc(c.nombre)}"></option>`).join("")}</datalist></div>
    <div class="field"><label for="co-dir">Dirección</label><input id="co-dir" value="${esc(o.direccion||"")}"></div>
    <button class="btn pri block" data-act="cli-obra-ok" data-id="${o.id}">Guardar</button>`);setTimeout(()=>$("#co-cli")?.focus(),50)}
-function obraMenu(oid){const o=obra(oid);if(!o)return;openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)} · ${esc(trabajosTxt(o)||"Cotización")}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
-   <div class="stack" style="gap:8px"><button data-cierra="1" class="btn block" data-act="ver-obra" data-id="${o.id}">Abrir</button><button data-cierra="1" class="btn block" data-act="pdf-cot" data-id="${o.id}">Ver PDF</button><button data-cierra="1" class="btn block" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button>
-   <button data-cierra="1" class="btn block" data-act="dup-obra" data-id="${o.id}">Duplicar</button>${S.readonly?"":`<button data-cierra="1" class="btn block danger" data-act="borrar-obra" data-id="${o.id}">Eliminar</button>`}</div>`)}
-function itemMenu(oid,i){const o=obra(oid),it=o?.items?.[i];if(!it)return;openSheet(()=>`<div class="sheet-h"><h2>Ítem ${i+1}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
-   <div class="small muted">${esc(describeItem(it))} · ${esc(medidaLbl(it))} × ${it.cant}</div>
-   <div class="stack" style="gap:8px"><button class="btn pri block" data-cierra="1" data-act="item-editar" data-id="${o.id}" data-i="${i}">Editar</button>
-   <button class="btn block danger" data-cierra="1" data-act="item-eliminar" data-id="${o.id}" data-i="${i}">Eliminar</button></div>`)}
+function obraMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls="")=>`<button data-cierra="1" class="btn block ${cls}" data-act="${act}" data-id="${o.id}">${txt}</button>`;
+  openSheet(()=>`<div class="ios-acts-t">${numCot(o)} · ${esc(tituloObra(o))}</div>
+   <div class="ios-acts">${B("ver-obra","Abrir")}${B("pdf-cot","Ver PDF")}${B("copiar-cot","Enviar por WhatsApp")}${S.readonly?"":B("dup-obra","Duplicar")}</div>
+   ${S.readonly?"":`<div class="ios-acts">${B("borrar-obra","Eliminar","danger")}</div>`}
+   <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
+function itemMenu(oid,i){const dr=oid==="__draft",o=dr?S.draft:obra(oid),it=o?.items?.[i];if(!it)return;openSheet(()=>`<div class="ios-acts-t">Ítem ${i+1}<br><span>${esc(describeItem(it))} · ${esc(medidaLbl(it))} × ${it.cant}</span></div>
+   <div class="ios-acts"><button class="btn block" data-cierra="1" data-act="${dr?"editar-item":"item-editar"}" data-id="${dr?"":o.id}" data-i="${i}">Editar</button>
+   <button class="btn block danger" data-cierra="1" data-act="${dr?"draft-del-item":"item-eliminar"}" data-id="${dr?"":o.id}" data-i="${i}">Eliminar</button></div>
+   <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
 async function eliminarItemDirecto(oid,i){const o=obra(oid);if(!o)return;if((o.items||[]).length<=1){toast("La cotización necesita al menos un ítem. Si no la necesitas, elimina la cotización.");return}
   const prev={d:S.draft,base:S.draftBase};S.draft=clone(o);S.draft.items.splice(i,1);await guardarDraftObra(true);S.draft=prev.d;S.draftBase=prev.base;toast("Ítem eliminado");render()}
 function compartirMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls="",ex="")=>`<button data-cierra="1" class="btn block ${cls}" data-act="${act}" data-id="${o.id}" ${ex}>${txt}</button>`;
-  openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
-   <div class="stack" style="gap:8px">
-   <div class="eyebrow">Enviar</div>${B("pdf-cot","Ver PDF","pri")}${B("copiar-cot","Enviar por WhatsApp")}
-   ${areaDe(o)==="vidrios"?"":`<div class="eyebrow" style="margin-top:6px">Taller</div>${B("materiales","Lista de materiales")}${B("cortes-obra","Ver cortes")}${B("hoja-taller","Hoja de taller (PDF)")}`}
-   <div class="eyebrow" style="margin-top:6px">Cotización</div>${S.readonly?"":B("nuevo-cobro","Hacer cuenta de cobro","",`data-obra="${o.id}"`)+B("dup-obra","Duplicar cotización")+B("editar-obra","Editar todo (dirección, fecha, notas…)")+B("borrar-obra","Eliminar cotización","danger")}
-   </div>`)}
+  openSheet(()=>`<div class="ios-acts-t">${numCot(o)} · ${esc(tituloObra(o))}</div>
+   <div class="ios-acts">${B("pdf-cot","Ver PDF")}${B("copiar-cot","Enviar por WhatsApp")}</div>
+   ${areaDe(o)==="vidrios"?"":`<div class="ios-acts">${B("materiales","Lista de materiales")}${B("cortes-obra","Ver cortes")}${B("hoja-taller","Hoja de taller (PDF)")}</div>`}
+   ${S.readonly?"":`<div class="ios-acts">${B("nuevo-cobro","Hacer cuenta de cobro","",`data-obra="${o.id}"`)}${B("dup-obra","Duplicar cotización")}${B("editar-obra","Editar todo (dirección, fecha, notas…)")}</div>
+   <div class="ios-acts">${B("borrar-obra","Eliminar cotización","danger")}</div>`}
+   <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
 /* Dejar presionado (dedo) o doble clic (mouse) sobre elementos con data-lp */
 (function(){let t=null,el=null,x0=0,y0=0;const fire=e2=>{const d=e2.dataset;S.lpFired=true;setTimeout(()=>S.lpFired=false,600);if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
     if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
@@ -2248,6 +2372,7 @@ function pdfCobro(c){if(!window.jspdf){toast("No cargó el generador de PDF. Rev
 /* ============ Eventos ============ */
 document.addEventListener("click",async ev=>{
   if(S.lpFired&&!ev.target.closest(".sheet")){S.lpFired=false;ev.preventDefault();return}
+  if(S.swCerro&&ev.target.closest(".irow-c")&&!ev.target.closest("input")){ev.preventDefault();return}
   const b=ev.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;if(b.dataset.cierra){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow=""}
   if(a==="scrim"){if(ev.target===b)closeSheet();return}
   switch(a){
@@ -2266,6 +2391,9 @@ document.addEventListener("click",async ev=>{
       const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
     case"compartir":compartirMenu(id);break;
     case"item-menu":itemMenu(id,+b.dataset.i);break;
+    case"draft-del-item":{const i=+b.dataset.i,it=S.draft?.items?.[i];if(!it)break;confirmar(`Se quita el ítem ${i+1} de la cotización${it.cant>1?" (las "+it.cant+" unidades)":""}.`,"Quitar ítem",()=>{S.draft.items.splice(i,1)});break}
+    case"ver-resumen":resumenSheet(id);break;
+    case"estado-menu":estadoSheet(id);break;
     case"item-editar":editarItemDirecto(id,+b.dataset.i);break;
     case"item-eliminar":{const i=+b.dataset.i,it=obra(id)?.items?.[i];if(!it)break;confirmar(`Se elimina el ítem ${i+1} de esta cotización${it.cant>1?" (las "+it.cant+" unidades)":""}. No se puede deshacer.`,"Eliminar ítem",async()=>{await eliminarItemDirecto(id,i)});break}
     case"area-set":{S.area=b.dataset.v==="vidrios"?"vidrios":"taller";try{localStorage.setItem("alumel-area",S.area)}catch(e){}S.cortesObra="";S.buscarObra="";render();break}
