@@ -368,6 +368,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"],:root:not([data-theme="light"]) .chip[aria-pressed="true"],:root:not([data-theme="light"]) button.stat[aria-pressed="true"],:root:not([data-theme="light"]) .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}}
 :root[data-theme="dark"] .seg button[aria-pressed="true"],:root[data-theme="dark"] .chip[aria-pressed="true"],:root[data-theme="dark"] button.stat[aria-pressed="true"],:root[data-theme="dark"] .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}
 
+.stat .v{white-space:nowrap}.v-full{font-size:12px;color:var(--muted);white-space:nowrap;margin-top:2px;font-variant-numeric:tabular-nums}
 </style>
 
 <header class="top">
@@ -394,7 +395,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.64.3";
+const APP_VER="1.64.4";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1259,6 +1260,8 @@ window.addEventListener("scroll",()=>navScroll(),{passive:true});window.addEvent
     dx=Math.max(-W-30,Math.min(0,base+mx));row.querySelector(".irow-c").style.transform=`translateX(${dx}px)`});
   const fin=()=>{if(!row)return;row.classList.remove("arr");if(on){S.swCerro=true;setTimeout(()=>S.swCerro=false,350);if(dx<-W/2){row.classList.add("abierto");row.querySelector(".irow-c").style.transform=`translateX(${-W}px)`}else cl(row)}row=null};
   document.addEventListener("pointerup",fin);document.addEventListener("pointercancel",fin);})();
+/* Valor corto para recuadros pequeños: $ 3,83 M · $ 850 mil */
+function moneyCorto(v){v=Math.round(+v||0);const a=Math.abs(v),f=(n,d)=>n.toLocaleString("es-CO",{maximumFractionDigits:d});if(a>=1e6)return "$ "+f(v/1e6,a>=1e8?0:a>=1e7?1:2)+" M";if(a>=1e4)return "$ "+f(v/1e3,0)+" mil";return money(v)}
 const pill=(txt,cls)=>`<span class="pill ${cls}">${esc(txt)}</span>`;
 const estadoPill=k=>{const e=estadoDe(k);return pill(e[1],e[2])};
 function saldoCobro(c){const ab=(c.abonos||[]).reduce((s,a)=>s+(+a.valor||0),0);return {ab,saldo:(+c.valor||0)-ab}}
@@ -1302,7 +1305,7 @@ function vObras(){const OB=S.obras.filter(enArea);
   <div class="stats">
     <button class="stat" data-act="filtro-obras" data-v="activas" aria-pressed="${f==="activas"}"><div class="eyebrow">En curso</div><div class="v">${act.length}</div></button>
     <button class="stat" data-act="filtro-obras" data-v="cotizacion" aria-pressed="${f==="cotizacion"}"><div class="eyebrow">Cotizaciones</div><div class="v">${cot.length}</div></button>
-    <button class="stat" data-act="filtro-obras" data-v="deben" aria-pressed="${f==="deben"}"><div class="eyebrow">Por cobrar</div><div class="v">${money(porCobrar)}</div></button>
+    <button class="stat" data-act="filtro-obras" data-v="deben" aria-pressed="${f==="deben"}"><div class="eyebrow">Por cobrar</div><div class="v">${moneyCorto(porCobrar)}</div>${porCobrar>=1e6?`<div class="v-full">${money(porCobrar)}</div>`:""}</button>
   </div>
   <div class="field"><input id="buscar-obra" data-buscar-obra type="search" value="${esc(S.buscarObra||"")}" placeholder="Buscar por nombre, cliente o número (ej. 25)" aria-label="Buscar obras"></div>
   ${qb?`<span class="small muted">Buscando en todas las obras · ${list.length} resultado(s)</span>`:`<div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>`}
@@ -1879,9 +1882,9 @@ function vCobros(){
   return `
   ${S.hist.length?backBtn():""}
   <div class="head"><div><div class="eyebrow">Cuentas de cobro · ${AREAS[S.area].nombre}</div><h1>Cobros</h1></div><button class="btn pri" data-act="nuevo-cobro">+ Cuenta de cobro</button></div>
-  <div class="stats"><div class="stat"><div class="eyebrow">Facturado</div><div class="v">${money(total)}</div></div>
-   <div class="stat"><div class="eyebrow">Recibido</div><div class="v">${money(ab)}</div></div>
-   <div class="stat"><div class="eyebrow">Saldo</div><div class="v">${money(total-ab)}</div></div></div>
+  <div class="stats"><div class="stat"><div class="eyebrow">Facturado</div><div class="v">${moneyCorto(total)}</div>${Math.abs(total)>=1e6?`<div class="v-full">${money(total)}</div>`:""}</div>
+   <div class="stat"><div class="eyebrow">Recibido</div><div class="v">${moneyCorto(ab)}</div>${Math.abs(ab)>=1e6?`<div class="v-full">${money(ab)}</div>`:""}</div>
+   <div class="stat"><div class="eyebrow">Saldo</div><div class="v">${moneyCorto(total-ab)}</div>${Math.abs(total-ab)>=1e6?`<div class="v-full">${money(total-ab)}</div>`:""}</div></div>
   <div class="chips">${[["pendientes","Pendientes"],["pagadas","Pagadas"],["todas","Todas"]].map(([k,t])=>`<button class="chip" data-act="filtro-cobros" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>
   ${list.length?`<div class="list">${list.map(c=>{const cl=cliente(c.clienteId),s=saldoCobro(c);return `
    <button class="li" data-act="ver-cobro" data-id="${c.id}"><div class="grow"><div class="eyebrow">No. ${numCobro(c)} · ${fechaCorta(c.fecha)}</div><div class="t">${esc(cl?.nombre||"Sin cliente")}</div><div class="small muted">${esc(c.concepto||"")}</div></div>
