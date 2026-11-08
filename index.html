@@ -396,7 +396,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.65.0";
+const APP_VER="1.65.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1668,7 +1668,7 @@ function vCotizar(){
 function itemSheet(i){
   const base={tipo:"s744",naves:2,dist:"FI",rod:"nylon",tab1:"f06",nave:"t87",tab15:"t166",orient:"H",mediaLam:true,instalacion:instDe("s744"),hojas:2,ancho:1500,alto:1200,cant:1,vidrio:S.cfg.vidrios[0]?.id||"",color:S.cfg.colores[0]?.nombre||"",ubicacion:"",precioManual:0,conPerfil:false};
   const vb={tipo:"vidrio",cant:1,vidrio:S.ultVidrio||S.cfg.vidrios[0]?.id||"",instalacion:instDe("vidrio"),ubicacion:"",precioManual:0,ancho:0,alto:0,loteOn:true,lote:[]};
-  const it=i!=null?{...S.draft.items[i]}:(areaDe(S.draft)==="vidrios"?vb:base);
+  const it=i!=null?{...S.draft.items[i]}:(areaDe(S.draft)==="vidrios"?vb:{...base,loteOn:true,lote:[{a:0,h:0,c:1,u:""}]});
   S.itemTmp=it;S.itemIdx=i;
   openSheet(()=>itemSheetHtml());
 }
@@ -1686,8 +1686,8 @@ function itemSheetHtml(){
   ${TIPOS[it.tipo]?.puerta?ptaOpciones(it):""}
   ${it.tipo==="division"?`<div class="field"><label>Vidrios</label><div class="seg"><button data-act="it-set" data-k="divModo" data-v="estandar" aria-pressed="${it.divModo!=="especial"}">Estándar (inventario)</button><button data-act="it-set" data-k="divModo" data-v="especial" aria-pressed="${it.divModo==="especial"}">Mandar a hacer · ${money(S.cfg.division.especialM2)}/m²</button></div></div>`:""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
-  ${puedeLote(it)?`<div class="field"><label>Medidas</label><div class="seg"><button data-act="it-lote" data-v="0" aria-pressed="${!it.loteOn}">Una medida</button><button data-act="it-lote" data-v="1" aria-pressed="${!!it.loteOn}">Varias medidas</button></div>
-    ${it.loteOn&&it.tipo!=="vidrio"?`<span class="hint">Todas con la misma referencia, color, vidrio y mano de obra de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.${distsLote(it).length?" En <b>Fija</b> tocas para cambiar el lado de cada ventana (Izq / Der"+((it.naves||2)===2?" / Corr = ambas corredizas":"")+").":""}</span>`:""}</div>`:""}
+  ${puedeLote(it)&&it.loteOn?`<div class="field">
+    ${it.tipo!=="vidrio"?`<span class="hint">Todas con la misma referencia, color, vidrio y mano de obra de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.${distsLote(it).length?" En <b>Fija</b> tocas para cambiar el lado de cada ventana (Izq / Der"+((it.naves||2)===2?" / Corr = ambas corredizas":"")+").":""}</span>`:""}</div>`:""}
   ${it.loteOn&&puedeLote(it)?loteHtml(it):it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
     <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
     ${it.tipo==="division"&&it.divModo!=="especial"?`<div class="field"><label>Alto (cm)</label><div class="seg">${[1800,1900].map(v=>`<button data-act="it-alto" data-v="${v}" aria-pressed="${it.alto===v}" style="min-height:44px">${v/10}</button>`).join("")}</div></div>`
