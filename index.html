@@ -368,6 +368,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"],:root:not([data-theme="light"]) .chip[aria-pressed="true"],:root:not([data-theme="light"]) button.stat[aria-pressed="true"],:root:not([data-theme="light"]) .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}}
 :root[data-theme="dark"] .seg button[aria-pressed="true"],:root[data-theme="dark"] .chip[aria-pressed="true"],:root[data-theme="dark"] button.stat[aria-pressed="true"],:root[data-theme="dark"] .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}
 
+.rs-man{display:grid;gap:6px;margin-top:4px}
 .stat .v{white-space:nowrap}.v-full{font-size:12px;color:var(--muted);white-space:nowrap;margin-top:2px;font-variant-numeric:tabular-nums}
 </style>
 
@@ -395,7 +396,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.64.4";
+const APP_VER="1.65.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -903,6 +904,13 @@ function calcCot(items,opts){opts=opts||{};
     const base=L.perf+L.vid+L.tab+L.acc+L.inst,conMg=it.tipo==="division"?base+L.inst*(mg-1):it.tipo==="pasamanos"||it.tipo==="vidrio"?base:it.tipo==="cocina"?(base-L.inst)*(1+recCocina(it)/100)+L.inst:base*mg,unit=Math.ceil(conMg/q/r-1e-9)*r,t=unit*q;
     R.perfiles+=L.perf;R.vidrio+=L.vid;R.tableros+=L.tab;R.accesorios+=L.acc;R.instalacion+=L.inst;R.ajuste+=t-base;R.total+=t;
     return {unit,total:t,perf:L.perf,vid:L.vid,tab:L.tab,acc:L.acc,inst:L.inst,m2:L.m2}});
+  /* Valor total manual de toda la cotización: la diferencia se reparte entre los ítems según su peso, para que los renglones sigan sumando el total */
+  if(!opts.solo&&+opts.totalManual>0){const M=Math.round(+opts.totalManual),diff=M-R.total;R.totalCalc=R.total;
+    const act=lineas.map((l,i)=>[l,i]).filter(([l])=>!l.fuera),w=([l])=>Math.max(0,l.totalVid!=null?l.totalVid:l.total),sw=act.reduce((a,x)=>a+w(x),0)||1;let rest=diff;
+    const st=+cfg.redondeo||1;act.forEach(x=>{const [l,i]=x,q=items[i].cant||1,ad=Math.round(diff*w(x)/sw/q/st)*st*q;x.ad=ad;rest-=ad});
+    if(rest&&act.length){const t=act.filter(([,i])=>(items[i].cant||1)===1).sort((a,b)=>w(b)-w(a))[0]||act.slice().sort((a,b)=>w(b)-w(a))[0];t.ad+=rest}
+    act.forEach(x=>{const [l,i]=x,q=items[i].cant||1;if(!x.ad)return;l.total+=x.ad;l.unit=l.total/q;l.ajMan=x.ad;if(l.totalVid!=null){l.totalVid+=x.ad;l.unitVid=l.totalVid/q}});
+    if(Math.abs(diff)>=1)R.ajusteManual=diff;R.total=M}
     /* Cada renglón también se calcula solo; la diferencia con el total junto es el ahorro por aprovechar material entre ítems */
   let ahorro=0;if(!opts.solo&&items.length>1){let suma=0;lineas.forEach((l,i)=>{if(l.fuera)return;if(l.manual){l.uSolo=l.unit;l.tSolo=l.total}else{const c1=calcCot([items[i]],{...opts,solo:true}).lineas[0];l.uSolo=c1.unit;l.tSolo=c1.total}suma+=l.tSolo});
     ahorro=suma-R.total;if(ahorro<(cfg.redondeo||1))ahorro=0}
@@ -1378,13 +1386,16 @@ function avisoFaltan(F){const sec=[...new Set(F.map(seccionFalta))];
   return `<div class="note"><b>Faltan precios</b>, por eso no se muestra el total: ${esc(F.join(", "))}.<div class="row" style="margin-top:6px;gap:8px">${sec.map(x=>`<button class="btn sm pri" data-act="ir-precios" data-v="${x}">Poner precio · ${esc(({"aj-melamina":"Melamina","aj-templados":"Vidrios templados","aj-pvc":"PVC","aj-vidrios":"Vidrios","aj-accesorios":"Accesorios","aj-perfiles":"Perfiles de aluminio"})[x])}</button>`).join("")}</div></div>`}
 /* Casillas de los ítems: desmarcado = no va en la cotización (no suma, no sale en PDF ni WhatsApp) pero queda guardado */
 function calcPreciosIniciales(o){if(!o.precios)return calcCot(o.items||[],o);const c=clone(S.cfg);for(const [k,,ob,f] of preciosLista(c))if(k in o.precios)ob[f]=o.precios[k];return conCfg(c,()=>calcCot(o.items||[],o))}
+async function totalManualSet(ctx,v){v=v>0?v:0;if(ctx==="__draft"){if(!S.draft)return;if(v)S.draft.totalManual=v;else delete S.draft.totalManual;render();return}
+  const o=obra(ctx);if(!o||S.readonly)return;const o2={...o};if(v)o2.totalManual=v;else delete o2.totalManual;const calc=calcPreciosIniciales(o2);
+  try{await guardar("obras",o.id,{...o2,totalManual:v||null,calc,total:calc.resumen.total});toast(v?"Valor manual aplicado":"Se quitó el valor manual");render()}catch(e){}}
 async function marcarItems(ctx,fn){if(ctx==="__draft"){fn(S.draft.items);render();return}const o=obra(ctx);if(!o||S.readonly)return;const items=clone(o.items||[]);fn(items);
   const o2={...o,items},calc=calcPreciosIniciales(o2);try{await guardar("obras",o.id,{...o2,calc,total:calc.resumen.total,calcFalta:faltanItems(items).length>0});render()}catch(e){}}
 function tablaItems(items,calc,editable,cong,ctx,opts){
   if(!items.length)return `<div class="muted small">Todavía no hay ítems.</div>`;
   const st=!!ctx,todos=!items.some(it=>it.fuera),dr=ctx==="__draft",acc=!S.readonly&&(editable||ctx);
   const val=(it,i)=>it.fuera?`<span class="small muted">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<b class="num">${money(valLinea(calc,i).total)}</b>`;
-  const solo=(it,i)=>{const l=calc.lineas?.[i];if(it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
+  const solo=(it,i)=>{const l=calc.lineas?.[i];if(calc.resumen?.ajusteManual||it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<(+S.cfg.redondeo||1))return "";
      return `<div class="small muted irow-solo" title="Lo que valdría este ítem cotizado solo"><s>${money(l.tSolo)}</s>${it.cant>1?` · <s>c/u ${money(l.uSolo)}</s>`:""}<br><span>si fuera solo</span></div>`};
   return `${st&&items.length>1?`<label class="irow-todos"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" ${todos?"checked":""}> Incluir todos</label>`:""}
   <div class="ilist">${items.map((it,i)=>`<div class="irow${it.fuera?" sel-off":""}"${acc?` data-sw="1"`:""}>
@@ -1510,14 +1521,17 @@ function resumenHtml(calc,total,items,editable,todos,ctx){const F=faltanItems(it
   // ganancia
   const mg=+S.cfg.margen||0,bG=Math.abs(R.ajuste)>=1?fila("",mg?"Margen "+String(mg).replace(".",",")+" % y redondeo":"Redondeo",`Margen en ventanas y puertas; en divisiones solo sobre la mano de obra; cocinas y pasamanos con su recargo. Precios redondeados a ${money(+S.cfg.redondeo||1)}.`,"",R.ajuste,"aj-instalacion"):"";
   return `<div class="panel"><h2>Resumen</h2>${nf?`<div class="note" style="border-color:var(--warn)">${nf} ítem(s) sin marcar no van en esta cotización: no suman, no salen en el PDF ni en el WhatsApp, pero quedan guardados. Márcalos de nuevo cuando los necesites.</div>`:""}
-   ${soloM2?(()=>{const sinI=(ctx==="__draft"?S.draft:obra(ctx))?.sinInst,sug=R.instSug||0,tv=R.vidrio+R.ajuste;
+   ${soloM2?(()=>{const sinI=(ctx==="__draft"?S.draft:obra(ctx))?.sinInst,sug=R.instSug||0,tv=R.vidrio+R.ajuste+(R.ajusteManual||0);
      const bS=(editable?`<div class="mc-f"><div class="mc-t"><label class="row small" style="gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" data-act="vid-inst-incl" ${sinI?"":"checked"} style="width:20px;height:20px;accent-color:var(--accent)"> Incluir la instalación en la cotización</label>
        <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:6px"><span class="small">Para todos: $</span><input id="vi-todos" class="cin" inputmode="numeric" value="${instDe("vidrio")}" style="width:110px;text-align:right"><button class="btn sm pri" data-act="vid-inst-todos">Aplicar</button></div></div></div>`:"")+bI;
-     return `<div class="rs">${grupo("Vidrio",R.vidrio,bV,true)}${Math.abs(R.ajuste)>=1?grupo("Redondeo",R.ajuste,""):""}
+     return `<div class="rs">${grupo("Vidrio",R.vidrio,bV,true)}${Math.abs(R.ajuste)>=1?grupo("Redondeo",R.ajuste,""):""}${R.ajusteManual?grupo("Ajuste a valor manual",R.ajusteManual,""):""}
       <div class="rs-tot"><span>Total vidrios</span><span class="num">${money(tv)}</span></div>
       ${grupo(sinI?"Instalación sugerida (no incluida)":"Instalación sugerida",sug,bS)}
-      ${sinI?"":`<div class="rs-tot"><span>Total con instalación</span><span class="num">${money(R.total)}</span></div>`}</div>`})():`<div class="rs">${grupo("Perfilería",R.perfiles,bP)}${grupo("Vidrio",R.vidrio,bV,soloM2||editable&&V.some(v=>v.puedeLam))}${grupo("Tableros (PVC, melamina)",R.tableros,bT)}${grupo("Accesorios",R.accesorios,bA)}${grupo("Mano de obra",R.instalacion,bI?bI+(editable?`<div class="mc-f"><span class="small muted">Cambia el valor y sal del campo para recalcular. El valor general por sistema está en Ajustes.</span>${aj("aj-instalacion")}</div>`:""):"")}${R.manual?grupo("Ítems con precio manual",R.manual,""):""}${Math.abs(R.ajuste)>=1?grupo(mg?"Margen y redondeo":"Redondeo",R.ajuste,bG):""}
+      ${sinI?"":`<div class="rs-tot"><span>Total con instalación</span><span class="num">${money(R.total)}</span></div>`}</div>`})():`<div class="rs">${grupo("Perfilería",R.perfiles,bP)}${grupo("Vidrio",R.vidrio,bV,soloM2||editable&&V.some(v=>v.puedeLam))}${grupo("Tableros (PVC, melamina)",R.tableros,bT)}${grupo("Accesorios",R.accesorios,bA)}${grupo("Mano de obra",R.instalacion,bI?bI+(editable?`<div class="mc-f"><span class="small muted">Cambia el valor y sal del campo para recalcular. El valor general por sistema está en Ajustes.</span>${aj("aj-instalacion")}</div>`:""):"")}${R.manual?grupo("Ítems con precio manual",R.manual,""):""}${Math.abs(R.ajuste)>=1?grupo(mg?"Margen y redondeo":"Redondeo",R.ajuste,bG):""}${R.ajusteManual?grupo("Ajuste a valor manual",R.ajusteManual,""):""}
     <div class="rs-tot"><span>Total</span><span class="num">${money(R.total)}</span></div></div>`}
+   ${(()=>{const o=ctx==="__draft"?S.draft:ctx?obra(ctx):null;if(!o||S.readonly)return "";const m=+o.totalManual>0;
+     return `<div class="rs-man"><label for="tot-man" class="eyebrow">Valor total manual (opcional)</label><div class="row" style="gap:8px;flex-wrap:nowrap"><input id="tot-man" class="cin grow" inputmode="numeric" data-tot-man="${esc(ctx)}" value="${m?Math.round(o.totalManual).toLocaleString("es-CO"):""}" placeholder="Ej: ${money(Math.ceil((R.totalCalc||R.total)/100000)*100000)}">${m?`<button class="btn sm" data-act="tot-man-quitar" data-id="${esc(ctx)}">Quitar</button>`:""}</div>
+      <span class="small muted">${m?`Calculado: ${money(R.totalCalc||R.total)}. La diferencia (${R.ajusteManual>0?"+":"−"}${money(Math.abs(R.ajusteManual||0))}) se reparte entre los ítems, así el PDF sigue sumando bien.`:"Escribe el valor que quieres cobrar por toda la cotización y sal del campo."}</span></div>`})()}
    <span class="small muted">Toca cada línea para ver el detalle; ⚙ te lleva a ese precio en Ajustes y con Atrás vuelves.</span>
   </div>
   <div class="total-bar"><span class="eyebrow" style="color:inherit">${soloM2&&(ctx==="__draft"?S.draft:obra(ctx))?.sinInst?"Total sin instalación":"Total cotización"}</span><span class="v">${money(R.total)}</span></div>`;
@@ -2287,7 +2301,7 @@ async function copiar(txt){try{await navigator.clipboard.writeText(txt);toast("C
 function textoCot(o){const c=clienteDe(o),e=S.cfg.empresa;
   return `*Cotización ${numCot(o)}*\n${c?"Cliente: "+c.nombre+"\n":""}${trabajosTxt(o)}\n\n`+
   (o.items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).sort(([a],[b])=>(a.n||0)-(b.n||0)).map(([it,i],n)=>`${it.n||n+1}. ${[describeItem(it)+(medidaTxt(it)?" · "+medidaLbl(it,true):""),detalleItem(it)].filter(Boolean).join(" · ")} × ${it.cant} = ${money(valLinea(calcDe(o),i).total)}`).join("\n")+
-  (areaDe(o)==="vidrios"?(()=>{const C=calcDe(o),R=C.resumen,GS=subtotalesCuadros(o,C);return (GS.length>1?"\n\n"+GS.map(g=>`${g.t}: ${money(g.v)}`).join("\n"):"")+`\n\nVidrios: ${money(R.vidrio+R.ajuste)}`+(R.instalacion>0?`\nInstalación: ${money(R.instalacion)}`:R.instSug>0?`\nInstalación sugerida (no incluida): ${money(R.instSug)}`:"")})():"")+
+  (areaDe(o)==="vidrios"?(()=>{const C=calcDe(o),R=C.resumen,GS=subtotalesCuadros(o,C);return (GS.length>1?"\n\n"+GS.map(g=>`${g.t}: ${money(g.v)}`).join("\n"):"")+`\n\nVidrios: ${money(R.vidrio+R.ajuste+(R.ajusteManual||0))}`+(R.instalacion>0?`\nInstalación: ${money(R.instalacion)}`:R.instSug>0?`\nInstalación sugerida (no incluida): ${money(R.instSug)}`:"")})():"")+
   `\n\n*TOTAL${areaDe(o)==="vidrios"&&o.sinInst?" SIN INSTALACIÓN":""}: ${money(totalObra(o))}*`+(o.notas?"\n\n"+o.notas:"")+(e.telefono?"\n\nTel: "+e.telefono:"")}
 function textoCobro(c){const cl=cliente(c.clienteId),e=S.cfg.empresa;
   return `CUENTA DE COBRO No. ${numCobro(c)}\n${e.ciudad?e.ciudad+", ":""}${fechaLarga(c.fecha)}\n\n${cl?cl.nombre+(cl.nit?"\nNIT/C.C. "+cl.nit:""):""}\n\nDEBE A:\n${e.propietario||e.nombre}${e.cc?"\nC.C. "+e.cc:""}\n\nLA SUMA DE: ${letras(+c.valor||0)} PESOS M/CTE (${money(c.valor)})\n\nPOR CONCEPTO DE: ${c.concepto}\n\n${e.nota||""}${e.banco?"\nPago a: "+e.banco:""}`}
@@ -2336,7 +2350,7 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
 
   if(areaDe(o)==="vidrios"){doc.setFontSize(10);const fl=(t,v,b)=>{doc.setFont("helvetica",b?"bold":"normal");doc.text(t,124,y);doc.text(money(v),200,y,{align:"right"});y+=6};
     const GS=subtotalesCuadros(o,calc);if(GS.length>1){doc.setFontSize(9);for(const g of GS){doc.text(g.t,124,y);doc.text(money(g.v),200,y,{align:"right"});y+=5}doc.setFontSize(10);y+=1}
-    fl("Vidrios",R.vidrio+R.ajuste);if(R.instalacion>0)fl("Instalación",R.instalacion);else if(R.instSug>0){doc.setFontSize(8.5);doc.setTextColor(106,95,88);doc.text("Instalación sugerida (no incluida): "+money(R.instSug),124,y);doc.setTextColor(31,26,23);y+=6}y+=2}
+    fl("Vidrios",R.vidrio+R.ajuste+(R.ajusteManual||0));if(R.instalacion>0)fl("Instalación",R.instalacion);else if(R.instSug>0){doc.setFontSize(8.5);doc.setTextColor(106,95,88);doc.text("Instalación sugerida (no incluida): "+money(R.instSug),124,y);doc.setTextColor(31,26,23);y+=6}y+=2}
   y+=4;doc.setFillColor(40,34,30);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(areaDe(o)==="vidrios"&&o.sinInst?10:12);doc.text(areaDe(o)==="vidrios"&&o.sinInst?"TOTAL SIN INSTALACIÓN":"TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(31,26,23);
   y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5);y+=doc.splitTextToSize(o.notas,180).length*4+8}
   if(S.cfg.empresa.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
@@ -2407,6 +2421,7 @@ document.addEventListener("click",async ev=>{
     case"cli-obra-ok":{const o=obra(id);if(!o)break;const nom=($("#co-cli")?.value||"").trim(),c=S.clientes.find(x=>(x.nombre||"").toLowerCase()===nom.toLowerCase());
       const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
     case"compartir":compartirMenu(id);break;
+    case"tot-man-quitar":await totalManualSet(id,0);break;
     case"item-menu":itemMenu(id,+b.dataset.i);break;
     case"draft-del-item":{const i=+b.dataset.i,it=S.draft?.items?.[i];if(!it)break;confirmar(`Se quita el ítem ${i+1} de la cotización${it.cant>1?" (las "+it.cant+" unidades)":""}.`,"Quitar ítem",()=>{S.draft.items.splice(i,1)});break}
     case"ver-resumen":resumenSheet(id);break;
@@ -2593,6 +2608,7 @@ document.addEventListener("input",ev=>{
   if(t.dataset.buscar!==undefined){S.buscar=t.value;const pos=t.selectionStart;render();const nb=$("#buscar");nb.focus();try{nb.setSelectionRange(pos,pos)}catch(e){}}
 });
 document.addEventListener("change",ev=>{const t=ev.target;
+  if(t.dataset&&t.dataset.totMan!==undefined){totalManualSet(t.dataset.totMan,+String(t.value).replace(/\D/g,"")||0);return}
   if(t.dataset&&t.dataset.itInst!==undefined&&S.draft){const it=S.draft.items[+t.dataset.itInst];if(it){it.instalacion=Math.round(num(t.value));render()}return}
   if(t.dataset&&t.dataset.perfimg!==undefined&&t.files&&t.files[0]){const key=t.dataset.perfimg,fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,240/Math.max(im.width,im.height)),cv=document.createElement("canvas");
       cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);
