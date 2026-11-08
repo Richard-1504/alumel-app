@@ -218,6 +218,7 @@ tr.sel-off td:not(:first-child){opacity:.45}
 .it-cel{display:flex;gap:10px;align-items:center;margin-top:6px}.it-thumb{flex:none;width:100px;height:70px;display:grid;place-items:center;border-radius:6px;background:var(--surface-2);overflow:hidden;padding:3px}
 .it-thumb svg{width:100%;height:100%;display:block}
 .vgc{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line)}.vgc:first-of-type{border-top:0}
+.menu-btn{width:44px;height:40px;padding:0;display:flex;align-items:center;justify-content:center}
 .it-mas{display:flex;align-items:center;justify-content:center;margin:0 0 6px auto;width:38px;height:30px;padding:0}
 .lp{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .lote{display:grid;gap:6px}
@@ -284,7 +285,7 @@ details.aj[open] .aj-chev{transform:rotate(180deg)}
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.62.0";
+const APP_VER="1.63.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1199,7 +1200,7 @@ function vObra(){
   const pg=pagosObra(o),sig=SIGUIENTE[o.estado],abonos=(o.abonos||[]).map((a,i)=>({...a,i})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
   return `
   ${backBtn()}
-  <div class="head"><div class="grow"><div class="eyebrow">Cotización ${numCot(o)} · ${fechaCorta(o.fecha)}</div><h1 class="lp" data-lp="cliente" data-id="${o.id}" title="Doble clic o deja presionado para cambiar el cliente">${esc(tituloObra(o))}</h1></div>${estadoPill(o.estado)}</div>
+  <div class="head"><div class="grow"><div class="eyebrow">Cotización ${numCot(o)} · ${fechaCorta(o.fecha)}</div><h1 class="lp" data-lp="cliente" data-id="${o.id}" title="Doble clic o deja presionado para cambiar el cliente">${esc(tituloObra(o))}</h1></div><div class="stack" style="gap:6px;align-items:flex-end"><button class="btn menu-btn" data-act="compartir" data-id="${o.id}" aria-label="Opciones de la cotización" title="Opciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></div>
   ${(()=>{const v=variacionObra(o);if(!v)return "";return `<div class="note" style="border-color:var(--warn)"><b>Los precios tuvieron variaciones</b> desde que se hizo esta cotización${o.preciosFecha?" ("+fechaCorta(o.preciosFecha)+")":""}.
     ${v.V.length?`<ul style="margin:6px 0;padding-left:18px">${v.V.map(x=>`<li>${esc(x.lab)}: <span style="white-space:nowrap">${fmtPrecio(x.antes,x.fm)}</span> → <b style="white-space:nowrap">${fmtPrecio(x.ahora,x.fm)}</b></li>`).join("")}</ul>`:`<div class="small" style="margin:6px 0">Cambiaron precios o medidas en Ajustes que la afectan.</div>`}
     Precio inicial: <b>${money(v.tot)}</b> · con los precios de hoy: <b>${money(v.vivo)}</b> (${v.vivo>v.tot?"+":"−"}${money(Math.abs(v.vivo-v.tot))})${o.estado!=="cotizacion"?`<div class="small muted">Está aprobada: si la actualizas, cambia también lo que debe el cliente.</div>`:""}
@@ -1221,17 +1222,7 @@ function vObra(){
   <div class="panel"><div class="row sp"><h2>Ítems</h2><span class="small muted">${(o.items||[]).length} ítem(s)</span></div>
     ${tablaItems(o.items||[],calc,false,calcCongelado(o),o.id,o)}
     ${o.notas?`<div class="small"><span class="eyebrow">Notas</span><br>${esc(o.notas)}</div>`:""}</div>
-  ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id)}
-  <div class="fgrid">
-    <button class="btn pri full" data-act="compartir" data-id="${o.id}">PDF · WhatsApp · Duplicar</button>
-    ${areaDe(o)==="vidrios"?"":`<button class="btn" data-act="materiales" data-id="${o.id}">Lista de materiales</button>
-    <button class="btn" data-act="cortes-obra" data-id="${o.id}">Ver cortes</button>
-    <button class="btn full" data-act="hoja-taller" data-id="${o.id}">Hoja de taller (PDF)</button>`}
-  </div>
-  <div class="row" style="justify-content:space-between">
-    <button class="btn sm" data-act="nuevo-cobro" data-obra="${o.id}">Hacer cuenta de cobro</button>
-    <button class="btn sm danger" data-act="borrar-obra" data-id="${o.id}">Eliminar obra</button>
-  </div>`;
+  ${resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id)}`;
 }
 /* ===== Precios faltantes: un ítem no se cotiza mientras falte algún precio de lo que usa ===== */
 function faltanItem(it){if(!it||it.fuera||it.precioManual>0)return [];const F=new Set(),cfg=S.cfg,z=v=>!(+v>0),dp=despiece({...it,cant:1});
@@ -1425,10 +1416,13 @@ function itemMenu(oid,i){const o=obra(oid),it=o?.items?.[i];if(!it)return;openSh
    <button class="btn block danger" data-cierra="1" data-act="item-eliminar" data-id="${o.id}" data-i="${i}">Eliminar</button></div>`)}
 async function eliminarItemDirecto(oid,i){const o=obra(oid);if(!o)return;if((o.items||[]).length<=1){toast("La cotización necesita al menos un ítem. Si no la necesitas, elimina la cotización.");return}
   const prev={d:S.draft,base:S.draftBase};S.draft=clone(o);S.draft.items.splice(i,1);await guardarDraftObra(true);S.draft=prev.d;S.draftBase=prev.base;toast("Ítem eliminado");render()}
-function compartirMenu(oid){const o=obra(oid);if(!o)return;openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
-   <div class="stack" style="gap:8px"><button data-cierra="1" class="btn pri block" data-act="pdf-cot" data-id="${o.id}">Ver PDF</button><button data-cierra="1" class="btn block" data-act="copiar-cot" data-id="${o.id}">Enviar por WhatsApp</button><button data-cierra="1" class="btn block" data-act="dup-obra" data-id="${o.id}">Duplicar cotización</button>
-   ${S.readonly?"":`<button data-cierra="1" class="btn block" data-act="editar-obra" data-id="${o.id}">Editar todo (dirección, fecha, notas…)</button>`}</div>
-   <span class="small muted">Para cambiar un ítem usa el botón ⋯ de cada ítem. Para el cliente, doble clic o deja presionado el título.</span>`)}
+function compartirMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls="",ex="")=>`<button data-cierra="1" class="btn block ${cls}" data-act="${act}" data-id="${o.id}" ${ex}>${txt}</button>`;
+  openSheet(()=>`<div class="sheet-h"><h2>${numCot(o)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
+   <div class="stack" style="gap:8px">
+   <div class="eyebrow">Enviar</div>${B("pdf-cot","Ver PDF","pri")}${B("copiar-cot","Enviar por WhatsApp")}
+   ${areaDe(o)==="vidrios"?"":`<div class="eyebrow" style="margin-top:6px">Taller</div>${B("materiales","Lista de materiales")}${B("cortes-obra","Ver cortes")}${B("hoja-taller","Hoja de taller (PDF)")}`}
+   <div class="eyebrow" style="margin-top:6px">Cotización</div>${S.readonly?"":B("nuevo-cobro","Hacer cuenta de cobro","",`data-obra="${o.id}"`)+B("dup-obra","Duplicar cotización")+B("editar-obra","Editar todo (dirección, fecha, notas…)")+B("borrar-obra","Eliminar cotización","danger")}
+   </div>`)}
 /* Dejar presionado (dedo) o doble clic (mouse) sobre elementos con data-lp */
 (function(){let t=null,el=null,x0=0,y0=0;const fire=e2=>{const d=e2.dataset;S.lpFired=true;setTimeout(()=>S.lpFired=false,600);if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
     if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
