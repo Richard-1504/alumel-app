@@ -355,6 +355,19 @@ nav.tabs{background:color-mix(in srgb,var(--surface) 86%,transparent);-webkit-ba
 .ios-acts .btn:hover{background:var(--fill);filter:none}
 .ios-cancel{background:var(--surface)!important;min-height:52px;font-size:17px;border-radius:14px}
 
+/* Selección visible: lo elegido resalta en blanco sobre fondo gris; lo no elegido queda gris y apagado */
+.seg{background:rgba(120,120,128,.2);padding:3px;gap:3px}
+.seg button{color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--fg);font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.06)}
+.chip{background:rgba(120,120,128,.18);color:var(--muted);font-weight:500}
+.chip[aria-pressed="true"]{background:#fff;color:var(--fg);font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.06)}
+.stat{background:rgba(120,120,128,.12)}
+button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.14),inset 0 0 0 2px var(--accent)}
+.lamopc-b{border:0;background:rgba(120,120,128,.14)}
+.lamopc-b[aria-pressed="true"]{background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.16),inset 0 0 0 2px var(--accent)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"],:root:not([data-theme="light"]) .chip[aria-pressed="true"],:root:not([data-theme="light"]) button.stat[aria-pressed="true"],:root:not([data-theme="light"]) .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}}
+:root[data-theme="dark"] .seg button[aria-pressed="true"],:root[data-theme="dark"] .chip[aria-pressed="true"],:root[data-theme="dark"] button.stat[aria-pressed="true"],:root[data-theme="dark"] .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}
+
 </style>
 
 <header class="top">
@@ -381,7 +394,7 @@ nav.tabs{background:color-mix(in srgb,var(--surface) 86%,transparent);-webkit-ba
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.64.1";
+const APP_VER="1.64.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
