@@ -422,7 +422,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.70.0";
+const APP_VER="1.71.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1640,7 +1640,7 @@ function compartirMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls=
    <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
 /* Dejar presionado (dedo) o doble clic (mouse) sobre elementos con data-lp */
 (function(){let t=null,el=null,x0=0,y0=0;const fire=e2=>{const d=e2.dataset;S.lpFired=true;setTimeout(()=>S.lpFired=false,600);if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
-    if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
+    if(d.lp==="corte")corteMenu(d.v,d.k,d.l);else if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
   document.addEventListener("pointerdown",e=>{const c=e.target.closest&&e.target.closest("[data-lp]");if(!c||e.target.closest("input,select,button.btn"))return;el=c;x0=e.clientX;y0=e.clientY;clearTimeout(t);t=setTimeout(()=>{if(el)fire(el);el=null},550)});
   document.addEventListener("pointermove",e=>{if(el&&Math.hypot(e.clientX-x0,e.clientY-y0)>10){clearTimeout(t);el=null}});
   ["pointerup","pointercancel","scroll"].forEach(k=>document.addEventListener(k,()=>{clearTimeout(t);el=null},true));
@@ -1917,7 +1917,7 @@ function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada"&&enArea(o)).sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
   const cc=sel===S.cortesCatId?S.cortesCat:null,items=(vistaCat(objSel(sel),cc)?.items)||[];
-  const res=sumarDespiece(items);
+  const res=despieceSel(sel,items);
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p));totalBarras+=bs.length;
@@ -1925,7 +1925,7 @@ function vCortes(){
       ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
       <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm${angsPerfil(p).length>1?" a "+angCorte(p,c)+"°":""}${c.org&&sel==="__prod"?`<span class="muted" style="font-family:var(--f-body)"> (${orgTxt(c.org)})</span>`:""}`).join(" · ")}</div>
       ${(()=>{const ot=ordenTope(bs);return `<div class="small"><b>Orden de corte</b> · ${ot.length} tope${ot.length===1?"":"s"}: <span class="mono">${ot.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}</span></div>`})()}
-      <div class="stack" style="gap:6px">${(()=>{const med=[...new Set(p.cortes.map(c=>c.largo))];return bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div class="cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%;${j&&b.cuts[j-1]===l?"border-left:1px dashed rgba(255,255,255,.35);":""}" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")})()}</div></div>`}).join("");
+      <div class="stack" style="gap:6px">${(()=>{const med=[...new Set(p.cortes.map(c=>c.largo))];return bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div data-lp="corte" data-v="${esc(sel)}" data-k="${esc(perKey(p))}" data-l="${l}" class="lp cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%;${j&&b.cuts[j-1]===l?"border-left:1px dashed rgba(255,255,255,.35);":""}" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")})()}</div></div>`}).join("");
   const m2=res.vid.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6,nVid=res.vid.reduce((s,v)=>s+v.cant,0);
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rects.push({w:p.ancho,h:p.alto})});
   const nPvc=rects.length,L2=nPvc?laminasMarmo(rects,true):null;
@@ -1946,7 +1946,8 @@ function vCortes(){
    <div class="stat"><div class="eyebrow">Piezas PVC</div><div class="v">${nPvc}</div></div>`:""}</div>
   <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
   <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button></div>
-  <h2>Perfiles</h2>${perfHtml}
+  <h2>Perfiles</h2><span class="small muted" style="margin-top:-8px">¿Ya tienes una pieza en el taller? Déjala presionada (o doble clic) en la barra y elige "Ya la tengo".</span>${perfHtml}
+  ${tengoHtml(sel,res)}
   ${(res.mel||[]).length?melCortesHtml(res.mel):""}
   ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
    <span class="small muted">Lámina de ${mm.ancho} × ${mm.alto} cm${L2.media?" · la última se usa solo hasta la mitad":""}</span>
@@ -1966,6 +1967,22 @@ function vCortes(){
   <div class="panel"><h2>Accesorios</h2><div class="tbl-wrap"><table><tbody>${res.acc.map(([n,c])=>`<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join("")}</tbody></table></div></div>`}`;
 }
 
+/* --- Piezas que ya hay en el taller (retales): se quitan del despiece de esa obra o producción --- */
+function tengoGet(){if(!S.tengo){try{S.tengo=JSON.parse(localStorage.getItem("alumel-tengo")||"null")}catch(e){}S.tengo=S.tengo||{}}return S.tengo}
+function tengoSave(){try{localStorage.setItem("alumel-tengo",JSON.stringify(S.tengo))}catch(e){}}
+const perKey=p=>p.sistema+"|"+p.nombre+"|"+p.color;
+function despieceSel(sel,items){const res=sumarDespiece(items),T=tengoGet()[sel]||{},quit=[];
+  res.per.forEach(p=>{const t=T[perKey(p)];if(!t)return;p.cortes.forEach(c=>{const n=Math.min(c.cant,+t[c.largo]||0);if(!n)return;c.cant-=n;quit.push({p,largo:c.largo,n});
+      if(c.org){let r=n;for(const id of Object.keys(c.org).reverse()){const d=Math.min(r,c.org[id]);c.org[id]-=d;r-=d;if(!c.org[id])delete c.org[id];if(!r)break}}});
+    p.cortes=p.cortes.filter(c=>c.cant>0)});
+  res.per=res.per.filter(p=>p.cortes.length);res.tengo=quit;return res}
+function tengoMod(sel,key,largo,d){const T=tengoGet(),m=(T[sel]=T[sel]||{}),t=(m[key]=m[key]||{});t[largo]=Math.max(0,(+t[largo]||0)+d);if(!t[largo])delete t[largo];if(!Object.keys(t).length)delete m[key];if(!Object.keys(m).length)delete T[sel];tengoSave()}
+function corteMenu(sel,key,largo){const [sis,nom,col]=key.split("|"),res=sumarDespiece((objSel(sel)?.items||[]).filter(i=>!i.fuera)),p=res.per.find(x=>perKey(x)===key),tot=p?.cortes.find(c=>c.largo===+largo)?.cant||0,ya=+((tengoGet()[sel]||{})[key]||{})[largo]||0,quedan=tot-ya;
+  openSheet(()=>`<div class="ios-acts-t">Pieza de ${cm(largo)} cm<br><span>${esc(nom)} · ${esc(sis)}${col?" · "+esc(col):""} · faltan por cortar ${quedan}</span></div>
+   <div class="ios-acts"><button class="btn block" data-cierra="1" data-act="tengo" data-v="${esc(sel)}" data-k="${esc(key)}" data-l="${largo}" data-n="1">Ya la tengo (quitar 1)</button>${quedan>1?`<button class="btn block" data-cierra="1" data-act="tengo" data-v="${esc(sel)}" data-k="${esc(key)}" data-l="${largo}" data-n="${quedan}">Ya las tengo todas (${quedan})</button>`:""}</div>
+   <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
+function tengoHtml(sel,res){if(!res.tengo?.length)return "";return `<div class="sec-t">Piezas que ya tienes · no se cortan</div><div class="panel ipanel">${res.tengo.map(x=>`<div class="prod-p"><div class="prod-pi">${perfilIcon(angKey(x.p.sistema,x.p.nombre),34)}</div><div class="grow"><b>${cm(x.largo)} cm × ${x.n}</b> <span class="small muted">${esc(x.p.nombre)} · ${esc(x.p.sistema)}${x.p.color?" · "+esc(x.p.color):""}</span></div><button class="btn sm" data-act="tengo-dev" data-v="${esc(sel)}" data-k="${esc(perKey(x.p))}" data-l="${x.largo}">Devolver</button></div>`).join("")}</div>`}
+
 /* --- Producción: varias obras juntas para cortes, materiales y lista de compra --- */
 function prodGet(){if(!S.prod){try{S.prod=JSON.parse(localStorage.getItem("alumel-prod")||"null")}catch(e){}S.prod=S.prod||{obras:[],quitar:{},mas:{},extra:[],accQ:{}}}return S.prod}
 function prodSave(){try{localStorage.setItem("alumel-prod",JSON.stringify(S.prod))}catch(e){}}
@@ -1974,8 +1991,8 @@ const numCorto=o=>"#"+(o.numero||"?");
 function orgTxt(org,pdf){return Object.entries(org).map(([id,n])=>{const o=obra(id);return (o?numCorto(o):"?")+" ×"+n}).join(pdf?"  ":" · ")}
 function prodObra(){const ids=prodIds(),items=[];ids.forEach(id=>(obra(id).items||[]).forEach(it=>{if(!it.fuera)items.push({...it,_o:id})}));
   return {id:"__prod",items,_titulo:"Producción: "+ids.map(id=>numCot(obra(id))).join(", ")}}
-function prodDatos(){const P=prodGet(),ids=prodIds(),res=sumarDespiece(prodObra().items);
-  const per=res.per.map(p=>{const key=p.sistema+"|"+p.nombre+"|"+p.color,n=barras(p.cortes,kerfDe(p)).length,q=!!P.quitar[key],m=+P.mas[key]||0;return {p,key,n,q,m,compra:q?0:Math.max(0,n+m)}});
+function prodDatos(){const P=prodGet(),ids=prodIds(),res=despieceSel("__prod",prodObra().items);
+  const per=res.per.map(p=>{const key=perKey(p),n=barras(p.cortes,kerfDe(p)).length,q=false,m=+P.mas[key]||0;return {p,key,n,q,m,compra:Math.max(0,n+m)}});
   let sep=0;ids.forEach(id=>{const r=sumarDespiece((obra(id).items||[]).filter(it=>!it.fuera));r.per.forEach(p=>sep+=barras(p.cortes,kerfDe(p)).length)});
   const juntas=per.reduce((a,x)=>a+x.n,0);return {P,ids,res,per,sep,juntas}}
 function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.estado!=="anulada"),act=T.filter(o=>estadoDe(o.estado)[0]!=="instalada"||prodGet().obras.includes(o.id)).sort((a,b)=>(a.estado==="produccion"?0:1)-(b.estado==="produccion"?0:1)||(b.numero||0)-(a.numero||0)),ids=prodIds();
@@ -1992,12 +2009,13 @@ function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.e
    <div class="stat"><div class="eyebrow">A comprar</div><div class="v">${D.per.reduce((a,x)=>a+x.compra,0)+(P.extra||[]).reduce((a,x)=>a+(+x.n||0),0)}</div></div></div>
   ${D.sep>D.juntas?`<div class="note ok">Juntando estas obras te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>.</div>`:""}
   <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button><button class="btn full" data-act="prod-compra">Lista de compra (WhatsApp)</button></div>
-  <div class="sec-t">Perfiles</div>
+  <div class="sec-t">Perfiles · barras a comprar</div>
+  ${D.res.tengo.length?`<span class="small muted" style="margin:-8px 16px 0">Ya descontadas ${D.res.tengo.reduce((a,x)=>a+x.n,0)} pieza(s) que tienes en el taller (ver en "Ver cortes juntos").</span>`:`<span class="small muted" style="margin:-8px 16px 0">Si ya tienes alguna pieza en el taller, quítala en "Ver cortes juntos" dejándola presionada.</span>`}
   <div class="panel ipanel">${D.per.map(x=>`<div class="prod-p${x.q?" off":""}">
      <div class="prod-pi">${perfilIcon(angKey(x.p.sistema,x.p.nombre),40)}</div>
      <div class="grow"><b>${esc(x.p.nombre)}</b> <span class="small muted">${esc(x.p.sistema)}${x.p.color?" · "+esc(x.p.color):""}</span>
        <div class="small muted">Necesita ${x.n} barra${x.n===1?"":"s"}${x.p.obras?" · "+[...x.p.obras].map(id=>numCorto(obra(id))).join(" "):""}</div>
-       <div class="prod-ctl"><button class="btn sm ${x.q?"pri":""}" data-act="prod-quitar" data-k="${esc(x.key)}">${x.q?"✓ Ya lo tengo":"Ya lo tengo"}</button>
+       <div class="prod-ctl">
        ${x.q?"":`<span class="prod-n"><button class="btn sm" data-act="prod-mas" data-k="${esc(x.key)}" data-v="-1" aria-label="Una barra menos">−</button><b>${x.compra}</b><button class="btn sm" data-act="prod-mas" data-k="${esc(x.key)}" data-v="1" aria-label="Una barra más">+</button></span><span class="small muted">a comprar</span>`}</div></div></div>`).join("")}
    ${(P.extra||[]).map((x,i)=>`<div class="prod-p"><div class="prod-pi"></div><div class="grow"><b>${esc(x.nombre)}</b> <span class="small muted">${esc(x.color||"")} · agregado</span>
        <div class="prod-ctl"><span class="prod-n"><button class="btn sm" data-act="prod-extra-n" data-i="${i}" data-v="-1">−</button><b>${x.n}</b><button class="btn sm" data-act="prod-extra-n" data-i="${i}" data-v="1">+</button></span><span class="small muted">a comprar</span><button class="btn sm danger" data-act="prod-extra-del" data-i="${i}">Quitar</button></div></div></div>`).join("")}
@@ -2332,7 +2350,7 @@ function materialesSheet(id){const o=vistaCat(objSel(id),catActiva(id));if(!o)re
 function textoMateriales(o,G){return `*Materiales — ${S.cfg.empresa.nombre}*\n${o.nombre||""}\n\n`+G.map(g=>`*${g.h}*\n`+g.filas.map(f=>`• ${f[0]}: ${f[1]}${g.h==="Vidrio"?"\n   "+f[2]:""}`).join("\n")).join("\n\n")}
 
 /* ============ Enviar lista de cortes ============ */
-function datosCortes(sel){const o=vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null),items=o?.items||[],res=sumarDespiece(items),L=S.cfg.barra||6000;
+function datosCortes(sel){const o=vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null),items=o?.items||[],res=despieceSel(sel,items),L=S.cfg.barra||6000;
   const per=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p)),angs=angsPerfil(p);return {p,bs,angs,orden:ordenTope(bs)}});
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(x=>{for(let k=0;k<x.cant;k++)rects.push({w:x.ancho,h:x.alto})});
   return {o,res,per,L,lam:rects.length?laminasMarmo(rects,false).laminas:0,mm}}
@@ -2372,7 +2390,7 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
       doc.setFont("helvetica","normal");doc.setFontSize(13);doc.text("x  "+cm(c.largo)+(angs.length>1?"  ("+angCorte(p,c)+"°)":""),x+11,y);
       if(conOrg&&c.org){doc.setFontSize(7);doc.setTextColor(110,100,92);doc.text(orgTxt(c.org,true).slice(0,40),x+1,y+4);doc.setTextColor(31,26,23)}});if(conOrg)y+=4;
     y+=5;doc.setFont("helvetica","normal");
-    // dibujo de cada tira con sus cortes
+    // dibujo de cada tira con sus cortes (las piezas que ya hay en el taller no salen)
     for(const [i,b] of bs.entries()){nl(9);doc.setFontSize(8);doc.text("Tira "+(i+1),16,y+4);let x=30;const W=150,esc2=W/D.L,BH=6;
       for(const l of b.cuts){const w=Math.min(W,l*esc2),t=cm(l);doc.setDrawColor(40,34,30);doc.setFillColor(255,255,255);doc.rect(x,y,w,BH,"FD");
         let fs=7.5;doc.setFontSize(fs);while(fs>2.2&&doc.getTextWidth(t)>w-0.6){fs-=0.25;doc.setFontSize(fs)}
@@ -2382,6 +2400,8 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
         x+=w+kerfDe(p)*esc2}
       doc.setFontSize(8);doc.text(b.over?"más larga":"sobra "+cm(D.L-b.used),200,y+4,{align:"right"});y+=BH+2.5}
     y+=5}
+  if(D.res.tengo?.length){nl(12);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Piezas que ya hay en el taller (no cortar)",16,y);doc.setFont("helvetica","normal");y+=6;doc.setFontSize(9);
+    for(const x of D.res.tengo){nl(5);doc.text(`${x.n} x ${cm(x.largo)} cm  ·  ${x.p.sistema} · ${x.p.nombre}${x.p.color?" · "+x.p.color:""}`,18,y);y+=5}y+=3}
   for(const {g,t:tt} of gruposLam(D.res.mel||[])){const L=(D.res.mel||[]).filter(x=>x.g===g);if(!L.length)continue;nl(14);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(tt,16,y);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(9);
     for(const x of L){nl(5);doc.text(x.cant+" × "+cm(x.ancho)+" × "+cm(x.alto)+"  ·  "+x.pieza,20,y);y+=4.5}y+=3;
     {const Wl=gruposLam(D.res.mel).find(z=>z.g===g),rr=[];L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,tt,g,rr,Wl.W*10,Wl.H*10,kerfMel())}}
@@ -2562,6 +2582,8 @@ document.addEventListener("click",async ev=>{
       const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
     case"compartir":compartirMenu(id);break;
     case"prod-obra":{const P=prodGet(),on=b.checked;P.obras=(P.obras||[]).filter(x=>x!==id);if(on)P.obras.push(id);prodSave();render();break}
+    case"tengo":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,+b.dataset.n||1);toast("Pieza quitada del despiece");render();break;
+    case"tengo-dev":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,-1);render();break;
     case"prod-quitar":{const P=prodGet(),k=b.dataset.k;if(P.quitar[k])delete P.quitar[k];else P.quitar[k]=1;prodSave();render();break}
     case"prod-mas":{const P=prodGet(),k=b.dataset.k,x=prodDatos().per.find(p=>p.key===k);if(!x)break;const m=(+P.mas[k]||0)+(+b.dataset.v);P.mas[k]=Math.max(-x.n,m);prodSave();render();break}
     case"prod-accq":{const P=prodGet(),k=b.dataset.k;if(P.accQ[k])delete P.accQ[k];else P.accQ[k]=1;prodSave();render();break}
