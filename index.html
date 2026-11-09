@@ -424,7 +424,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.72.0";
+const APP_VER="1.72.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -2034,16 +2034,17 @@ function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.e
   <button class="btn sm" style="align-self:flex-start" data-act="prod-limpiar">Empezar de nuevo</button>`}`}
 function prodCatalogo(){const L=new Set();for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])L.add((sc.nombre||k)+" · "+p.nombre);for(const k of Object.keys(S.cfg.puertas?.perfiles||{}))L.add("Puertas · "+k);return [...L]}
 /* Pedido al proveedor: perfiles por tiras completas y empaque por rollos completos de 100 m */
-function pedidoAcc(n,c){const m=/\(m\)\s*$/.test(n),nom=n.replace(/\s*\(m\)\s*$/,"");if(m&&/^Empaque/i.test(n)){const r=+S.cfg.rolloEmpaque||100,k=Math.max(1,Math.ceil(c/r-1e-9));return `${nom}: ${k} rollo${k===1?"":"s"} de ${r} m (se usan ${String(Math.round(c*10)/10).replace(".",",")} m)`}
-  if(m)return `${nom}: ${Math.ceil(c-1e-9)} m`;return `${nom}: ${Math.ceil(c-1e-9)}`}
-function textoPedido(sel){const pr=sel==="__prod",o=objSel(sel)||{},P=pr?prodGet():null,res=despieceSel(sel,(o.items||[]).filter(i=>!i.fuera)),L=[`*Pedido — ${S.cfg.empresa.nombre}*`,pr?`Obras: ${prodIds().map(id=>numCot(obra(id))).join(", ")}`:(o.numero?numCot(o)+" · ":"")+tituloObra(o),fechaCorta(hoy())];
+function pedidoAcc(n,c){const m=/\(m\)\s*$/.test(n),nom=minus(n.replace(/\s*\(m\)\s*$/,""));if(m&&/^Empaque/i.test(n)){const r=+S.cfg.rolloEmpaque||100,k=Math.max(1,Math.ceil(c/r-1e-9));return `${k} rollo${k===1?"":"s"} ${nom} (${k*r}m)`}
+  if(m)return `${Math.ceil(c-1e-9)}m ${nom}`;return `${Math.ceil(c-1e-9)} ${nom}`}
+const minus=t=>String(t||"").split(" ").map(w=>/[0-9]/.test(w)&&/[A-Z]/.test(w)?w.toLowerCase():w.toLowerCase()).join(" ");
+function textoPedido(sel){const pr=sel==="__prod",o=objSel(sel)||{},P=pr?prodGet():null,res=despieceSel(sel,(o.items||[]).filter(i=>!i.fuera)),L=[`Pedido ${S.cfg.empresa.nombre} · ${pr?prodIds().map(id=>numCot(obra(id))).join(", "):(o.numero?numCot(o):tituloObra(o))}`,""];
+  const acc=res.acc.filter(([n,c])=>c>0&&!(pr&&P.accQ[n]));acc.forEach(([n,c])=>L.push(pedidoAcc(n,c)));if(res.esc)L.push(`${res.esc} escuadras a15`);
   const per=res.per.map(p=>{const n=barras(p.cortes,kerfDe(p)).length,m=pr?+P.mas[perKey(p)]||0:0;return {p,n:Math.max(0,n+m)}}).filter(x=>x.n>0),G={};
-  per.forEach(x=>{const g=x.p.sistema+(x.p.color?" · "+x.p.color:"");(G[g]=G[g]||[]).push(x)});const ex=pr?(P.extra||[]).filter(x=>+x.n>0):[];
-  if(per.length||ex.length){L.push("",`*Perfiles* (tiras completas de ${cm(S.cfg.barra||6000)} cm)`);Object.entries(G).forEach(([g,X])=>{L.push(g+":");X.forEach(x=>L.push(`- ${x.p.nombre}: ${x.n} tira${x.n===1?"":"s"}`))});
-    ex.forEach(x=>L.push(`- ${x.nombre}${x.color?" · "+x.color:""}: ${x.n} tira${+x.n===1?"":"s"}`));L.push(`Total: ${per.reduce((a,x)=>a+x.n,0)+ex.reduce((a,x)=>a+(+x.n||0),0)} tiras`)}
-  const acc=res.acc.filter(([n,c])=>c>0&&!(pr&&P.accQ[n]));if(acc.length){L.push("","*Accesorios*");acc.forEach(([n,c])=>L.push("- "+pedidoAcc(n,c)))}
-  if(res.esc)L.push(`- Escuadras A15: ${res.esc}`);
-  return L.join("\n")}
+  per.forEach(x=>{const g=x.p.sistema+"|"+x.p.color;(G[g]=G[g]||[]).push(x)});const ex=pr?(P.extra||[]).filter(x=>+x.n>0):[];
+  Object.entries(G).forEach(([g,X])=>{const [sis,col]=g.split("|"),serie=/serie/i.test(sis)?sis.replace(/serie\s*/i,""):"",c=minus(col);if(L[L.length-1]!=="")L.push("");
+    X.forEach((x,k)=>L.push(`${x.n} ${minus(x.p.nombre)}${serie?(k===0?` ${serie}${c?" "+c:""}`:""):(c?" "+c:"")}`))});
+  if(ex.length){if(L[L.length-1]!=="")L.push("");ex.forEach(x=>L.push(`${x.n} ${minus(x.nombre)}${x.color?" "+minus(x.color):""}`))}
+  return L.join("\n").trim()}
 function textoCompra(){return textoPedido("__prod")}
 
 /* --- Cobros --- */
