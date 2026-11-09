@@ -424,7 +424,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.72.1";
+const APP_VER="1.72.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -2014,21 +2014,9 @@ function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.e
   ${!D?"":`
   <div class="stats"><div class="stat"><div class="eyebrow">Barras juntas</div><div class="v">${D.juntas}</div></div>
    <div class="stat"><div class="eyebrow">Por separado</div><div class="v">${D.sep}</div></div>
-   <div class="stat"><div class="eyebrow">A comprar</div><div class="v">${D.per.reduce((a,x)=>a+x.compra,0)+(P.extra||[]).reduce((a,x)=>a+(+x.n||0),0)}</div></div></div>
+</div>
   ${D.sep>D.juntas?`<div class="note ok">Juntando estas obras te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>.</div>`:""}
   <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button><button class="btn full" data-act="prod-compra">Pedido de perfiles y accesorios</button></div>
-  <div class="sec-t">Perfiles · barras a comprar</div>
-  ${D.res.tengo.length?`<span class="small muted" style="margin:-8px 16px 0">Ya descontadas ${D.res.tengo.reduce((a,x)=>a+x.n,0)} pieza(s) que tienes en el taller (ver en "Ver cortes juntos").</span>`:`<span class="small muted" style="margin:-8px 16px 0">Si ya tienes alguna pieza en el taller, quítala en "Ver cortes juntos" dejándola presionada.</span>`}
-  <div class="panel ipanel">${D.per.map(x=>`<div class="prod-p${x.q?" off":""}">
-     <div class="prod-pi">${perfilIcon(angKey(x.p.sistema,x.p.nombre),40)}</div>
-     <div class="grow"><b>${esc(x.p.nombre)}</b> <span class="small muted">${esc(x.p.sistema)}${x.p.color?" · "+esc(x.p.color):""}</span>
-       <div class="small muted">Necesita ${x.n} barra${x.n===1?"":"s"}${x.p.obras?" · "+[...x.p.obras].map(id=>numCorto(obra(id))).join(" "):""}</div>
-       <div class="prod-ctl">
-       ${x.q?"":`<span class="prod-n"><button class="btn sm" data-act="prod-mas" data-k="${esc(x.key)}" data-v="-1" aria-label="Una barra menos">−</button><b>${x.compra}</b><button class="btn sm" data-act="prod-mas" data-k="${esc(x.key)}" data-v="1" aria-label="Una barra más">+</button></span><span class="small muted">a comprar</span>`}</div></div></div>`).join("")}
-   ${(P.extra||[]).map((x,i)=>`<div class="prod-p"><div class="prod-pi"></div><div class="grow"><b>${esc(x.nombre)}</b> <span class="small muted">${esc(x.color||"")} · agregado</span>
-       <div class="prod-ctl"><span class="prod-n"><button class="btn sm" data-act="prod-extra-n" data-i="${i}" data-v="-1">−</button><b>${x.n}</b><button class="btn sm" data-act="prod-extra-n" data-i="${i}" data-v="1">+</button></span><span class="small muted">a comprar</span><button class="btn sm danger" data-act="prod-extra-del" data-i="${i}">Quitar</button></div></div></div>`).join("")}
-   <div class="prod-add"><input id="pe-nom" class="cin grow" list="dl-perf" placeholder="+ Agregar perfil (nombre)"><datalist id="dl-perf">${prodCatalogo().map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
-     <input id="pe-col" class="cin" style="width:90px" placeholder="Color"><input id="pe-n" class="cin" style="width:56px" inputmode="numeric" value="1" aria-label="Barras"><button class="btn sm pri" data-act="prod-extra-add">Agregar</button></div></div>
   ${D.res.acc.length?`<div class="sec-t">Accesorios</div><div class="panel"><div class="tbl-wrap"><table><tbody>${D.res.acc.map(([n,c])=>`<tr class="${P.accQ[n]?"sel-off":""}"><td>${esc(n)}</td><td class="n"><b>${c}</b></td><td class="n"><button class="btn sm ${P.accQ[n]?"pri":""}" data-act="prod-accq" data-k="${esc(n)}">${P.accQ[n]?"✓ Lo tengo":"Lo tengo"}</button></td></tr>`).join("")}</tbody></table></div></div>`:""}
   ${D.res.vid.length?`<div class="sec-t">Vidrios</div><div class="panel">${Object.entries(D.res.vid.reduce((m,v)=>{(m[v.vidrio]=m[v.vidrio]||{n:0,m2:0}).n+=v.cant;m[v.vidrio].m2+=v.ancho*v.alto*v.cant/1e6;return m},{})).map(([vn,x])=>`<div class="row sp"><span>${esc(vn)}</span><span class="small muted">${x.n} pieza(s) · ${x.m2.toFixed(2).replace(".",",")} m²</span></div>`).join("")}<span class="small muted">Las medidas y el plano de cada lámina están en "Ver cortes juntos".</span></div>`:""}
   <button class="btn sm" style="align-self:flex-start" data-act="prod-limpiar">Empezar de nuevo</button>`}`}
@@ -2039,8 +2027,8 @@ function pedidoAcc(n,c){const m=/\(m\)\s*$/.test(n),nom=minus(n.replace(/\s*\(m\
 const minus=t=>String(t||"").split(" ").map(w=>/[0-9]/.test(w)&&/[A-Z]/.test(w)?w.toLowerCase():w.toLowerCase()).join(" ");
 function textoPedido(sel){const pr=sel==="__prod",o=objSel(sel)||{},P=pr?prodGet():null,res=despieceSel(sel,(o.items||[]).filter(i=>!i.fuera)),L=[`Pedido ${S.cfg.empresa.nombre} · ${pr?prodIds().map(id=>numCot(obra(id))).join(", "):(o.numero?numCot(o):tituloObra(o))}`,""];
   const acc=res.acc.filter(([n,c])=>c>0&&!(pr&&P.accQ[n]));acc.forEach(([n,c])=>L.push(pedidoAcc(n,c)));if(res.esc)L.push(`${res.esc} escuadras a15`);
-  const per=res.per.map(p=>{const n=barras(p.cortes,kerfDe(p)).length,m=pr?+P.mas[perKey(p)]||0:0;return {p,n:Math.max(0,n+m)}}).filter(x=>x.n>0),G={};
-  per.forEach(x=>{const g=x.p.sistema+"|"+x.p.color;(G[g]=G[g]||[]).push(x)});const ex=pr?(P.extra||[]).filter(x=>+x.n>0):[];
+  const per=res.per.map(p=>{const n=barras(p.cortes,kerfDe(p)).length;return {p,n}}).filter(x=>x.n>0),G={};
+  per.forEach(x=>{const g=x.p.sistema+"|"+x.p.color;(G[g]=G[g]||[]).push(x)});const ex=[];
   Object.entries(G).forEach(([g,X])=>{const [sis,col]=g.split("|"),serie=/serie/i.test(sis)?sis.replace(/serie\s*/i,""):"",c=minus(col);if(L[L.length-1]!=="")L.push("");
     X.forEach((x,k)=>L.push(`${x.n} ${minus(x.p.nombre)}${serie?(k===0?` ${serie}${c?" "+c:""}`:""):(c?" "+c:"")}`))});
   if(ex.length){if(L[L.length-1]!=="")L.push("");ex.forEach(x=>L.push(`${x.n} ${minus(x.nombre)}${x.color?" "+minus(x.color):""}`))}
