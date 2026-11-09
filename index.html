@@ -375,7 +375,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 .pe-per{grid-template-columns:minmax(0,1fr) 56px 72px 34px}.pe-per .pe-sel{grid-column:1/-1;margin-top:8px;font-weight:600}.pe-per .pe-sel:first-of-type{margin-top:0}.pe-acc{grid-template-columns:minmax(0,1fr) 60px 34px}.pe-vid{grid-template-columns:1fr 1fr 60px 34px}
 .pe-l{display:flex;gap:4px;align-items:center;min-width:0}.pe-l input{min-width:0;flex:1}.pe-q{display:flex;gap:2px}.pe-q .btn{padding:4px 6px;font-size:11px;min-height:0}
 .pe-l2{display:grid;gap:4px;min-width:0}.pe-q2{display:grid;grid-template-columns:1fr 80px;gap:4px}.pe-x{padding:4px 0;min-height:0}
-.pe-t .cin{padding:8px 6px;min-width:0;width:100%}
+.pe-t .cin{padding:8px 6px;min-width:0;width:100%}.pe-res{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-2px}.pe-res:empty{display:none}
 .prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
 .prod-o{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--line);cursor:pointer}.ipanel .prod-o:first-child{border-top:0}
 .prod-p{display:flex;gap:12px;padding:12px 16px;border-top:.5px solid var(--line)}.ipanel .prod-p:first-child{border-top:0}
@@ -429,7 +429,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.73.0";
+const APP_VER="1.74.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -673,9 +673,15 @@ function laminasMarmo(rects,media){const m=S.cfg.puertas.marmo,W=m.ancho*10,H=m.
   const cabe=media&&!last.items.some(r=>r.over)&&packRects(last.items,W,H/2).length===1&&!packRects(last.items,W,H/2)[0].items.some(r=>r.over);
   return {laminas:sh.length-(cabe?0.5:0),media:cabe}}
 /* Puerta especial: perfiles de la lista de precios (puertas y series) elegidos a mano */
+/* Fórmulas de medida (en cm): A = ancho, H = alto. Ej: H-2.5 · A/2 · (A-11)/2 · 94 */
+function evalF(f,A,H){if(f==null||f==="")return null;let e=String(f).toUpperCase().replace(/ANCHO/g,"A").replace(/ALTO/g,"H").replace(/,/g,".").replace(/[X×]/g,"*").replace(/\s+/g,"");
+  if(!/^[0-9AH+\-*\/().]+$/.test(e))return null;e=e.replace(/(\d|\))(?=[AH(])/g,"$1*").replace(/([AH)])(?=[\d(AH])/g,"$1*");try{const v=Function("A","H","return ("+e+")")(A,H);return isFinite(v)?Math.round(v*10)/10:null}catch(_){return null}}
+const largoEsp=(x,it,k,kf)=>{const f=x[kf];if(f!=null&&f!==""){const v=evalF(f,(it.ancho||0)/10,(it.alto||0)/10);return v>0?Math.round(v*10):0}return +x[k]||0};
+const fTxt=(x,k,kf)=>x[kf]!=null&&x[kf]!==""?x[kf]:(+x[k]>0?cm(+x[k]):"");
 function perfEsp(v){if(!v)return null;const [g,a,b]=String(v).split(":");if(g==="P")return {ref:a,nombre:a,sis:"Puertas"};if(g==="S"&&S.cfg.series[a])return {ser:a,nombre:b,sis:TIPOS[a].corto};return null}
 function perfEspOpts(sel){const pta=PTA_REFS.map(([r,u])=>[`P:${r}`,`${r} · ${u}`]),ser=Object.keys(S.cfg.series||{}).filter(k=>TIPOS[k]).map(k=>[TIPOS[k].corto,S.cfg.series[k].perfiles.map(p=>[`S:${k}:${p.nombre}`,p.nombre+" "+TIPOS[k].corto.replace("Serie ","")])]);
   const o=(v,t)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(t)}</option>`;return `<option value="">Elige perfil…</option><optgroup label="Puertas">${pta.map(([v,t])=>o(v,t)).join("")}</optgroup>${ser.map(([g,L])=>`<optgroup label="${esc(g)}">${L.map(([v,t])=>o(v,t)).join("")}</optgroup>`).join("")}`}
+function peRes(r,it){const f=r.f;if(f==null||f===""||/^[\d.,\s]+$/.test(String(f)))return "";const v=evalF(f,(it.ancho||0)/10,(it.alto||0)/10);return v==null?`<span style="color:var(--bad)">Fórmula no válida</span>`:`= <b>${String(v).replace(".",",")} cm</b>`}
 function pespCampos(it){it.pPer=it.pPer||[{r:"",l:0,c:1,a:90}];it.pAcc=it.pAcc||[];it.pVid=it.pVid||[];
   const X=(g,i)=>`<button class="btn sm pe-x" data-act="pe-del" data-g="${g}" data-i="${i}" aria-label="Quitar fila">✕</button>`;
   return `<div class="fgrid">
@@ -685,11 +691,12 @@ function pespCampos(it){it.pPer=it.pPer||[{r:"",l:0,c:1,a:90}];it.pAcc=it.pAcc||
     <div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div></div>
   <div class="sketch">${sketch(it)}</div>
   <div class="field"><label>Perfiles (para una puerta)</label>
-    <div class="pe-t pe-per"><span>Medida cm</span><span>Cant</span><span>Corte</span><span></span>
+    <div class="pe-t pe-per"><span>Medida o fórmula (cm)</span><span>Cant</span><span>Corte</span><span></span>
     ${it.pPer.map((r,i)=>`<select class="cin pe-sel" data-pe="pPer.${i}.r" aria-label="Perfil ${i+1}">${perfEspOpts(r.r)}</select>
-      <span class="pe-l"><input class="cin" inputmode="decimal" data-pe="pPer.${i}.l" value="${r.l?cm(r.l):""}" placeholder="cm" aria-label="Medida ${i+1}"><span class="pe-q"><button class="btn sm" data-act="pe-fill" data-i="${i}" data-v="ancho" title="Medida = ancho">A</button><button class="btn sm" data-act="pe-fill" data-i="${i}" data-v="alto" title="Medida = alto">H</button></span></span>
+      <span class="pe-l"><input class="cin" data-pe="pPer.${i}.f" value="${esc(fTxt(r,"l","f"))}" placeholder="Ej: H-2.5" autocapitalize="characters" autocomplete="off" aria-label="Medida o fórmula ${i+1}"><span class="pe-q"><button class="btn sm" data-act="pe-fill" data-i="${i}" data-v="A" title="Ancho de la puerta">A</button><button class="btn sm" data-act="pe-fill" data-i="${i}" data-v="H" title="Alto de la puerta">H</button></span></span>
       <input class="cin" inputmode="numeric" data-pe="pPer.${i}.c" value="${r.c||1}" aria-label="Cantidad ${i+1}">
-      <select class="cin" data-pe="pPer.${i}.a" aria-label="Corte ${i+1}"><option value="90" ${+r.a!==45?"selected":""}>90°</option><option value="45" ${+r.a===45?"selected":""}>45°</option></select>${X("pPer",i)}`).join("")}</div>
+      <select class="cin" data-pe="pPer.${i}.a" aria-label="Corte ${i+1}"><option value="90" ${+r.a!==45?"selected":""}>90°</option><option value="45" ${+r.a===45?"selected":""}>45°</option></select>${X("pPer",i)}<span class="pe-res" id="pe-res-${i}">${peRes(r,it)}</span>`).join("")}</div>
+    <span class="hint">En la medida puedes escribir un número o una fórmula con <b>A</b> (ancho) y <b>H</b> (alto) en cm: <b>H-2.5</b>, <b>A-6</b>, <b>(A-11)/2</b>. Si cambias las medidas de la puerta, se recalcula sola.</span>
     <button class="btn sm" style="align-self:flex-start" data-act="pe-add" data-g="pPer">+ Agregar perfil</button></div>
   <div class="field"><label>Accesorios (para una puerta)</label>
     ${it.pAcc.length?`<div class="pe-t pe-acc"><span>Accesorio</span><span>Cant</span><span></span>
@@ -700,7 +707,7 @@ function pespCampos(it){it.pPer=it.pPer||[{r:"",l:0,c:1,a:90}];it.pAcc=it.pAcc||
   <div class="field"><label>Vidrios (opcional, para una puerta)</label>
     ${it.pVid.length?`<select id="it-vidrio" class="cin" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)} · ${money(v.m2)}/m²</option>`).join("")}</select>
     <div class="pe-t pe-vid"><span>Ancho cm</span><span>Alto cm</span><span>Cant</span><span></span>
-    ${it.pVid.map((v,i)=>`<input class="cin" inputmode="decimal" data-pe="pVid.${i}.a" value="${v.a?cm(v.a):""}" aria-label="Ancho vidrio ${i+1}"><input class="cin" inputmode="decimal" data-pe="pVid.${i}.h" value="${v.h?cm(v.h):""}" aria-label="Alto vidrio ${i+1}"><input class="cin" inputmode="numeric" data-pe="pVid.${i}.c" value="${v.c||1}" aria-label="Cantidad vidrio ${i+1}">${X("pVid",i)}`).join("")}</div>`:""}
+    ${it.pVid.map((v,i)=>`<input class="cin" data-pe="pVid.${i}.fa" value="${esc(fTxt(v,"a","fa"))}" placeholder="Ej: A-20" autocapitalize="characters" aria-label="Ancho vidrio ${i+1}"><input class="cin" data-pe="pVid.${i}.fh" value="${esc(fTxt(v,"h","fh"))}" placeholder="Ej: H/2" autocapitalize="characters" aria-label="Alto vidrio ${i+1}"><input class="cin" inputmode="numeric" data-pe="pVid.${i}.c" value="${v.c||1}" aria-label="Cantidad vidrio ${i+1}">${X("pVid",i)}`).join("")}</div>`:""}
     <button class="btn sm" style="align-self:flex-start" data-act="pe-add" data-g="pVid">+ Agregar vidrio</button></div>
   <div class="fgrid">
     <div class="field full"><label for="it-inst">Mano de obra por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
@@ -855,8 +862,8 @@ function despiece(it){
       per("Cabezal marco",A,1);per("Jamba",H,2);per("Hoja horizontal",ah,3);per("Hoja vertical",hh,2);
       const va=ah-k.vid,vh=(hh-k.vid)/2;vid(va,vh,2,"2 paños");acc.push(["Bisagras",3],["Cerradura",1],["Manija",1]);break}
     case"vidrio":vid(A,H,1,"");break;
-    case"pesp":{for(const r of it.pPer||[]){const d=perfEsp(r.r);if(!d||!(+r.l>0)||!(+r.c>0))continue;P.push({nombre:d.nombre,largo:Math.round(+r.l),cant:+r.c,sis:d.sis,...(d.ref?{ref:d.ref}:{ser:d.ser}),...(+r.a===45?{ang:45}:{})})}
-      for(const v of it.pVid||[])vid(+v.a,+v.h,+v.c||1,"");
+    case"pesp":{for(const r of it.pPer||[]){const d=perfEsp(r.r),L=largoEsp(r,it,"l","f");if(!d||!(L>0)||!(+r.c>0))continue;P.push({nombre:d.nombre,largo:Math.round(L),cant:+r.c,sis:d.sis,...(d.ref?{ref:d.ref}:{ser:d.ser}),...(+r.a===45?{ang:45}:{})})}
+      for(const v of it.pVid||[])vid(largoEsp(v,it,"a","fa"),largoEsp(v,it,"h","fh"),+v.c||1,"");
       for(const a of it.pAcc||[]){if(!(+a.c>0))continue;if(a.k&&a.k!=="_libre"){const t=(PTA_ACC.find(x=>x[0]===a.k)||[])[1]||a.k;acc.push([t.split(" · ")[0],+a.c,a.k])}else if((a.n||"").trim())acc.push([a.n.trim(),+a.c,"_libre",+a.p||0])}break}
     case"division":{const r=vidriosDivision(it);
       vid(r.fijo,H,1,"fijo · templado");vid(r.movil,H,1,"móvil · templado");acc.push(["Kit accesorios división",1]);break}
@@ -2644,7 +2651,7 @@ document.addEventListener("click",async ev=>{
     case"compartir":compartirMenu(id);break;
     case"pe-add":{const it=S.itemTmp,g=b.dataset.g;it[g]=it[g]||[];it[g].push(g==="pPer"?{r:"",l:0,c:1,a:90}:g==="pAcc"?{k:"_libre",n:"",p:0,c:1}:{a:0,h:0,c:1});refreshSheet();break}
     case"pe-del":{const it=S.itemTmp;it[b.dataset.g].splice(+b.dataset.i,1);refreshSheet();break}
-    case"pe-fill":{const it=S.itemTmp,r=it.pPer[+b.dataset.i];if(r){r.l=+it[b.dataset.v]||0;refreshSheet()}break}
+    case"pe-fill":{const it=S.itemTmp,r=it.pPer[+b.dataset.i];if(r){const cur=fTxt(r,"l","f");r.f=/^[\d.,\s]*$/.test(cur)?b.dataset.v:cur+b.dataset.v;refreshSheet();setTimeout(()=>{const el=document.querySelector(`[data-pe="pPer.${b.dataset.i}.f"]`);if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(e){}}},30)}break}
     case"prod-obra":{const P=prodGet(),on=b.checked;P.obras=(P.obras||[]).filter(x=>x!==id);if(on)P.obras.push(id);prodSave();render();break}
     case"tengo":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,+b.dataset.n||1);toast("Pieza quitada del despiece");render();break;
     case"tengo-dev":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,-(+b.dataset.n||1));render();break;
@@ -2838,13 +2845,14 @@ document.addEventListener("input",ev=>{
     if(+i===L.length-1&&(r.a>0||r.h>0)){L.push({a:0,h:0,c:1,u:"",...(r.d?{d:r.d}:{}),...(r.v?{v:r.v}:{})});refreshSheet()}
     else{const e=$("#lote-res");if(e)e.innerHTML=loteRes(S.itemTmp);const g=$('[data-act="guardar-item"]');if(g)g.textContent="Agregar "+loteItems(S.itemTmp).length+" ítem(s) a la cotización"}return}
   if(t.dataset.pe&&S.itemTmp){const [g,i,f]=t.dataset.pe.split("."),it=S.itemTmp,r=(it[g]=it[g]||[])[+i];if(!r)return;let v=t.value;
-    if(f==="l"||(g==="pVid"&&(f==="a"||f==="h")))v=Math.round(num(v)*10);else if(f==="a")v=+v;else if(f==="c")v=num(v);else if(f==="p")v=Math.round(num(v));r[f]=v;
-    if(f==="k"){refreshSheet();return}const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
+    if(f==="f"||f==="fa"||f==="fh")v=String(v).trim();else if(f==="l"||(g==="pVid"&&(f==="a"||f==="h")))v=Math.round(num(v)*10);else if(f==="a")v=+v;else if(f==="c")v=num(v);else if(f==="p")v=Math.round(num(v));r[f]=v;
+    if(f==="k"){refreshSheet();return}if(f==="f"){const pr=$("#pe-res-"+i);if(pr)pr.innerHTML=peRes(r,it)}
+    if(g!=="pPer"||f!=="f")(it.pPer||[]).forEach((x,j)=>{const pr=$("#pe-res-"+j);if(pr)pr.innerHTML=peRes(x,it)});const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
     if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3"||k==="fondo")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl"||/^np\d$/.test(k))v=Math.round(num(v));else if(k==="recargo")v=num(v);
     S.itemTmp[k]=v;const it=S.itemTmp;
     const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);
-    const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);const lr=$("#lote-res");if(lr&&it.loteOn)lr.innerHTML=loteRes(it);return}
+    const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);if(it.tipo==="pesp")(it.pPer||[]).forEach((x,j)=>{const pr=$("#pe-res-"+j);if(pr)pr.innerHTML=peRes(x,it)});const lr=$("#lote-res");if(lr&&it.loteOn)lr.innerHTML=loteRes(it);return}
   if(t.dataset.cfg&&S.cfgEdit){const path=t.dataset.cfg.split(".");let o=S.cfgEdit;for(let i=0;i<path.length-1;i++)o=o[path[i]];const k=path[path.length-1];
     o[k]=(typeof o[k]==="number")?num(t.value):t.value;autoGuardarCfg();return}
   if(t.id==="cb-valor"){const h=$("#cb-letras");if(h){const v=Math.round(num(t.value));h.textContent=v?letras(v)+" PESOS M/CTE":""}return}
