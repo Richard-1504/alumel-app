@@ -371,6 +371,11 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 .rs-man{display:grid;gap:6px;margin-top:4px}
 .bar-t{background:transparent;border:1.5px dashed var(--ok);gap:2px;padding:1px}
 .cut-t{background:color-mix(in srgb,var(--ok) 22%,var(--surface))!important;color:var(--fg)!important;border:1px solid var(--ok)!important;border-radius:3px;line-height:20px}
+.pe-t{display:grid;gap:6px;align-items:center;font-size:14px}.pe-t>span:not(.pe-l):not(.pe-l2){font-size:12px;color:var(--muted)}
+.pe-per{grid-template-columns:minmax(0,1fr) 56px 72px 34px}.pe-per .pe-sel{grid-column:1/-1;margin-top:8px;font-weight:600}.pe-per .pe-sel:first-of-type{margin-top:0}.pe-acc{grid-template-columns:minmax(0,1fr) 60px 34px}.pe-vid{grid-template-columns:1fr 1fr 60px 34px}
+.pe-l{display:flex;gap:4px;align-items:center;min-width:0}.pe-l input{min-width:0;flex:1}.pe-q{display:flex;gap:2px}.pe-q .btn{padding:4px 6px;font-size:11px;min-height:0}
+.pe-l2{display:grid;gap:4px;min-width:0}.pe-q2{display:grid;grid-template-columns:1fr 80px;gap:4px}.pe-x{padding:4px 0;min-height:0}
+.pe-t .cin{padding:8px 6px;min-width:0;width:100%}
 .prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
 .prod-o{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--line);cursor:pointer}.ipanel .prod-o:first-child{border-top:0}
 .prod-p{display:flex;gap:12px;padding:12px 16px;border-top:.5px solid var(--line)}.ipanel .prod-p:first-child{border-top:0}
@@ -424,7 +429,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.72.2";
+const APP_VER="1.73.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -435,6 +440,7 @@ const TIPOS = {
   puerta:     {nombre:"Puerta de aluminio",  corto:"Puerta", oculto:true},
   p1:         {nombre:"Puerta de aluminio 1″",  corto:"Puerta 1″", puerta:true},
   p15:        {nombre:"Puerta de aluminio 1½″", corto:"Puerta 1½″", puerta:true},
+  pesp:       {nombre:"Puerta especial", corto:"Puerta especial", esp:true},
   division:   {nombre:"División de baño",    corto:"División de baño", div:true},
   pasamanos:  {nombre:"Pasamanos en acero inoxidable", corto:"Pasamanos"},
   cocina:     {nombre:"Cocina en aluminio", corto:"Cocina", coc:true},
@@ -447,7 +453,7 @@ const numCot=o=>AREAS[areaDe(o)].pref+pad(o?.numero||0);
 const numCobro=c=>(areaDe(c)==="vidrios"?"V-":"")+pad(c?.numero||0);
 const enArea=o=>areaDe(o)===S.area;
 /* Categorías para agregar ítems */
-const CATS=[["ventanas","Ventanas",["s744","s8025"]],["puertas","Puertas",["p1","p15"]],["cocinas","Cocinas",["cocina"]],["banos","Baños",["division"]],["pasamanos","Pasamanos",["pasamanos"]]];
+const CATS=[["ventanas","Ventanas",["s744","s8025"]],["puertas","Puertas",["p1","p15","pesp"]],["cocinas","Cocinas",["cocina"]],["banos","Baños",["division"]],["pasamanos","Pasamanos",["pasamanos"]]];
 const ESTADOS = [
   ["cotizacion","Cotización","st-cot"],["produccion","En producción","st-pro"],["instalada","Instalada","st-ent"]];
 /* Proceso simple: Cotización → En producción (al aprobar) → Instalada. Los estados viejos se convierten. */
@@ -666,6 +672,39 @@ function laminasMarmo(rects,media){const m=S.cfg.puertas.marmo,W=m.ancho*10,H=m.
   const sh=packRects(rects,W,H),last=sh[sh.length-1];
   const cabe=media&&!last.items.some(r=>r.over)&&packRects(last.items,W,H/2).length===1&&!packRects(last.items,W,H/2)[0].items.some(r=>r.over);
   return {laminas:sh.length-(cabe?0.5:0),media:cabe}}
+/* Puerta especial: perfiles de la lista de precios (puertas y series) elegidos a mano */
+function perfEsp(v){if(!v)return null;const [g,a,b]=String(v).split(":");if(g==="P")return {ref:a,nombre:a,sis:"Puertas"};if(g==="S"&&S.cfg.series[a])return {ser:a,nombre:b,sis:TIPOS[a].corto};return null}
+function perfEspOpts(sel){const pta=PTA_REFS.map(([r,u])=>[`P:${r}`,`${r} · ${u}`]),ser=Object.keys(S.cfg.series||{}).filter(k=>TIPOS[k]).map(k=>[TIPOS[k].corto,S.cfg.series[k].perfiles.map(p=>[`S:${k}:${p.nombre}`,p.nombre+" "+TIPOS[k].corto.replace("Serie ","")])]);
+  const o=(v,t)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(t)}</option>`;return `<option value="">Elige perfil…</option><optgroup label="Puertas">${pta.map(([v,t])=>o(v,t)).join("")}</optgroup>${ser.map(([g,L])=>`<optgroup label="${esc(g)}">${L.map(([v,t])=>o(v,t)).join("")}</optgroup>`).join("")}`}
+function pespCampos(it){it.pPer=it.pPer||[{r:"",l:0,c:1,a:90}];it.pAcc=it.pAcc||[];it.pVid=it.pVid||[];
+  const X=(g,i)=>`<button class="btn sm pe-x" data-act="pe-del" data-g="${g}" data-i="${i}" aria-label="Quitar fila">✕</button>`;
+  return `<div class="fgrid">
+    <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
+    <div class="field"><label for="it-alto">Alto (cm)</label><input id="it-alto" inputmode="decimal" data-it="alto" value="${cm(it.alto)}"></div>
+    <div class="field"><label for="it-cant">Cantidad</label><input id="it-cant" inputmode="numeric" data-it="cant" value="${it.cant}"></div>
+    <div class="field"><label for="it-color">Color perfil</label><select id="it-color" data-it="color">${S.cfg.colores.map(c=>`<option ${c.nombre===it.color?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select></div></div>
+  <div class="sketch">${sketch(it)}</div>
+  <div class="field"><label>Perfiles (para una puerta)</label>
+    <div class="pe-t pe-per"><span>Medida cm</span><span>Cant</span><span>Corte</span><span></span>
+    ${it.pPer.map((r,i)=>`<select class="cin pe-sel" data-pe="pPer.${i}.r" aria-label="Perfil ${i+1}">${perfEspOpts(r.r)}</select>
+      <span class="pe-l"><input class="cin" inputmode="decimal" data-pe="pPer.${i}.l" value="${r.l?cm(r.l):""}" placeholder="cm" aria-label="Medida ${i+1}"><span class="pe-q"><button class="btn sm" data-act="pe-fill" data-i="${i}" data-v="ancho" title="Medida = ancho">A</button><button class="btn sm" data-act="pe-fill" data-i="${i}" data-v="alto" title="Medida = alto">H</button></span></span>
+      <input class="cin" inputmode="numeric" data-pe="pPer.${i}.c" value="${r.c||1}" aria-label="Cantidad ${i+1}">
+      <select class="cin" data-pe="pPer.${i}.a" aria-label="Corte ${i+1}"><option value="90" ${+r.a!==45?"selected":""}>90°</option><option value="45" ${+r.a===45?"selected":""}>45°</option></select>${X("pPer",i)}`).join("")}</div>
+    <button class="btn sm" style="align-self:flex-start" data-act="pe-add" data-g="pPer">+ Agregar perfil</button></div>
+  <div class="field"><label>Accesorios (para una puerta)</label>
+    ${it.pAcc.length?`<div class="pe-t pe-acc"><span>Accesorio</span><span>Cant</span><span></span>
+    ${it.pAcc.map((a,i)=>`<span class="pe-l2"><select class="cin" data-pe="pAcc.${i}.k" aria-label="Accesorio ${i+1}"><option value="_libre" ${a.k==="_libre"||!a.k?"selected":""}>Otro (escribir)…</option>${PTA_ACC.map(([k,t])=>`<option value="${k}" ${a.k===k?"selected":""}>${esc(t)} · ${money(precioAccPta(k))}</option>`).join("")}</select>
+        ${a.k&&a.k!=="_libre"?"":`<span class="pe-q2"><input class="cin" data-pe="pAcc.${i}.n" value="${esc(a.n||"")}" placeholder="Nombre" aria-label="Nombre accesorio ${i+1}"><input class="cin" inputmode="numeric" data-pe="pAcc.${i}.p" value="${a.p||""}" placeholder="$ c/u" aria-label="Precio accesorio ${i+1}"></span>`}</span>
+      <input class="cin" inputmode="decimal" data-pe="pAcc.${i}.c" value="${a.c||1}" aria-label="Cantidad accesorio ${i+1}">${X("pAcc",i)}`).join("")}</div>`:""}
+    <button class="btn sm" style="align-self:flex-start" data-act="pe-add" data-g="pAcc">+ Agregar accesorio</button></div>
+  <div class="field"><label>Vidrios (opcional, para una puerta)</label>
+    ${it.pVid.length?`<select id="it-vidrio" class="cin" data-it="vidrio">${S.cfg.vidrios.map(v=>`<option value="${v.id}" ${v.id===it.vidrio?"selected":""}>${esc(v.nombre)} · ${money(v.m2)}/m²</option>`).join("")}</select>
+    <div class="pe-t pe-vid"><span>Ancho cm</span><span>Alto cm</span><span>Cant</span><span></span>
+    ${it.pVid.map((v,i)=>`<input class="cin" inputmode="decimal" data-pe="pVid.${i}.a" value="${v.a?cm(v.a):""}" aria-label="Ancho vidrio ${i+1}"><input class="cin" inputmode="decimal" data-pe="pVid.${i}.h" value="${v.h?cm(v.h):""}" aria-label="Alto vidrio ${i+1}"><input class="cin" inputmode="numeric" data-pe="pVid.${i}.c" value="${v.c||1}" aria-label="Cantidad vidrio ${i+1}">${X("pVid",i)}`).join("")}</div>`:""}
+    <button class="btn sm" style="align-self:flex-start" data-act="pe-add" data-g="pVid">+ Agregar vidrio</button></div>
+  <div class="fgrid">
+    <div class="field full"><label for="it-inst">Mano de obra por unidad ($)</label><input id="it-inst" inputmode="numeric" data-it="instalacion" value="${it.instalacion??instDe(it.tipo)}"></div>
+    <div class="field full"><label for="it-ubic">Ubicación o descripción</label><input id="it-ubic" data-it="ubicacion" value="${esc(it.ubicacion)}" placeholder="Ej: Puerta principal con reja"></div></div>`}
 function despiecePuerta(it,P,acc,T){
   const A=it.ancho,H=it.alto,tb=tableroPta(it),sis="Puertas";
   const R=(ref,l,c,ang)=>{if(l>0&&c>0)P.push({nombre:ref,largo:Math.round(l),cant:c,ref,sis,...(ang?{ang}:{})})};
@@ -816,12 +855,15 @@ function despiece(it){
       per("Cabezal marco",A,1);per("Jamba",H,2);per("Hoja horizontal",ah,3);per("Hoja vertical",hh,2);
       const va=ah-k.vid,vh=(hh-k.vid)/2;vid(va,vh,2,"2 paños");acc.push(["Bisagras",3],["Cerradura",1],["Manija",1]);break}
     case"vidrio":vid(A,H,1,"");break;
+    case"pesp":{for(const r of it.pPer||[]){const d=perfEsp(r.r);if(!d||!(+r.l>0)||!(+r.c>0))continue;P.push({nombre:d.nombre,largo:Math.round(+r.l),cant:+r.c,sis:d.sis,...(d.ref?{ref:d.ref}:{ser:d.ser}),...(+r.a===45?{ang:45}:{})})}
+      for(const v of it.pVid||[])vid(+v.a,+v.h,+v.c||1,"");
+      for(const a of it.pAcc||[]){if(!(+a.c>0))continue;if(a.k&&a.k!=="_libre"){const t=(PTA_ACC.find(x=>x[0]===a.k)||[])[1]||a.k;acc.push([t.split(" · ")[0],+a.c,a.k])}else if((a.n||"").trim())acc.push([a.n.trim(),+a.c,"_libre",+a.p||0])}break}
     case"division":{const r=vidriosDivision(it);
       vid(r.fijo,H,1,"fijo · templado");vid(r.movil,H,1,"móvil · templado");acc.push(["Kit accesorios división",1]);break}
     case"pasamanos":break;
   }
   const q=it.cant||1;
-  return {perfiles:P.map(p=>({...p,cant:p.cant*q})),vidrios:V.map(v=>({...v,cant:v.cant*q})),tab:T.map(t=>({...t,cant:t.cant*q})),mel:MEL.map(t=>({...t,cant:t.cant*q})),fon:FON.map(t=>({...t,cant:t.cant*q})),acc:acc.map(([n,c,k])=>[n,Math.round(c*q*100)/100,k])};
+  return {perfiles:P.map(p=>({...p,cant:p.cant*q})),vidrios:V.map(v=>({...v,cant:v.cant*q})),tab:T.map(t=>({...t,cant:t.cant*q})),mel:MEL.map(t=>({...t,cant:t.cant*q})),fon:FON.map(t=>({...t,cant:t.cant*q})),acc:acc.map(([n,c,k,...r])=>[n,Math.round(c*q*100)/100,k,...r])};
 }
 /* Distribución de naves: F = fija, C = corrediza */
 function layout(it){const n=it.naves||2,d=it.dist;
@@ -885,6 +927,13 @@ function calcCot(items,opts){opts=opts||{};
         const pl=pools[key]=pools[key]||{tipo:"Puertas",modo:cfg.puertas.cobro?.[p.ref]||"metro",serie:"Puertas",perfil:p.ref,color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
       for(const t of dp.tab)marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
+    else if(it.tipo==="pesp"){for(const p of dp.perfiles){
+        if(p.ser){const sc=cfg.series[p.ser],ref=sc.perfiles.find(x=>x.nombre===p.nombre),key=p.ser+"|"+p.nombre+"|"+(it.color||"");
+          const pl=pools[key]=pools[key]||{tipo:p.ser,modo:ref?.cobro||modoPorDefecto(p.ser),serie:TIPOS[p.ser].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
+          const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
+        const key="PTA|"+p.ref+"|"+(it.color||""),tira=(+cfg.puertas.perfiles[p.ref]||0)*f;
+        const pl=pools[key]=pools[key]||{tipo:"Puertas",modo:cfg.puertas.cobro?.[p.ref]||"metro",serie:"Puertas",perfil:p.ref,color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
+        const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}}
     else if(ser){const sc=cfg.series[it.tipo];
       for(const p of dp.perfiles){const key=it.tipo+"|"+p.nombre+"|"+(it.color||"");const ref=sc.perfiles.find(x=>x.nombre===p.nombre);
         const pl=pools[key]=pools[key]||{tipo:it.tipo,modo:ref?.cobro||modoPorDefecto(it.tipo),serie:TIPOS[it.tipo].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
@@ -900,6 +949,7 @@ function calcCot(items,opts){opts=opts||{};
     if(dvs)A("Accesorios división",1,+cfg.division.accesorios||0);else if(cfg.accesorios[it.tipo])A("Otros accesorios "+(TIPOS[it.tipo]?.corto||it.tipo),1,+cfg.accesorios[it.tipo]||0);
     if(ser){for(const [n,c] of dp.acc){if(n.startsWith("Rodamientos"))A(n+" "+TIPOS[it.tipo].corto,c,precioRod(it.tipo,it.rod));if(n.startsWith("Empaque"))A(n,c,+cfg.empaqueMl||0)}}
     if(pta){for(const [n,c,k] of dp.acc)if(k)A(n,c,precioAccPta(k))}
+    if(it.tipo==="pesp"){for(const [n,c,k,pr] of dp.acc)A(n,c,k==="_libre"?+pr||0:precioAccPta(k))}
     if(it.tipo==="cocina"){const cc=cfg.cocina||{},ml=cfg.melamina||{};for(const [n,c,k] of dp.acc)if(k)A(k==="canto"?"Canto "+(it.canto==="rigido"?"rígido":"flex")+" (m)":n,c,k==="canto"?(+(it.canto==="rigido"?ml.cantoRigido:ml.cantoFlex)||0):(+cc[k]||0))}
     lin[i].acc=acc*q;
     lin[i].inst=instDeIt(it)*q;
@@ -1012,10 +1062,11 @@ const medidaTxt=it=>it.tipo==="pasamanos"?"":esMel(it)?tramosCocina(it).map(cm).
 function detalleItem(it){if(it.tipo==="pasamanos")return "";if(it.tipo==="vidrio")return "";
   if(it.tipo==="cocina"&&it.sinPuertas)return "Sin puertas (solo estructura) · "+(esMel(it)?colorEst(it):(it.color||""));
   if(esMel(it))return tramosCocina(it).map((A,k)=>puertasTramo(it,k)).join(" + ")+" puertas · "+colorEst(it)+(colorPta(it)!==colorEst(it)?", puertas "+colorPta(it):"")+(esInf(it)?"":" · fondo "+cm(it.fondo||0)+(it.espaldar===false?" · sin espaldar":""));
-  if(it.tipo==="cocina"){const g=tramosEf(it).map((t,k)=>gabinete(t.Ap,esInf(it),puertasTramo(it,k)));return g.map(x=>x.N).join(" + ")+" puertas · "+(it.color||"")}if(TIPOS[it.tipo]?.puerta)return it.color||"";
+  if(it.tipo==="cocina"){const g=tramosEf(it).map((t,k)=>gabinete(t.Ap,esInf(it),puertasTramo(it,k)));return g.map(x=>x.N).join(" + ")+" puertas · "+(it.color||"")}if(TIPOS[it.tipo]?.puerta)return it.color||"";if(it.tipo==="pesp"){const n=(it.pPer||[]).filter(r=>perfEsp(r.r)&&+r.l>0).length;return [it.color||"",n?n+" perfil"+(n===1?"":"es"):"",(it.pVid||[]).length?vidrioDe(it.vidrio).nombre:""].filter(Boolean).join(" · ")}
   if(it.tipo==="division"){const r=vidriosDivision(it);return vidrioDivTxt()+(r.modo==="especial"?" a la medida":"")+" · fijo "+cm(r.fijo)+" + móvil "+cm(r.movil)+" cm"}return vidrioDe(it.vidrio).nombre+" · "+(it.color||"")}
 function describeItem(it){const t=TIPOS[it.tipo];
   if(it.tipo==="cocina")return "Cocina"+(esMel(it)?" en melamina":" en aluminio y PVC marmolizado")+" · "+(esMel(it)?(esInf(it)?"mueble inferior":"mueble superior"):(esInf(it)?"puertas inferiores":"gabinete superior"))+({L:" en L",U:" en U"}[it.forma]||"");
+  if(it.tipo==="pesp")return "Puerta especial";
   if(t?.puerta)return t.corto+(it.tipo==="p15"?" · nave "+(it.nave==="t244"?"T244":"T87"):"")+" · tablero "+tableroTxt(it);
   if(t?.serie)return t.corto+" · "+(it.naves||2)+" naves ("+distNombre(it)+")";
   if(it.tipo==="division")return "División de baño recta";
@@ -1211,6 +1262,7 @@ function sketch(it){
     if(it.tipo==="p1"){const bx=x+9,bw=w-18,bh=(h-18-8)/2;inner+=board(bx,y+9,bw,bh)+`<rect x="${bx}" y="${y+9+bh}" width="${bw}" height="8" fill="currentColor" opacity=".55"/>`+board(bx,y+17+bh,bw,bh)}
     else{const m=it.nave==="t244"?14:9;inner+=board(x+m,y+m,w-2*m,h-2*m)}
     inner+=`<circle cx="${x+w-(it.nave==="t244"&&it.tipo==="p15"?8:6)}" cy="${y+h/2+4}" r="2.6" fill="currentColor"/>`}
+  else if(it.tipo==="pesp"){const hv=(it.pVid||[]).length>0,fl='fill="var(--surface)"';inner=`<rect x="${x+6}" y="${y+6}" width="${w-12}" height="${h-12}" ${hv?glass:fl} ${s} stroke-width="2"/><rect x="${x+12}" y="${y+12}" width="${w-24}" height="${h-24}" fill="none" ${s} stroke-width="1" stroke-dasharray="4 3" opacity=".6"/><circle cx="${x+w-14}" cy="${y+h/2+4}" r="2.8" fill="currentColor"/>`}
   else if(it.tipo==="puerta"){inner=`<rect x="${x+5}" y="${y+5}" width="${w-10}" height="${h/2-8}" ${glass} ${s} stroke-width="2"/><rect x="${x+5}" y="${y+h/2+3}" width="${w-10}" height="${h/2-8}" ${glass} ${s} stroke-width="2"/><circle cx="${x+w-14}" cy="${y+h/2}" r="3" fill="currentColor"/>`}
   else if(it.tipo==="pasamanos"){inner=`<rect x="${x}" y="${y}" width="${w}" height="${h}" ${glass} ${s} stroke-width="2"/>`+[[8,8],[w-8,8],[8,h-8],[w-8,h-8]].map(([a,b])=>`<circle cx="${x+a}" cy="${y+b}" r="3" fill="none" ${s}/>`).join("")}
   else{inner=`<rect x="${x+5}" y="${y+5}" width="${w-10}" height="${h-10}" ${glass} ${s} stroke-width="2"/>`}
@@ -1422,6 +1474,8 @@ function faltanItem(it){if(!it||it.fuera||it.precioManual>0)return [];const F=ne
     if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
   else if(TIPOS[it.tipo]?.puerta){for(const p of dp.perfiles){if(p.pool==="cielo"){if(z(cfg.puertas.cielo.precio))F.add("Tira PVC cielorraso");continue}if(z(cfg.puertas.perfiles[p.ref]))F.add(p.ref)}
     for(const [n,c,k] of dp.acc)if(k&&c>0&&z(precioAccPta(k)))F.add(n.replace(/ \(m\)/,""));if(dp.tab.length&&z(cfg.puertas.marmo.precio))F.add("Lámina PVC marmolizado")}
+  else if(it.tipo==="pesp"){for(const p of dp.perfiles){const v=p.ser?(cfg.series[p.ser].perfiles.find(x=>x.nombre===p.nombre)||{}).precio:cfg.puertas.perfiles[p.ref];if(z(v))F.add(p.ser?TIPOS[p.ser].corto+" · "+p.nombre:p.ref)}
+    for(const [n,c,k,pr] of dp.acc)if(c>0&&z(k==="_libre"?pr:precioAccPta(k)))F.add(n);if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
   else if(esMel(it)){const ml=cfg.melamina,cs=new Set(dp.mel.map(p=>p.color));for(const c of cs)if(z(precioMel(c)))F.add("Lámina melamina "+c);if(dp.fon.length&&z(ml.fondoPrecio))F.add("Lámina fondo 3 mm");
     for(const [n,c,k] of dp.acc){if(!k||!(c>0))continue;if(k==="canto"){if(z(it.canto==="rigido"?ml.cantoRigido:ml.cantoFlex))F.add("Canto "+(it.canto==="rigido"?"rígido":"flex"))}else if(z(cfg.cocina[k]))F.add(n.replace(/ \(.*\)/,""))}}
   else if(it.tipo==="cocina"){const cc=cfg.cocina;for(const p of dp.perfiles){const v=p.ref==="naveDucha"?cc.naveDucha:p.ref==="a15"?cc.a15:p.ref==="T78"?cc.t78:cfg.puertas.perfiles[p.ref];if(z(v))F.add(p.ref==="naveDucha"?"Nave de ducha":p.ref==="a15"?"A15":p.ref)}
@@ -1706,7 +1760,7 @@ function resumenCtx(o,calc,ctx,editable){const k=catActiva(ctx);
   if(!k)return ctx==="__draft"?resumenHtml(calc,0,o.items,editable,null,"__draft"):resumenHtml(calc,0,calcCongelado(o)?[]:o.items,false,o.items||[],o.id);
   const sub=(o.items||[]).filter(it=>!it.fuera&&catDe(it)===k);if(!sub.length)return `<div class="panel"><h2>Resumen · ${catLbl(k)}</h2><span class="muted small">No hay ítems incluidos de esta categoría.</span></div>`;
   const cc=calcCat(o,calc,k);return resumenHtml({...cc,lineas:cc.lineasSub},0,sub,false,sub,null,{ctx,cat:k}).replace("<h2>Resumen</h2>",`<h2>Resumen · ${esc(catLbl(k))}</h2>`).replace(">Total cotización<",`>Total ${esc(catLbl(k).toLowerCase())}<`)}
-const CAT_NOM={s744:["ventana","ventanas"],s8025:["ventana","ventanas"],p1:["puerta","puertas"],p15:["puerta","puertas"],cocina:["cocina","cocinas"],division:["división de baño","divisiones de baño"],pasamanos:["pasamanos","pasamanos"],vidrio:["vidrio","vidrios"]};
+const CAT_NOM={s744:["ventana","ventanas"],s8025:["ventana","ventanas"],p1:["puerta","puertas"],p15:["puerta","puertas"],pesp:["puerta","puertas"],cocina:["cocina","cocinas"],division:["división de baño","divisiones de baño"],pasamanos:["pasamanos","pasamanos"],vidrio:["vidrio","vidrios"]};
 function trabajosTxt(o){const cnt={},ord=[];for(const it of o.items||[]){if(it.fuera)continue;const c=CAT_NOM[it.tipo]||[(TIPOS[it.tipo]?.corto||it.tipo).toLowerCase(),(TIPOS[it.tipo]?.corto||it.tipo).toLowerCase()],key=c[1];
     if(!(key in cnt)){cnt[key]={n:0,c};ord.push(key)}cnt[key].n+=it.cant||1}
   const L=ord.map(k=>cnt[k].n>1?cnt[k].c[1]:cnt[k].c[0]);if(!L.length)return "";const t=L.length>1?L.slice(0,-1).join(", ")+" y "+L[L.length-1]:L[0];return t[0].toUpperCase()+t.slice(1)}
@@ -1767,7 +1821,7 @@ function itemSheetHtml(){
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
   ${puedeLote(it)&&it.loteOn?`<div class="field">
     ${it.tipo!=="vidrio"?`<span class="hint">Todas con la misma referencia, color, vidrio y mano de obra de esta pantalla. Escribe una medida por fila; la fila nueva aparece sola.${distsLote(it).length?" En <b>Fija</b> tocas para cambiar el lado de cada ventana (Izq / Der"+((it.naves||2)===2?" / Corr = ambas corredizas":"")+").":""}</span>`:""}</div>`:""}
-  ${it.loteOn&&puedeLote(it)?loteHtml(it):it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
+  ${it.loteOn&&puedeLote(it)?loteHtml(it):it.tipo==="pesp"?pespCampos(it):it.tipo==="pasamanos"?pasaCampos(it):it.tipo==="cocina"?cocinaCampos(it):`  <div class="fgrid">
     <div class="field"><label for="it-ancho">Ancho (cm)</label><input id="it-ancho" inputmode="decimal" data-it="ancho" value="${cm(it.ancho)}"></div>
     ${it.tipo==="division"&&it.divModo!=="especial"?`<div class="field"><label>Alto (cm)</label><div class="seg">${[1800,1900].map(v=>`<button data-act="it-alto" data-v="${v}" aria-pressed="${it.alto===v}" style="min-height:44px">${v/10}</button>`).join("")}</div></div>`
      :`<div class="field"><label for="it-alto">Alto (cm)</label><input id="it-alto" inputmode="decimal" data-it="alto" value="${cm(it.alto)}"></div>`}
@@ -1786,7 +1840,7 @@ function itemSheetHtml(){
   ${it.loteOn&&puedeLote(it)?"":`<button class="btn block" data-act="dup-item">${S.itemIdx!=null?"Guardar y duplicar":"Agregar y hacer otro igual"}</button>`}`;
 }
 /* Varias medidas de la misma referencia en una sola pantalla */
-const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina"].includes(it.tipo);
+const puedeLote=it=>S.itemIdx==null&&!["pasamanos","cocina","pesp"].includes(it.tipo);
 function loteItems(it){const base={...it};delete base.lote;delete base.loteOn;
   const dEst=it.tipo==="division"&&it.divModo!=="especial";
   return (it.lote||[]).map(r=>dEst&&!(r.h>0)&&r.a>0?{...r,h:it.alto===1800?1800:1900}:r).filter(r=>r.a>0&&r.h>0).map(r=>({...clone(base),ancho:r.a,alto:r.h,cant:Math.max(1,r.c||1),ubicacion:r.u||"",...(r.i!=null&&r.i!==""&&!isNaN(+r.i)?{instalacion:+r.i}:{}),...(r.v?{vidrio:r.v}:{}),...(r.d&&TIPOS[it.tipo]?.serie?{dist:r.d}:{})}))}
@@ -2588,6 +2642,9 @@ document.addEventListener("click",async ev=>{
     case"cli-obra-ok":{const o=obra(id);if(!o)break;const nom=($("#co-cli")?.value||"").trim(),c=S.clientes.find(x=>(x.nombre||"").toLowerCase()===nom.toLowerCase());
       const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
     case"compartir":compartirMenu(id);break;
+    case"pe-add":{const it=S.itemTmp,g=b.dataset.g;it[g]=it[g]||[];it[g].push(g==="pPer"?{r:"",l:0,c:1,a:90}:g==="pAcc"?{k:"_libre",n:"",p:0,c:1}:{a:0,h:0,c:1});refreshSheet();break}
+    case"pe-del":{const it=S.itemTmp;it[b.dataset.g].splice(+b.dataset.i,1);refreshSheet();break}
+    case"pe-fill":{const it=S.itemTmp,r=it.pPer[+b.dataset.i];if(r){r.l=+it[b.dataset.v]||0;refreshSheet()}break}
     case"prod-obra":{const P=prodGet(),on=b.checked;P.obras=(P.obras||[]).filter(x=>x!==id);if(on)P.obras.push(id);prodSave();render();break}
     case"tengo":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,+b.dataset.n||1);toast("Pieza quitada del despiece");render();break;
     case"tengo-dev":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,-(+b.dataset.n||1));render();break;
@@ -2780,6 +2837,9 @@ document.addEventListener("input",ev=>{
     r[f]=f==="u"||f==="v"?t.value:f==="i"?(t.value.trim()===""?"":Math.round(num(t.value))):f==="c"?Math.round(num(t.value)):Math.round(num(t.value)*10);
     if(+i===L.length-1&&(r.a>0||r.h>0)){L.push({a:0,h:0,c:1,u:"",...(r.d?{d:r.d}:{}),...(r.v?{v:r.v}:{})});refreshSheet()}
     else{const e=$("#lote-res");if(e)e.innerHTML=loteRes(S.itemTmp);const g=$('[data-act="guardar-item"]');if(g)g.textContent="Agregar "+loteItems(S.itemTmp).length+" ítem(s) a la cotización"}return}
+  if(t.dataset.pe&&S.itemTmp){const [g,i,f]=t.dataset.pe.split("."),it=S.itemTmp,r=(it[g]=it[g]||[])[+i];if(!r)return;let v=t.value;
+    if(f==="l"||(g==="pVid"&&(f==="a"||f==="h")))v=Math.round(num(v)*10);else if(f==="a")v=+v;else if(f==="c")v=num(v);else if(f==="p")v=Math.round(num(v));r[f]=v;
+    if(f==="k"){refreshSheet();return}const calc=$("#it-calc");if(calc)calc.innerHTML=calcHtml(it);const sk=$(".sheet .sketch");if(sk)sk.innerHTML=sketch(it);return}
   if(t.dataset.it&&S.itemTmp){const k=t.dataset.it;let v=t.type==="checkbox"?t.checked:t.value;
     if(k==="ancho"||k==="alto"||k==="ancho2"||k==="ancho3"||k==="fondo")v=Math.round(num(v)*10);else if(k==="cant"||k==="precioManual"||k==="instalacion"||k==="acero"||k==="vidrioTpl"||/^np\d$/.test(k))v=Math.round(num(v));else if(k==="recargo")v=num(v);
     S.itemTmp[k]=v;const it=S.itemTmp;
