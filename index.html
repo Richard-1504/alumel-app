@@ -430,7 +430,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.75.0";
+const APP_VER="1.76.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -494,6 +494,7 @@ const DEFAULT_CFG = {
     cielo:{ancho:30,largo:600,precio:0}
   },
   chapas:[{nombre:"Chapa",precio:0}],
+  escuadrasTxt:"2, 3, 5",
   rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{colores:[{nombre:"Blanco",precio:0}],ancho:183,alto:244,precio:0,sierra:4,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
   barra:6000, sierra:4, sierra45:4, cobroInicio:1, cobroInicioVid:1, reciboInicio:1, vidrioMinM2:0,rolloEmpaque:100,instVid:{l1:0.4,l2:0.8,l3:1.2,v1:15000,v2:20000,v3:25000,v4:30000},
@@ -518,8 +519,9 @@ function migrarCfg(c){if((c.rev||0)<3){for(const sc of Object.values(c.series||{
     if(/adaptador/i.test(p.nombre)&&p.base==="ANF"){p.base="H";p.c2=0;p.c3=0;p.c4=1}}c.rev=3}
   if((c.rev||0)<4){for(const sc of Object.values(c.series||{}))sc.rod={...(c.rodamientos||{nylon:0,abb:0})};c.rev=4}
   if((c.rev||0)<5){c.instalacionTipo=c.instalacionTipo||{};const v=c.instalacionTipo.division;if(v==null||v===""||+v===+c.instalacion)c.instalacionTipo.division=200000;c.rev=5}
-  if((c.rev||0)<7){if(!Array.isArray(c.chapas)||!c.chapas.length)c.chapas=[{nombre:"Chapa",precio:+(c.puertas?.acc?.chapa)||0}];c.rev=7}
   if((c.rev||0)<6){c.instalacionTipo=c.instalacionTipo||{};const v=c.instalacionTipo.vidrio;if(v==null||v===""||+v===0||+v===+c.instalacion)c.instalacionTipo.vidrio=18000;c.rev=6}
+  if((c.rev||0)<7){if(!Array.isArray(c.chapas)||!c.chapas.length)c.chapas=[{nombre:"Chapa",precio:+(c.puertas?.acc?.chapa)||0}];c.rev=7}
+  if((c.rev||0)<8){c.cocina=c.cocina||{};if(c.cocina.escuadraAncho==null)c.cocina.escuadraAncho=Math.round((+c.cocina.escuadra||8)/4*10)/10;if(c.escuadrasTxt==null)c.escuadrasTxt="2, 3, 5";c.rev=8}
   return c}
 function mergeCfg(base,over){const o=clone(base);for(const k in over){if(over[k]&&typeof over[k]==="object"&&!Array.isArray(over[k])&&o[k]&&typeof o[k]==="object"&&!Array.isArray(o[k]))o[k]=mergeCfg(o[k],over[k]);else o[k]=over[k]}return o}
 
@@ -688,9 +690,13 @@ function evalF(f,A,H){if(f==null||f==="")return null;let e=String(f).toUpperCase
   if(!/^[0-9AH+\-*\/().]+$/.test(e))return null;e=e.replace(/(\d|\))(?=[AH(])/g,"$1*").replace(/([AH)])(?=[\d(AH])/g,"$1*");try{const v=Function("A","H","return ("+e+")")(A,H);return isFinite(v)?Math.round(v*10)/10:null}catch(_){return null}}
 const largoEsp=(x,it,k,kf)=>{const f=x[kf];if(f!=null&&f!==""){const v=evalF(f,(it.ancho||0)/10,(it.alto||0)/10);return v>0?Math.round(v*10):0}return +x[k]||0};
 const fTxt=(x,k,kf)=>x[kf]!=null&&x[kf]!==""?x[kf]:(+x[k]>0?cm(+x[k]):"");
-function perfEsp(v){if(!v)return null;const [g,a,b]=String(v).split(":");if(g==="J"&&a==="alamo")return {juego:[{ref:"S343",nombre:"S343",sis:"Puertas"},{ref:"S344",nombre:"S344",sis:"Puertas"}],nombre:"Juego Álamo"};if(g==="P")return {ref:a,nombre:a,sis:"Puertas"};if(g==="S"&&S.cfg.series[a])return {ser:a,nombre:b,sis:TIPOS[a].corto};return null}
+/* A15: ángulo en tiras de 6 m del que se cortan las escuadras */
+const escAncho=()=>+S.cfg.cocina?.escuadraAncho||(+S.cfg.cocina?.escuadra||8)/4;
+const escMedidas=()=>String(S.cfg.escuadrasTxt||"").split(/[;,\s]+/).map(x=>+x.replace(",","."))
+  .filter(x=>x>0);
+function perfEsp(v){if(v==="A:a15")return {ref:"a15",nombre:"A15",sis:"Escuadras"};if(!v)return null;const [g,a,b]=String(v).split(":");if(g==="J"&&a==="alamo")return {juego:[{ref:"S343",nombre:"S343",sis:"Puertas"},{ref:"S344",nombre:"S344",sis:"Puertas"}],nombre:"Juego Álamo"};if(g==="P")return {ref:a,nombre:a,sis:"Puertas"};if(g==="S"&&S.cfg.series[a])return {ser:a,nombre:b,sis:TIPOS[a].corto};return null}
 function perfEspOpts(sel){const pta=PTA_REFS.map(([r,u])=>[`P:${r}`,`${r} · ${u}`]),ser=Object.keys(S.cfg.series||{}).filter(k=>TIPOS[k]).map(k=>[TIPOS[k].corto,S.cfg.series[k].perfiles.map(p=>[`S:${k}:${p.nombre}`,p.nombre+" "+TIPOS[k].corto.replace("Serie ","")])]);
-  const o=(v,t)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(t)}</option>`;return `<option value="">Elige perfil…</option><optgroup label="Juegos">${o("J:alamo","Juego Álamo (S343 + S344)")}</optgroup><optgroup label="Puertas">${pta.map(([v,t])=>o(v,t)).join("")}</optgroup>${ser.map(([g,L])=>`<optgroup label="${esc(g)}">${L.map(([v,t])=>o(v,t)).join("")}</optgroup>`).join("")}`}
+  const o=(v,t)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(t)}</option>`;return `<option value="">Elige perfil…</option><optgroup label="Juegos">${o("J:alamo","Juego Álamo (S343 + S344)")}</optgroup><optgroup label="Ángulo">${o("A:a15","A15 · escuadras")}</optgroup><optgroup label="Puertas">${pta.map(([v,t])=>o(v,t)).join("")}</optgroup>${ser.map(([g,L])=>`<optgroup label="${esc(g)}">${L.map(([v,t])=>o(v,t)).join("")}</optgroup>`).join("")}`}
 function peResAll(it){(it.pPer||[]).forEach((r,i)=>(Array.isArray(r.m)?r.m:[]).forEach((m,j)=>{const pr=document.getElementById(`pe-res-${i}-${j}`);if(pr)pr.innerHTML=peRes(m,it)}))}
 const medsEsp=r=>Array.isArray(r.m)?r.m:[{f:r.f,l:r.l,c:r.c,a:r.a}];
 function normPer(r){if(!Array.isArray(r.m)){r.m=[{f:r.f!=null&&r.f!==""?r.f:(+r.l>0?cm(+r.l):""),c:r.c||1,a:r.a||90}];delete r.f;delete r.l;delete r.c;delete r.a}return r}
@@ -711,6 +717,7 @@ function pespCampos(it){it.pPer=it.pPer||[{r:"",l:0,c:1,a:90}];it.pAcc=it.pAcc||
         <input class="cin" inputmode="numeric" data-pe="pPer.${i}.m.${j}.c" value="${m.c||1}" aria-label="Cantidad medida ${j+1}">
         <select class="cin" data-pe="pPer.${i}.m.${j}.a" aria-label="Corte medida ${j+1}"><option value="90" ${+m.a!==45?"selected":""}>90°</option><option value="45" ${+m.a===45?"selected":""}>45°</option></select>
         ${r.m.length>1?`<button class="btn sm pe-x" data-act="pe-mdel" data-i="${i}" data-j="${j}" aria-label="Quitar medida">✕</button>`:"<span></span>"}<span class="pe-res" id="pe-res-${i}-${j}">${peRes(m,it)}</span>`).join("")}</div>
+      ${r.r==="A:a15"&&escMedidas().length?`<div class="row" style="gap:6px;flex-wrap:wrap"><span class="small muted">Escuadras de:</span>${escMedidas().map(v=>`<button class="btn sm" data-act="pe-esc" data-i="${i}" data-v="${v}">${String(v).replace(".",",")} cm</button>`).join("")}</div>`:""}
       <button class="btn sm pe-madd" data-act="pe-madd" data-i="${i}">+ Otra medida de ${esc(perfEsp(r.r)?.nombre||"este perfil")}</button></div>`}).join("")}
     <span class="hint">En la medida puedes escribir un número o una fórmula con <b>A</b> (ancho) y <b>H</b> (alto) en cm: <b>H-2.5</b>, <b>A-6</b>, <b>(A-11)/2</b>. Si cambias las medidas de la puerta, se recalcula sola.</span>
     <button class="btn sm" style="align-self:flex-start" data-act="pe-add" data-g="pPer">+ Agregar perfil</button></div>
@@ -846,7 +853,7 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
     const huecos=g.P+g.sola,conLosero=it.losero!==false&&!loseros?1:0;
     A61(585,2);A61(300,4*conLosero+2*(huecos-conLosero));loseros+=conLosero;vidrios+=huecos-conLosero}
   for(const [k,n] of Object.entries(pv)){const [w,h]=k.split("x").map(Number);T.push({ancho:w,alto:h,cant:n})}
-  if(marcos)P.push({nombre:"A15 (escuadras)",largo:Math.round((+cc.escuadra||8)*10),cant:marcos,ref:"a15",sis});
+  if(marcos)P.push({nombre:"A15",largo:Math.round(escAncho()*10),cant:marcos*4,ref:"a15",sis:"Escuadras"});
   if(loseros)acc.push(["Losero",loseros,"losero"]);if(vidrios)acc.push(["Vidrios de entrepaño",vidrios,"vidrioHueco"]);
   acc.push(["Bisagras (par)",puertas,"bisagra"],["Manijas",puertas,"manija"],["Empaque PVC (m)",Math.round(perim/10)/100,"empaque"],["Láminas de PVC marmolizado (piezas)",Object.values(pv).reduce((a,b)=>a+b,0)]);}
 function despiece(it){
@@ -953,6 +960,8 @@ function calcCot(items,opts){opts=opts||{};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
       for(const t of dp.tab)marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
     else if(it.tipo==="pesp"){for(const p of dp.perfiles){
+        if(p.ref==="a15"){const cc=cfg.cocina||{},tira=+cc.a15||0,key="COC|a15|";const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:cc.cobroA15||"metro",serie:"Cocina",perfil:"A15 (escuadras)",color:"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
+          const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
         if(p.ser){const sc=cfg.series[p.ser],ref=sc.perfiles.find(x=>x.nombre===p.nombre),key=p.ser+"|"+p.nombre+"|"+(it.color||"");
           const pl=pools[key]=pools[key]||{tipo:p.ser,modo:ref?.cobro||modoPorDefecto(p.ser),serie:TIPOS[p.ser].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
           const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
@@ -1224,7 +1233,7 @@ function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of s
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={},melC={};let esc=0;
   for(const it of items){if(it.fuera)continue;const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
-    for(const p of dp.perfiles){if(p.ref==="a15"){esc+=p.cant*4;continue}const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang;if(it._o){const og=(per[key].org=per[key].org||{})[p.largo]=per[key].org[p.largo]||{};og[it._o]=(og[it._o]||0)+p.cant;(per[key].obras=per[key].obras||new Set()).add(it._o)}}
+    for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang;if(it._o){const og=(per[key].org=per[key].org||{})[p.largo]=per[key].org[p.largo]||{};og[it._o]=(og[it._o]||0)+p.cant;(per[key].obras=per[key].obras||new Set()).add(it._o)}}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const gg=g==="mel"?"mel|"+(t.color||"Blanco"):g,key=gg+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g:gg,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
@@ -1499,7 +1508,7 @@ function faltanItem(it){if(!it||it.fuera||it.precioManual>0)return [];const F=ne
     if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
   else if(TIPOS[it.tipo]?.puerta){for(const p of dp.perfiles){if(p.pool==="cielo"){if(z(cfg.puertas.cielo.precio))F.add("Tira PVC cielorraso");continue}if(z(cfg.puertas.perfiles[p.ref]))F.add(p.ref)}
     for(const [n,c,k] of dp.acc)if(k&&c>0&&z(precioAccIt(it,k)))F.add(n.replace(/ \(m\)/,""));if(dp.tab.length&&z(cfg.puertas.marmo.precio))F.add("Lámina PVC marmolizado")}
-  else if(it.tipo==="pesp"){for(const p of dp.perfiles){const v=p.ser?(cfg.series[p.ser].perfiles.find(x=>x.nombre===p.nombre)||{}).precio:cfg.puertas.perfiles[p.ref];if(z(v))F.add(p.ser?TIPOS[p.ser].corto+" · "+p.nombre:p.ref)}
+  else if(it.tipo==="pesp"){for(const p of dp.perfiles){const v=p.ref==="a15"?cfg.cocina?.a15:p.ser?(cfg.series[p.ser].perfiles.find(x=>x.nombre===p.nombre)||{}).precio:cfg.puertas.perfiles[p.ref];if(z(v))F.add(p.ref==="a15"?"A15 (tira)":p.ser?TIPOS[p.ser].corto+" · "+p.nombre:p.ref)}
     for(const [n,c,k,pr] of dp.acc)if(c>0&&z(k==="_libre"?pr:precioAccIt(it,k)))F.add(n);if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
   else if(esMel(it)){const ml=cfg.melamina,cs=new Set(dp.mel.map(p=>p.color));for(const c of cs)if(z(precioMel(c)))F.add("Lámina melamina "+c);if(dp.fon.length&&z(ml.fondoPrecio))F.add("Lámina fondo 3 mm");
     for(const [n,c,k] of dp.acc){if(!k||!(c>0))continue;if(k==="canto"){if(z(it.canto==="rigido"?ml.cantoRigido:ml.cantoFlex))F.add("Canto "+(it.canto==="rigido"?"rígido":"flex"))}else if(z(cfg.cocina[k]))F.add(n.replace(/ \(.*\)/,""))}}
@@ -2345,7 +2354,8 @@ function vAjustes(){
    <h3>Puertas</h3><div class="fgrid">${fld("pt-f06","Ancho útil F06 (cm)","puertas.utilF06",c.puertas.utilF06,"",true)}${fld("pt-t166","Ancho útil T166 (cm)","puertas.utilT166",c.puertas.utilT166,"",true)}</div>
    <h3>Cocinas en aluminio</h3><div class="fgrid">
    ${fld("cc-al","Alto del gabinete superior (cm)","cocina.alto",c.cocina.alto,"",true)}${fld("cc-ai","Alto inicial puertas inferiores (cm)","cocina.altoInf",c.cocina.altoInf,"",true)}
-   ${fld("cc-esc","A15 por marco para cotizar (cm)","cocina.escuadra",c.cocina.escuadra,"Cada marco lleva 4 escuadras; en cortes solo sale la cantidad de escuadras.",true)}${fld("cc-dp","Lámina PVC: menos por medida (cm)","cocina.descPvc",c.cocina.descPvc,"",true)}</div>
+   ${fld("cc-esc","Ancho de cada escuadra A15 · cocinas (cm)","cocina.escuadraAncho",c.cocina.escuadraAncho??2,"Cada marco lleva 4 escuadras. Se cortan de tiras de A15 de 6 m.",true)}
+   <div class="field full"><label for="esc-txt">Medidas de escuadras A15 para puertas especiales (cm)</label><input id="esc-txt" class="cin" data-cfg="escuadrasTxt" value="${esc(c.escuadrasTxt||"")}" placeholder="Ej: 2, 3, 5"><span class="hint">Separadas por coma. Salen como botones rápidos al elegir A15 en una puerta especial.</span></div>${fld("cc-dp","Lámina PVC: menos por medida (cm)","cocina.descPvc",c.cocina.descPvc,"",true)}</div>
    <h3>Descuentos de despiece (mm)</h3><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
    ${Object.keys(c.desc).filter(k=>TIPOS[k]&&!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3 class="small">${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}
    <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
@@ -2671,6 +2681,7 @@ document.addEventListener("click",async ev=>{
       const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
     case"compartir":compartirMenu(id);break;
     case"pe-madd":{const r=normPer(S.itemTmp.pPer[+b.dataset.i]);r.m.push({f:"",c:1,a:r.m[r.m.length-1]?.a||90});refreshSheet();setTimeout(()=>{const el=document.querySelector(`[data-pe="pPer.${b.dataset.i}.m.${r.m.length-1}.f"]`);if(el)el.focus()},30);break}
+    case"pe-esc":{const r=normPer(S.itemTmp.pPer[+b.dataset.i]),v=b.dataset.v,ult=r.m[r.m.length-1];if(ult&&!(fTxt(ult,"l","f")))ult.f=v;else r.m.push({f:v,c:4,a:90});refreshSheet();break}
     case"pe-mdel":{const r=normPer(S.itemTmp.pPer[+b.dataset.i]);r.m.splice(+b.dataset.j,1);refreshSheet();break}
     case"pe-add":{const it=S.itemTmp,g=b.dataset.g;it[g]=it[g]||[];it[g].push(g==="pPer"?{r:"",m:[{f:"",c:1,a:90}]}:g==="pAcc"?{k:"_libre",n:"",p:0,c:1}:{a:0,h:0,c:1});refreshSheet();break}
     case"pe-del":{const it=S.itemTmp;it[b.dataset.g].splice(+b.dataset.i,1);refreshSheet();break}
