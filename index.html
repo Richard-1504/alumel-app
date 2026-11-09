@@ -416,7 +416,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.69.0";
+const APP_VER="1.69.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -841,6 +841,9 @@ const redV=mm=>{const r=(S.cfg.redondeoVidrio||0)*10;return r?Math.ceil(mm/r-1e-
 /* Instalación predeterminada de cada tipo de sistema */
 /* Instalación de vidrios automática por tamaño de la pieza (m² de una pieza) */
 function instVidAuto(it){const t=S.cfg.instVid||{},m=(+it.ancho||0)*(+it.alto||0)/1e6;return m<=(+t.l1||0.4)?+t.v1||15000:m<=(+t.l2||0.8)?+t.v2||20000:m<=(+t.l3||1.2)?+t.v3||25000:+t.v4||30000}
+/* Lo que se elige para una pieza queda como el nuevo valor de ese tamaño para las próximas cotizaciones */
+function guardarInstTam(it,v){if(S.readonly||!(v>0)||it.tipo!=="vidrio")return;const t=S.cfg.instVid||{},m=(+it.ancho||0)*(+it.alto||0)/1e6,n=m<=+t.l1?1:m<=+t.l2?2:m<=+t.l3?3:4;if(+t["v"+n]===v)return;
+  const c=clone(S.cfg);c.instVid={...(c.instVid||{}),["v"+n]:v};guardarCfg(c).catch(()=>{});const f=x=>String(x).replace(".",",");toast(`Guardado: piezas ${n<4?"hasta "+f(t["l"+n])+" m²":"de más de "+f(t.l3)+" m²"} → ${money(v)} en adelante`)}
 const instAuto=it=>it.tipo==="vidrio"?instVidAuto(it):instDe(it.tipo);
 const instDeIt=it=>it.instalacion!=null&&it.instalacion!==""?+it.instalacion:instAuto(it);
 function instDe(tipo){const t=S.cfg.instalacionTipo||{};if(tipo==="vidrio")return t.vidrio!=null&&t.vidrio!==""?+t.vidrio:18000;return t[tipo]!=null&&t[tipo]!==""?+t[tipo]:(+S.cfg.instalacion||0)}
@@ -1506,8 +1509,9 @@ function vidItemsHtml(d,calc){const G=vidGrupos(d);
        <div class="vr-g vr-e"><input id="vr-${i}-ancho" class="cin" inputmode="decimal" data-vr="${i}.ancho" value="${it.ancho?cm(it.ancho):""}" placeholder="Ancho" aria-label="Ancho"><input id="vr-${i}-alto" class="cin" inputmode="decimal" data-vr="${i}.alto" value="${it.alto?cm(it.alto):""}" placeholder="Alto" aria-label="Alto"><input id="vr-${i}-cant" class="cin" inputmode="numeric" data-vr="${i}.cant" value="${it.cant||1}" aria-label="Cantidad"></div>
        <input id="vr-${i}-ubicacion" class="cin" data-vr="${i}.ubicacion" value="${esc(it.ubicacion||"")}" placeholder="Ubicación (opcional)">
        <label for="vr-${i}-instalacion">Instalación de este vidrio (por pieza)</label>
-       <div class="seg vr-inst">${(()=>{const au=instVidAuto(it),man=it.instalacion!=null&&it.instalacion!=="";return `<button data-act="vr-inst" data-i="${i}" data-v="" aria-pressed="${!man}">Auto ${Math.round(au/1000)} mil</button>`+[15000,20000,25000,30000,35000,40000,50000].map(v=>`<button data-act="vr-inst" data-i="${i}" data-v="${v}" aria-pressed="${man&&+it.instalacion===v}">${v/1000} mil</button>`).join("")})()}</div>
+       <div class="seg vr-inst">${(()=>{const au=instVidAuto(it),man=it.instalacion!=null&&it.instalacion!=="";const vv=man?+it.instalacion:au;return [15000,20000,25000,30000,35000,40000,50000].map(v=>`<button data-act="vr-inst" data-i="${i}" data-v="${v}" aria-pressed="${vv===v}">${v/1000} mil</button>`).join("")})()}</div>
        <input id="vr-${i}-instalacion" class="cin" inputmode="numeric" data-vr="${i}.instalacion" value="${it.instalacion??""}" placeholder="Otro valor…" aria-label="Otro valor de instalación">
+       <span class="small muted">Lo que elijas queda guardado para las piezas de este tamaño en las próximas cotizaciones.</span>
        <div class="row" style="gap:8px"><button class="btn sm danger" data-act="vr-del" data-i="${i}">Quitar</button><button class="btn sm pri grow" data-act="vr-listo">Listo</button></div></div>`)(ed):""}
      <div class="vr-g vr-n"><input id="vn-${g.id}-ancho" class="cin" inputmode="decimal" data-vn="${g.id}" data-f="ancho" placeholder="Ancho" aria-label="Ancho nuevo"><input id="vn-${g.id}-alto" class="cin" inputmode="decimal" data-vn="${g.id}" data-f="alto" placeholder="Alto" aria-label="Alto nuevo"><input id="vn-${g.id}-cant" class="cin" inputmode="numeric" data-vn="${g.id}" data-f="cant" value="1" aria-label="Cantidad nueva" enterkeyhint="done"><button class="btn sm pri" data-act="vn-add" data-g="${g.id}" aria-label="Agregar medida">+</button></div></div>`}).join("")+
    `<button class="btn block" data-act="vg-nuevo">+ Otro cuadro (otro tipo de vidrio)</button>
@@ -1569,7 +1573,7 @@ function resumenHtml(calc,total,items,editable,todos,ctx,man){const F=faltanItem
   return `<div class="panel"><h2>Resumen</h2>${nf?`<div class="note" style="border-color:var(--warn)">${nf} ítem(s) sin marcar no van en esta cotización: no suman, no salen en el PDF ni en el WhatsApp, pero quedan guardados. Márcalos de nuevo cuando los necesites.</div>`:""}
    ${soloM2?(()=>{const sinI=(ctx==="__draft"?S.draft:obra(ctx))?.sinInst,sug=R.instSug||0,tv=R.vidrio+R.ajuste+(R.ajusteManual||0);
      const bS=(editable?`<div class="mc-f"><div class="mc-t"><label class="row small" style="gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" data-act="vid-inst-incl" ${sinI?"":"checked"} style="width:20px;height:20px;accent-color:var(--accent)"> Incluir la instalación en la cotización</label>
-       <span class="small muted" style="margin-top:6px">${(()=>{const t=S.cfg.instVid||{},f=x=>String(x).replace(".",",");return `Automática por tamaño: hasta ${f(t.l1)} m² ${money(t.v1)} · hasta ${f(t.l2)} m² ${money(t.v2)} · hasta ${f(t.l3)} m² ${money(t.v3)} · más grande ${money(t.v4)}. Para cobrar más, toca la medida y elige otro valor.`})()}</span>
+       <span class="small muted" style="margin-top:6px">${(()=>{const t=S.cfg.instVid||{},f=x=>String(x).replace(".",",");return `Automática por tamaño: hasta ${f(t.l1)} m² ${money(t.v1)} · hasta ${f(t.l2)} m² ${money(t.v2)} · hasta ${f(t.l3)} m² ${money(t.v3)} · más grande ${money(t.v4)}. Si tocas una medida y eliges otro valor, queda guardado para ese tamaño.`})()}</span>
        ${(items||[]).some(x=>x.tipo==="vidrio"&&x.instalacion!=null&&x.instalacion!=="")?`<button class="btn sm" style="margin-top:6px;align-self:flex-start" data-act="vid-inst-auto">Volver todas a automática</button>`:""}</div></div>`:"")+bI;
      return `<div class="rs">${grupo("Vidrio",R.vidrio,bV,true)}${Math.abs(R.ajuste)>=1?grupo("Redondeo",R.ajuste,""):""}${R.ajusteManual?grupo("Ajuste a valor manual",R.ajusteManual,""):""}
       <div class="rs-tot"><span>Total vidrios</span><span class="num">${money(tv)}</span></div>
@@ -2562,7 +2566,7 @@ document.addEventListener("click",async ev=>{
     case"vr-mas":{S.vrOpen=S.vrOpen||{};const k=+b.dataset.i;S.vrOpen[k]=!S.vrOpen[k];vidPanel();break}
     case"vr-del":{S.draft.items.splice(+b.dataset.i,1);S.vrOpen={};S.vrEdit=null;render();break}
     case"vid-inst-incl":S.draft.sinInst=!b.checked;render();break;
-    case"vr-inst":{const it=S.draft?.items?.[+b.dataset.i];if(!it)break;const v=b.dataset.v;if(v)it.instalacion=+v;else delete it.instalacion;vidPanel();break}
+    case"vr-inst":{const it=S.draft?.items?.[+b.dataset.i];if(!it)break;const v=+b.dataset.v;delete it.instalacion;if(v)guardarInstTam(it,v);vidPanel();break}
     case"vid-inst-auto":{S.draft.items.forEach(x=>{if(x.tipo==="vidrio")delete x.instalacion});toast("Instalación automática por tamaño en todos los vidrios");render();break}
     case"vid-inst-todos":{const v=Math.round(num($("#vi-todos")?.value));S.draft.items.forEach(x=>{if(x.tipo==="vidrio")x.instalacion=v});
       if(!S.readonly&&v!==instDe("vidrio")){const c=clone(S.cfg);c.instalacionTipo={...(c.instalacionTipo||{}),vidrio:v};guardarCfg(c).catch(()=>{})}toast("Instalación de "+money(v)+" para todos los vidrios");render();break}
@@ -2690,7 +2694,8 @@ document.addEventListener("input",ev=>{
 });
 document.addEventListener("change",ev=>{const t=ev.target;
   if(t.dataset&&t.dataset.totMan!==undefined){totalManualSet(t.dataset.totMan,+String(t.value).replace(/\D/g,"")||0,t.dataset.cat||"");return}
-  if(t.dataset&&t.dataset.itInst!==undefined&&S.draft){const it=S.draft.items[+t.dataset.itInst];if(it){it.instalacion=Math.round(num(t.value));render()}return}
+  if(t.dataset&&t.dataset.vr&&/\.instalacion$/.test(t.dataset.vr)&&S.draft){const it=S.draft.items[+t.dataset.vr.split(".")[0]],v=Math.round(num(t.value));if(it&&v>0){delete it.instalacion;guardarInstTam(it,v);vidPanel()}return}
+  if(t.dataset&&t.dataset.itInst!==undefined&&S.draft){const it=S.draft.items[+t.dataset.itInst];if(it){const v=Math.round(num(t.value));if(it.tipo==="vidrio"&&v>0){delete it.instalacion;guardarInstTam(it,v)}else it.instalacion=v;render()}return}
   if(t.dataset&&t.dataset.perfimg!==undefined&&t.files&&t.files[0]){const key=t.dataset.perfimg,fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,240/Math.max(im.width,im.height)),cv=document.createElement("canvas");
       cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);
       const c=S.cfgEdit||(S.cfgEdit=clone(S.cfg));c.perfilImg={...(c.perfilImg||{}),[key]:cv.toDataURL("image/jpeg",0.82)};S.cfg.perfilImg=c.perfilImg;autoGuardarCfg();render();toast("Foto del perfil guardada")};im.src=fr.result};fr.readAsDataURL(t.files[0]);t.value="";return}
