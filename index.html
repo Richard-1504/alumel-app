@@ -424,7 +424,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.71.1";
+const APP_VER="1.72.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -488,7 +488,7 @@ const DEFAULT_CFG = {
   },
   rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{colores:[{nombre:"Blanco",precio:0}],ancho:183,alto:244,precio:0,sierra:4,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
-  barra:6000, sierra:4, sierra45:4, cobroInicio:1, cobroInicioVid:1, reciboInicio:1, vidrioMinM2:0,instVid:{l1:0.4,l2:0.8,l3:1.2,v1:15000,v2:20000,v3:25000,v4:30000},
+  barra:6000, sierra:4, sierra45:4, cobroInicio:1, cobroInicioVid:1, reciboInicio:1, vidrioMinM2:0,rolloEmpaque:100,instVid:{l1:0.4,l2:0.8,l3:1.2,v1:15000,v2:20000,v3:25000,v4:30000},
   desc:{
     corrediza:{traslape:30,hojaA:15,hojaH:40,vidA:50,vidH:65},
     proyectante:{hoja:30,vid:60},
@@ -1948,7 +1948,7 @@ function vCortes(){
    ${nPvc?`<div class="stat"><div class="eyebrow">Láminas PVC</div><div class="v">${String(L2.laminas).replace(".",",")}</div></div>
    <div class="stat"><div class="eyebrow">Piezas PVC</div><div class="v">${nPvc}</div></div>`:""}</div>
   <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
-  <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button></div>
+  <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button><button class="btn full" data-act="pedido" data-v="${sel}">Pedido de perfiles y accesorios</button></div>
   <h2>Perfiles</h2><span class="small muted" style="margin-top:-8px">¿Ya tienes una pieza en el taller? Déjala presionada (o doble clic) en la barra y elige "Ya la tengo": pasa a la barra verde "Ya tengo" de ese perfil.</span>${perfHtml}
   ${(res.mel||[]).length?melCortesHtml(res.mel):""}
   ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
@@ -2016,7 +2016,7 @@ function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.e
    <div class="stat"><div class="eyebrow">Por separado</div><div class="v">${D.sep}</div></div>
    <div class="stat"><div class="eyebrow">A comprar</div><div class="v">${D.per.reduce((a,x)=>a+x.compra,0)+(P.extra||[]).reduce((a,x)=>a+(+x.n||0),0)}</div></div></div>
   ${D.sep>D.juntas?`<div class="note ok">Juntando estas obras te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>.</div>`:""}
-  <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button><button class="btn full" data-act="prod-compra">Lista de compra (WhatsApp)</button></div>
+  <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button><button class="btn full" data-act="prod-compra">Pedido de perfiles y accesorios</button></div>
   <div class="sec-t">Perfiles · barras a comprar</div>
   ${D.res.tengo.length?`<span class="small muted" style="margin:-8px 16px 0">Ya descontadas ${D.res.tengo.reduce((a,x)=>a+x.n,0)} pieza(s) que tienes en el taller (ver en "Ver cortes juntos").</span>`:`<span class="small muted" style="margin:-8px 16px 0">Si ya tienes alguna pieza en el taller, quítala en "Ver cortes juntos" dejándola presionada.</span>`}
   <div class="panel ipanel">${D.per.map(x=>`<div class="prod-p${x.q?" off":""}">
@@ -2033,11 +2033,18 @@ function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.e
   ${D.res.vid.length?`<div class="sec-t">Vidrios</div><div class="panel">${Object.entries(D.res.vid.reduce((m,v)=>{(m[v.vidrio]=m[v.vidrio]||{n:0,m2:0}).n+=v.cant;m[v.vidrio].m2+=v.ancho*v.alto*v.cant/1e6;return m},{})).map(([vn,x])=>`<div class="row sp"><span>${esc(vn)}</span><span class="small muted">${x.n} pieza(s) · ${x.m2.toFixed(2).replace(".",",")} m²</span></div>`).join("")}<span class="small muted">Las medidas y el plano de cada lámina están en "Ver cortes juntos".</span></div>`:""}
   <button class="btn sm" style="align-self:flex-start" data-act="prod-limpiar">Empezar de nuevo</button>`}`}
 function prodCatalogo(){const L=new Set();for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])L.add((sc.nombre||k)+" · "+p.nombre);for(const k of Object.keys(S.cfg.puertas?.perfiles||{}))L.add("Puertas · "+k);return [...L]}
-function textoCompra(){const D=prodDatos(),P=D.P,L=[`*Pedido de materiales — ${S.cfg.empresa.nombre}*`,`Obras: ${D.ids.map(id=>numCot(obra(id))).join(", ")}`,"",`*Perfiles* (barras de ${cm(S.cfg.barra||6000)} cm)`];
-  D.per.filter(x=>x.compra>0).forEach(x=>L.push(`- ${x.p.sistema} · ${x.p.nombre}${x.p.color?" · "+x.p.color:""}: ${x.compra}`));(P.extra||[]).filter(x=>+x.n>0).forEach(x=>L.push(`- ${x.nombre}${x.color?" · "+x.color:""}: ${x.n}`));
-  const acc=D.res.acc.filter(([n])=>!P.accQ[n]);if(acc.length){L.push("","*Accesorios*");acc.forEach(([n,c])=>L.push(`- ${n}: ${c}`))}
-  if(D.res.vid.length){L.push("","*Vidrios* (ancho × alto cm)");Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,V])=>{L.push(vn+":");const g={};V.forEach(v=>{const k=v.ancho+"x"+v.alto;(g[k]=g[k]||{...v,cant:0}).cant+=v.cant});Object.values(g).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto).forEach(v=>L.push(`  ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)}`))})}
+/* Pedido al proveedor: perfiles por tiras completas y empaque por rollos completos de 100 m */
+function pedidoAcc(n,c){const m=/\(m\)\s*$/.test(n),nom=n.replace(/\s*\(m\)\s*$/,"");if(m&&/^Empaque/i.test(n)){const r=+S.cfg.rolloEmpaque||100,k=Math.max(1,Math.ceil(c/r-1e-9));return `${nom}: ${k} rollo${k===1?"":"s"} de ${r} m (se usan ${String(Math.round(c*10)/10).replace(".",",")} m)`}
+  if(m)return `${nom}: ${Math.ceil(c-1e-9)} m`;return `${nom}: ${Math.ceil(c-1e-9)}`}
+function textoPedido(sel){const pr=sel==="__prod",o=objSel(sel)||{},P=pr?prodGet():null,res=despieceSel(sel,(o.items||[]).filter(i=>!i.fuera)),L=[`*Pedido — ${S.cfg.empresa.nombre}*`,pr?`Obras: ${prodIds().map(id=>numCot(obra(id))).join(", ")}`:(o.numero?numCot(o)+" · ":"")+tituloObra(o),fechaCorta(hoy())];
+  const per=res.per.map(p=>{const n=barras(p.cortes,kerfDe(p)).length,m=pr?+P.mas[perKey(p)]||0:0;return {p,n:Math.max(0,n+m)}}).filter(x=>x.n>0),G={};
+  per.forEach(x=>{const g=x.p.sistema+(x.p.color?" · "+x.p.color:"");(G[g]=G[g]||[]).push(x)});const ex=pr?(P.extra||[]).filter(x=>+x.n>0):[];
+  if(per.length||ex.length){L.push("",`*Perfiles* (tiras completas de ${cm(S.cfg.barra||6000)} cm)`);Object.entries(G).forEach(([g,X])=>{L.push(g+":");X.forEach(x=>L.push(`- ${x.p.nombre}: ${x.n} tira${x.n===1?"":"s"}`))});
+    ex.forEach(x=>L.push(`- ${x.nombre}${x.color?" · "+x.color:""}: ${x.n} tira${+x.n===1?"":"s"}`));L.push(`Total: ${per.reduce((a,x)=>a+x.n,0)+ex.reduce((a,x)=>a+(+x.n||0),0)} tiras`)}
+  const acc=res.acc.filter(([n,c])=>c>0&&!(pr&&P.accQ[n]));if(acc.length){L.push("","*Accesorios*");acc.forEach(([n,c])=>L.push("- "+pedidoAcc(n,c)))}
+  if(res.esc)L.push(`- Escuadras A15: ${res.esc}`);
   return L.join("\n")}
+function textoCompra(){return textoPedido("__prod")}
 
 /* --- Cobros --- */
 function vCobros(){
@@ -2603,6 +2610,7 @@ document.addEventListener("click",async ev=>{
     case"prod-extra-del":{const P=prodGet();P.extra.splice(+b.dataset.i,1);prodSave();render();break}
     case"prod-cortes":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;go("cortes");break;
     case"prod-compra":compartirTexto(textoCompra());break;
+    case"pedido":compartirTexto(textoPedido(b.dataset.v));break;
     case"prod-limpiar":confirmar("Se quitan las obras elegidas y los ajustes de compra. Las cotizaciones no se tocan.","Empezar de nuevo",()=>{S.prod={obras:[],quitar:{},mas:{},extra:[],accQ:{}};prodSave()});break;
     case"tot-man-quitar":await totalManualSet(id,0,b.dataset.cat||"");break;
     case"item-menu":itemMenu(id,+b.dataset.i);break;
