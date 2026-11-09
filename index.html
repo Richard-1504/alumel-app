@@ -369,6 +369,12 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 :root[data-theme="dark"] .seg button[aria-pressed="true"],:root[data-theme="dark"] .chip[aria-pressed="true"],:root[data-theme="dark"] button.stat[aria-pressed="true"],:root[data-theme="dark"] .lamopc-b[aria-pressed="true"]{background:#636366;color:#fff}
 
 .rs-man{display:grid;gap:6px;margin-top:4px}
+.prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
+.prod-o{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--line);cursor:pointer}.ipanel .prod-o:first-child{border-top:0}
+.prod-p{display:flex;gap:12px;padding:12px 16px;border-top:.5px solid var(--line)}.ipanel .prod-p:first-child{border-top:0}
+.prod-p.off .grow>b,.prod-p.off .prod-pi{opacity:.45}.prod-pi{width:40px;flex:none}
+.prod-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}.prod-n{display:inline-flex;align-items:center;gap:8px}.prod-n b{min-width:22px;text-align:center;font-size:17px}
+.prod-add{display:flex;gap:6px;padding:12px 16px;border-top:.5px solid var(--line);flex-wrap:wrap}
 .instv{display:grid;grid-template-columns:auto 70px auto 1fr;gap:6px 8px;align-items:center;font-size:14px}
 .vr-inst{flex-wrap:wrap}.vr-inst button{flex:1 0 auto;padding:7px 8px;font-size:13px}
 .cat-seg{flex-wrap:nowrap;overflow-x:auto}.cat-seg button{flex:1 0 auto;white-space:nowrap}.cat-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:rgba(120,120,128,.18);font-size:11px;font-weight:600;margin-left:3px}
@@ -416,7 +422,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.69.1";
+const APP_VER="1.70.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -642,7 +648,7 @@ function opcionesLam(rects0,W0,H0,k){k=k||0;if(!rects0.length)return [];const ar
     {id:"ancho",t:"Cortes a lo ancho",d:"Franjas a lo ancho de la lámina",sh:W<=H?ancho:tr(ancho)}];
   for(const o of O){o.sh=desinflar(o.sh,k,W0,H0);o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W0*H0)}
   return O}
-function lamOpcSel(key){const o=S.cortesSel==="__draft"?S.draft:obra(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
+function lamOpcSel(key){const o=S.cortesSel==="__prod"?null:objSel(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
 function opcionesLamHtml(key,rects,W,H,cotizadas,k){const O=opcionesLam(rects,W,H,k);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   return `<div class="small" style="font-weight:600;margin-top:4px">Forma de cortar · escoge la que más te sirva</div>
    <div class="lamopc">${O.map(o=>`<button class="lamopc-b" data-act="lam-opc" data-k="${esc(key)}" data-v="${o.id}" aria-pressed="${o===sel}"><b>${o.t}</b><span>${o.n} lámina${o.n===1?"":"s"}${o.fuera?" · "+o.fuera+" no caben":""}</span><span>${o.sob?"Sobra "+cm(o.sob.h)+"×"+cm(o.sob.w):"Sin sobrante"}</span><span style="white-space:nowrap">Usa ${Math.round(o.uso*100)} %</span></button>`).join("")}</div>
@@ -1140,12 +1146,12 @@ function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of s
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={},melC={};let esc=0;
   for(const it of items){if(it.fuera)continue;const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
-    for(const p of dp.perfiles){if(p.ref==="a15"){esc+=p.cant*4;continue}const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang}
+    for(const p of dp.perfiles){if(p.ref==="a15"){esc+=p.cant*4;continue}const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang;if(it._o){const og=(per[key].org=per[key].org||{})[p.largo]=per[key].org[p.largo]||{};og[it._o]=(og[it._o]||0)+p.cant;(per[key].obras=per[key].obras||new Set()).add(it._o)}}
     for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
     for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const gg=g==="mel"?"mel|"+(t.color||"Blanco"):g,key=gg+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g:gg,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
-  return {mel:Object.values(melC),pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:[...(esc?[["Escuadras A15 (4 por marco)",Math.round(esc)]]:[]),...Object.entries(acc)],esc:Math.round(esc)};
+  return {mel:Object.values(melC),pvc:Object.values(pvc).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto),per:Object.values(per).map(p=>({...p,cortes:Object.entries(p.cortes).map(([l,c])=>({largo:+l,cant:c,...(p.ang[l]?{ang:p.ang[l]}:{}),...(p.org?.[l]?{org:p.org[l]}:{})})).sort((a,b)=>b.largo-a.largo)})),vid:Object.values(vid),acc:[...(esc?[["Escuadras A15 (4 por marco)",Math.round(esc)]]:[]),...Object.entries(acc)],esc:Math.round(esc)};
 }
 
 /* Dibujo de la ventana */
@@ -1295,7 +1301,7 @@ function render(){
   const sinNav=S.view==="login"||S.view==="cargando";document.querySelector("nav.tabs").hidden=sinNav;document.querySelector("[data-v=ajustes].icon-btn").hidden=sinNav;
   document.querySelectorAll(".tab").forEach(t=>{const v=t.dataset.v,cur=S.view;
     const map={obra:"obras",cliente:"clientes",cobro:"cobros"};t.setAttribute("aria-current",(map[cur]||cur)===v?"page":"false")});
-  const V={login:vLogin,cargando:vCargando,obras:vObras,obra:vObra,cotizar:vCotizar,cortes:vCortes,cobros:vCobros,cobro:vCobro,clientes:vClientes,cliente:vCliente,ajustes:vAjustes}[S.view]||vObras;
+  const V={login:vLogin,cargando:vCargando,obras:vObras,obra:vObra,cotizar:vCotizar,cortes:vCortes,prod:vProd,cobros:vCobros,cobro:vCobro,clientes:vClientes,cliente:vCliente,ajustes:vAjustes}[S.view]||vObras;
   $("#main").innerHTML=V();navScroll(true);
 }
 /* Al hacer scroll solo se cambia una clase cuando hace falta (cambiar estilos en cada scroll hace que iOS dibuje mal las barras fijas) */
@@ -1357,6 +1363,7 @@ function vObras(){const OB=S.obras.filter(enArea);
     <button class="stat" data-act="filtro-obras" data-v="cotizacion" aria-pressed="${f==="cotizacion"}"><div class="eyebrow">Cotizaciones</div><div class="v">${cot.length}</div></button>
     <button class="stat" data-act="filtro-obras" data-v="deben" aria-pressed="${f==="deben"}"><div class="eyebrow">Por cobrar</div><div class="v">${moneyCorto(porCobrar)}</div>${porCobrar>=1e6?`<div class="v-full">${money(porCobrar)}</div>`:""}</button>
   </div>
+  ${S.area!=="vidrios"?`<button class="btn block prod-btn" data-act="go" data-v="prod"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>Producción: juntar obras (cortes y materiales)${prodIds().length?` · ${prodIds().length} elegidas`:""}</button>`:""}
   <div class="field"><input id="buscar-obra" data-buscar-obra type="search" value="${esc(S.buscarObra||"")}" placeholder="Buscar por nombre, cliente o número (ej. 25)" aria-label="Buscar obras"></div>
   ${qb?`<span class="small muted">Buscando en todas las obras · ${list.length} resultado(s)</span>`:`<div class="chips">${chips.map(([k,t])=>`<button class="chip" data-act="filtro-obras" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>`}
   ${list.length?`<div class="list">${list.map(o=>{const c=clienteDe(o);return `
@@ -1703,7 +1710,8 @@ function trabajosTxt(o){const cnt={},ord=[];for(const it of o.items||[]){if(it.f
   const L=ord.map(k=>cnt[k].n>1?cnt[k].c[1]:cnt[k].c[0]);if(!L.length)return "";const t=L.length>1?L.slice(0,-1).join(", ")+" y "+L[L.length-1]:L[0];return t[0].toUpperCase()+t.slice(1)}
 const clienteNom=o=>cliente(o.clienteId)?.nombre||o.clienteNombre||"";
 function nombreAuto(d){const t=trabajosTxt(d)||"Cotización",cl=clienteNom(d);return t+(cl?" · "+cl:"")}
-const tituloObra=o=>nombreAuto(o);
+const tituloObra=o=>o?._titulo||nombreAuto(o);
+const objSel=sel=>sel==="__draft"?S.draft:sel==="__prod"?prodObra():obra(sel);
 function cliHint(d){return d.clienteId&&cliente(d.clienteId)?"✓ Cliente guardado en Clientes":d.clienteNombre?"Solo para esta cotización. Toca \"+ Guardar\" si lo quieres en Clientes.":"Puedes dejarlo vacío."}
 function vCotizar(){
   const d=S.draft;const calc=calcCot(d.items,d);
@@ -1908,14 +1916,14 @@ function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const 
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada"&&enArea(o)).sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
-  const cc=sel===S.cortesCatId?S.cortesCat:null,items=(vistaCat(sel==="__draft"?S.draft:obra(sel),cc)?.items)||[];
+  const cc=sel===S.cortesCatId?S.cortesCat:null,items=(vistaCat(objSel(sel),cc)?.items)||[];
   const res=sumarDespiece(items);
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p));totalBarras+=bs.length;
     return `<div class="panel"><div class="row sp"><div class="row" style="gap:10px;flex-wrap:nowrap"><button class="linkish" data-act="ver-perfil" data-k="${esc(angKey(p.sistema,p.nombre))}" aria-label="Ver perfil en grande" style="padding:0">${perfilIcon(angKey(p.sistema,p.nombre),60)}</button><div><div class="eyebrow">${esc(p.sistema)}${p.color?" · "+esc(p.color):""}</div><h3>${esc(p.nombre)} ${angsPerfil(p).map(a=>`<span class="pill ${a===45?"st-pro":"st-cot"}" style="vertical-align:middle">Corte ${a}°</span>`).join(" ")}</h3></div></div><span class="pill st-apr">${bs.length} barra${bs.length===1?"":"s"}</span></div>
       ${bs.minimo&&bs.length<=bs.minimo?`<div class="small" style="color:var(--ok)">✓ Mínimo de tiras posible</div>`:""}
-      <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm${angsPerfil(p).length>1?" a "+angCorte(p,c)+"°":""}`).join(" · ")}</div>
+      <div class="small mono">${p.cortes.map(c=>`${c.cant} × ${cm(c.largo)} cm${angsPerfil(p).length>1?" a "+angCorte(p,c)+"°":""}${c.org&&sel==="__prod"?`<span class="muted" style="font-family:var(--f-body)"> (${orgTxt(c.org)})</span>`:""}`).join(" · ")}</div>
       ${(()=>{const ot=ordenTope(bs);return `<div class="small"><b>Orden de corte</b> · ${ot.length} tope${ot.length===1?"":"s"}: <span class="mono">${ot.map(([l,n])=>cm(l)+" ×"+n).join(" → ")}</span></div>`})()}
       <div class="stack" style="gap:6px">${(()=>{const med=[...new Set(p.cortes.map(c=>c.largo))];return bs.map((b,i)=>`<div class="barline"><span class="mono muted">Barra ${i+1}</span><div class="bar">${b.cuts.map((l,j)=>`<div class="cut${med.indexOf(l)%2?" alt":""}" style="width:${Math.min(100,l/L*100)}%;${j&&b.cuts[j-1]===l?"border-left:1px dashed rgba(255,255,255,.35);":""}" title="${cm(l)} cm">${cm(l)}</div>`).join("")}</div><span class="mono muted" style="text-align:right">${b.over?"más larga":"sobra "+cm(L-b.used)}</span></div>`).join("")})()}</div></div>`}).join("");
   const m2=res.vid.reduce((s,v)=>s+v.ancho*v.alto*v.cant,0)/1e6,nVid=res.vid.reduce((s,v)=>s+v.cant,0);
@@ -1923,10 +1931,12 @@ function vCortes(){
   const nPvc=rects.length,L2=nPvc?laminasMarmo(rects,true):null;
   return `
   ${backBtn()}
+  ${sel==="__prod"?`<div class="note info row sp" style="gap:8px"><span>Cortes de <b>${prodIds().length} obras juntas</b>. Entre paréntesis, a qué obra va cada corte.</span><button class="btn sm" data-act="go" data-v="prod">Producción</button></div>`:""}
   <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)</div><h1>Cortes</h1></div></div>
   ${sel===S.cortesCatId&&S.cortesCat?`<div class="note info row sp" style="gap:8px"><span>Solo <b>${esc(catLbl(S.cortesCat).toLowerCase())}</b> de esta cotización.</span><button class="btn sm" data-act="cortes-todo">Ver todo</button></div>`:""}
   <div class="field"><label for="c-obra">Obra</label><select id="c-obra" data-act-change="cortes-obra">
     ${S.draft&&S.draft.items.length?`<option value="__draft" ${sel==="__draft"?"selected":""}>Cotización en curso (sin guardar)</option>`:""}
+    ${prodIds().length?`<option value="__prod" ${sel==="__prod"?"selected":""}>Producción · ${prodIds().length} obras juntas</option>`:""}
     ${obras.map(o=>`<option value="${o.id}" ${o.id===sel?"selected":""}>${numCot(o)} · ${esc(tituloObra(o))}</option>`).join("")}</select></div>
   ${!items.length?emptyBox("No hay medidas para cortar","Elige una obra con ítems o crea una cotización. Los cortes salen de las medidas de cada ventana.",`<button class="btn pri" data-act="go" data-v="cotizar">Ir a cotizar</button>`):`
   <div class="stats"><div class="stat"><div class="eyebrow">Barras de perfil</div><div class="v">${totalBarras}</div></div>
@@ -1955,6 +1965,53 @@ function vCortes(){
    <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
   <div class="panel"><h2>Accesorios</h2><div class="tbl-wrap"><table><tbody>${res.acc.map(([n,c])=>`<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join("")}</tbody></table></div></div>`}`;
 }
+
+/* --- Producción: varias obras juntas para cortes, materiales y lista de compra --- */
+function prodGet(){if(!S.prod){try{S.prod=JSON.parse(localStorage.getItem("alumel-prod")||"null")}catch(e){}S.prod=S.prod||{obras:[],quitar:{},mas:{},extra:[],accQ:{}}}return S.prod}
+function prodSave(){try{localStorage.setItem("alumel-prod",JSON.stringify(S.prod))}catch(e){}}
+const prodIds=()=>(prodGet().obras||[]).filter(id=>obra(id)&&areaDe(obra(id))==="taller");
+const numCorto=o=>"#"+(o.numero||"?");
+function orgTxt(org,pdf){return Object.entries(org).map(([id,n])=>{const o=obra(id);return (o?numCorto(o):"?")+" ×"+n}).join(pdf?"  ":" · ")}
+function prodObra(){const ids=prodIds(),items=[];ids.forEach(id=>(obra(id).items||[]).forEach(it=>{if(!it.fuera)items.push({...it,_o:id})}));
+  return {id:"__prod",items,_titulo:"Producción: "+ids.map(id=>numCot(obra(id))).join(", ")}}
+function prodDatos(){const P=prodGet(),ids=prodIds(),res=sumarDespiece(prodObra().items);
+  const per=res.per.map(p=>{const key=p.sistema+"|"+p.nombre+"|"+p.color,n=barras(p.cortes,kerfDe(p)).length,q=!!P.quitar[key],m=+P.mas[key]||0;return {p,key,n,q,m,compra:q?0:Math.max(0,n+m)}});
+  let sep=0;ids.forEach(id=>{const r=sumarDespiece((obra(id).items||[]).filter(it=>!it.fuera));r.per.forEach(p=>sep+=barras(p.cortes,kerfDe(p)).length)});
+  const juntas=per.reduce((a,x)=>a+x.n,0);return {P,ids,res,per,sep,juntas}}
+function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.estado!=="anulada"),act=T.filter(o=>estadoDe(o.estado)[0]!=="instalada"||prodGet().obras.includes(o.id)).sort((a,b)=>(a.estado==="produccion"?0:1)-(b.estado==="produccion"?0:1)||(b.numero||0)-(a.numero||0)),ids=prodIds();
+  const D=ids.length?prodDatos():null;
+  const fila=o=>`<label class="prod-o"><input type="checkbox" class="sel-chk" data-act="prod-obra" data-id="${o.id}" ${ids.includes(o.id)?"checked":""}><span class="grow"><b>${esc(tituloObra(o))}</b><br><span class="small muted">${numCot(o)} · ${(o.items||[]).filter(i=>!i.fuera).length} ítem(s)</span></span>${estadoPill(o.estado)}</label>`;
+  return `${backBtn()}
+  <div class="head"><div class="grow"><div class="eyebrow">Taller</div><h1>Producción</h1></div></div>
+  <span class="muted">Elige las obras que vas a fabricar juntas. Se suman sus materiales y los cortes se acomodan en las mismas barras.</span>
+  <div class="sec-t">Obras · ${ids.length} elegida${ids.length===1?"":"s"}</div>
+  <div class="panel ipanel">${act.length?act.map(fila).join(""):`<div class="muted small" style="padding:14px 16px">No hay obras en curso.</div>`}</div>
+  ${!D?"":`
+  <div class="stats"><div class="stat"><div class="eyebrow">Barras juntas</div><div class="v">${D.juntas}</div></div>
+   <div class="stat"><div class="eyebrow">Por separado</div><div class="v">${D.sep}</div></div>
+   <div class="stat"><div class="eyebrow">A comprar</div><div class="v">${D.per.reduce((a,x)=>a+x.compra,0)+(P.extra||[]).reduce((a,x)=>a+(+x.n||0),0)}</div></div></div>
+  ${D.sep>D.juntas?`<div class="note ok">Juntando estas obras te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>.</div>`:""}
+  <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button><button class="btn full" data-act="prod-compra">Lista de compra (WhatsApp)</button></div>
+  <div class="sec-t">Perfiles</div>
+  <div class="panel ipanel">${D.per.map(x=>`<div class="prod-p${x.q?" off":""}">
+     <div class="prod-pi">${perfilIcon(angKey(x.p.sistema,x.p.nombre),40)}</div>
+     <div class="grow"><b>${esc(x.p.nombre)}</b> <span class="small muted">${esc(x.p.sistema)}${x.p.color?" · "+esc(x.p.color):""}</span>
+       <div class="small muted">Necesita ${x.n} barra${x.n===1?"":"s"}${x.p.obras?" · "+[...x.p.obras].map(id=>numCorto(obra(id))).join(" "):""}</div>
+       <div class="prod-ctl"><button class="btn sm ${x.q?"pri":""}" data-act="prod-quitar" data-k="${esc(x.key)}">${x.q?"✓ Ya lo tengo":"Ya lo tengo"}</button>
+       ${x.q?"":`<span class="prod-n"><button class="btn sm" data-act="prod-mas" data-k="${esc(x.key)}" data-v="-1" aria-label="Una barra menos">−</button><b>${x.compra}</b><button class="btn sm" data-act="prod-mas" data-k="${esc(x.key)}" data-v="1" aria-label="Una barra más">+</button></span><span class="small muted">a comprar</span>`}</div></div></div>`).join("")}
+   ${(P.extra||[]).map((x,i)=>`<div class="prod-p"><div class="prod-pi"></div><div class="grow"><b>${esc(x.nombre)}</b> <span class="small muted">${esc(x.color||"")} · agregado</span>
+       <div class="prod-ctl"><span class="prod-n"><button class="btn sm" data-act="prod-extra-n" data-i="${i}" data-v="-1">−</button><b>${x.n}</b><button class="btn sm" data-act="prod-extra-n" data-i="${i}" data-v="1">+</button></span><span class="small muted">a comprar</span><button class="btn sm danger" data-act="prod-extra-del" data-i="${i}">Quitar</button></div></div></div>`).join("")}
+   <div class="prod-add"><input id="pe-nom" class="cin grow" list="dl-perf" placeholder="+ Agregar perfil (nombre)"><datalist id="dl-perf">${prodCatalogo().map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
+     <input id="pe-col" class="cin" style="width:90px" placeholder="Color"><input id="pe-n" class="cin" style="width:56px" inputmode="numeric" value="1" aria-label="Barras"><button class="btn sm pri" data-act="prod-extra-add">Agregar</button></div></div>
+  ${D.res.acc.length?`<div class="sec-t">Accesorios</div><div class="panel"><div class="tbl-wrap"><table><tbody>${D.res.acc.map(([n,c])=>`<tr class="${P.accQ[n]?"sel-off":""}"><td>${esc(n)}</td><td class="n"><b>${c}</b></td><td class="n"><button class="btn sm ${P.accQ[n]?"pri":""}" data-act="prod-accq" data-k="${esc(n)}">${P.accQ[n]?"✓ Lo tengo":"Lo tengo"}</button></td></tr>`).join("")}</tbody></table></div></div>`:""}
+  ${D.res.vid.length?`<div class="sec-t">Vidrios</div><div class="panel">${Object.entries(D.res.vid.reduce((m,v)=>{(m[v.vidrio]=m[v.vidrio]||{n:0,m2:0}).n+=v.cant;m[v.vidrio].m2+=v.ancho*v.alto*v.cant/1e6;return m},{})).map(([vn,x])=>`<div class="row sp"><span>${esc(vn)}</span><span class="small muted">${x.n} pieza(s) · ${x.m2.toFixed(2).replace(".",",")} m²</span></div>`).join("")}<span class="small muted">Las medidas y el plano de cada lámina están en "Ver cortes juntos".</span></div>`:""}
+  <button class="btn sm" style="align-self:flex-start" data-act="prod-limpiar">Empezar de nuevo</button>`}`}
+function prodCatalogo(){const L=new Set();for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])L.add((sc.nombre||k)+" · "+p.nombre);for(const k of Object.keys(S.cfg.puertas?.perfiles||{}))L.add("Puertas · "+k);return [...L]}
+function textoCompra(){const D=prodDatos(),P=D.P,L=[`*Pedido de materiales — ${S.cfg.empresa.nombre}*`,`Obras: ${D.ids.map(id=>numCot(obra(id))).join(", ")}`,"",`*Perfiles* (barras de ${cm(S.cfg.barra||6000)} cm)`];
+  D.per.filter(x=>x.compra>0).forEach(x=>L.push(`- ${x.p.sistema} · ${x.p.nombre}${x.p.color?" · "+x.p.color:""}: ${x.compra}`));(P.extra||[]).filter(x=>+x.n>0).forEach(x=>L.push(`- ${x.nombre}${x.color?" · "+x.color:""}: ${x.n}`));
+  const acc=D.res.acc.filter(([n])=>!P.accQ[n]);if(acc.length){L.push("","*Accesorios*");acc.forEach(([n,c])=>L.push(`- ${n}: ${c}`))}
+  if(D.res.vid.length){L.push("","*Vidrios* (ancho × alto cm)");Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,V])=>{L.push(vn+":");const g={};V.forEach(v=>{const k=v.ancho+"x"+v.alto;(g[k]=g[k]||{...v,cant:0}).cant+=v.cant});Object.values(g).sort((a,b)=>b.ancho*b.alto-a.ancho*a.alto).forEach(v=>L.push(`  ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)}`))})}
+  return L.join("\n")}
 
 /* --- Cobros --- */
 function vCobros(){
@@ -2266,7 +2323,7 @@ function listaMateriales(items){const res=sumarDespiece(items),L=S.cfg.barra||60
   const acc=res.acc.filter(([n,c])=>c>0).map(([n,c])=>{const mt=/\(m\)/.test(n);return [n.replace(/ \(m\)/,""),mt?String(Math.ceil(c*10)/10).replace(".",",")+" m":String(c),""]});
   if(acc.length)G.push({h:"Accesorios",filas:acc});
   return G}
-function materialesSheet(id){const o=vistaCat(id==="__draft"?S.draft:obra(id),catActiva(id));if(!o)return;const G=listaMateriales(o.items||[]);S.matTxt=textoMateriales(o,G);
+function materialesSheet(id){const o=vistaCat(objSel(id),catActiva(id));if(!o)return;const G=listaMateriales(o.items||[]);S.matTxt=textoMateriales(o,G);
   openSheet(()=>`<div class="sheet-h"><h2>Lista de materiales</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div>
   <span class="small muted">${esc(o.items?tituloObra(o):"Cotización en curso")} · lo que hay que comprar</span>
   ${G.length?G.map(g=>`<div class="panel" style="gap:8px"><h3>${g.h}</h3><div class="tbl-wrap"><table><tbody>${g.filas.map(f=>`<tr><td>${esc(f[0])}${f[2]?`<div class="small muted">${esc(f[2])}</div>`:""}</td><td class="n" style="font-weight:700">${esc(f[1])}</td></tr>`).join("")}</tbody></table></div></div>`).join("")
@@ -2275,7 +2332,7 @@ function materialesSheet(id){const o=vistaCat(id==="__draft"?S.draft:obra(id),ca
 function textoMateriales(o,G){return `*Materiales — ${S.cfg.empresa.nombre}*\n${o.nombre||""}\n\n`+G.map(g=>`*${g.h}*\n`+g.filas.map(f=>`• ${f[0]}: ${f[1]}${g.h==="Vidrio"?"\n   "+f[2]:""}`).join("\n")).join("\n\n")}
 
 /* ============ Enviar lista de cortes ============ */
-function datosCortes(sel){const o=vistaCat(sel==="__draft"?S.draft:obra(sel),sel===S.cortesCatId?S.cortesCat:null),items=o?.items||[],res=sumarDespiece(items),L=S.cfg.barra||6000;
+function datosCortes(sel){const o=vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null),items=o?.items||[],res=sumarDespiece(items),L=S.cfg.barra||6000;
   const per=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p)),angs=angsPerfil(p);return {p,bs,angs,orden:ordenTope(bs)}});
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(x=>{for(let k=0;k<x.cant;k++)rects.push({w:x.ancho,h:x.alto})});
   return {o,res,per,L,lam:rects.length?laminasMarmo(rects,false).laminas:0,mm}}
@@ -2304,14 +2361,16 @@ function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){d
     y+=dh+4});
   return y+2}
 function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
-  const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase(),selPrev=S.cortesSel;S.cortesSel=sel;if(!ext)pdfHeader(doc,"LISTA DE CORTES",(o.numero?numCot(o)+" · ":"")+fechaCorta(hoy()));
+  const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase(),selPrev=S.cortesSel;S.cortesSel=sel;if(!ext)pdfHeader(doc,sel==="__prod"?"CORTES · PRODUCCIÓN":"LISTA DE CORTES",(o.numero?numCot(o)+" · ":"")+fechaCorta(hoy()));
   let y=ext?ext.y:40;const nl=n=>{if(y+n>262){doc.addPage();y=20}};nl(16);doc.setFontSize(ext?12:10);doc.setFont("helvetica","bold");doc.text(ext?"Cortes":(o.items?tituloObra(o):"Cotización en curso"),16,y);doc.setFont("helvetica","normal");doc.setFontSize(10);
   doc.text("Medidas en cm",200,y,{align:"right"});y+=8;
   for(const {p,bs,angs} of D.per){const C=p.cortes,col=4,filas=Math.ceil(C.length/col);nl(20+filas*8);
     doc.setFillColor(236,230,223);doc.rect(14,y-6,188,15,"F");pdfPerfilIcon(doc,angKey(p.sistema,p.nombre),15,y-5.5,14);y+=2;doc.setFont("helvetica","bold");doc.setFontSize(11);
     doc.text(p.sistema+" · "+p.nombre+(p.color?" · "+p.color:""),32,y);doc.setFontSize(10);doc.text(bs.length+" tira"+(bs.length===1?"":"s")+" · corte "+angs.join("°/")+"°",200,y,{align:"right"});y+=13;
-    C.forEach((c,k)=>{const x=16+(k%col)*47;if(k&&k%col===0)y+=8;doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text(String(c.cant),x+8,y,{align:"right"});
-      doc.setFont("helvetica","normal");doc.setFontSize(13);doc.text("x  "+cm(c.largo)+(angs.length>1?"  ("+angCorte(p,c)+"°)":""),x+11,y)});
+    const conOrg=sel==="__prod"&&C.some(c=>c.org);if(conOrg)nl(filas*4);
+    C.forEach((c,k)=>{const x=16+(k%col)*47;if(k&&k%col===0)y+=conOrg?12:8;doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text(String(c.cant),x+8,y,{align:"right"});
+      doc.setFont("helvetica","normal");doc.setFontSize(13);doc.text("x  "+cm(c.largo)+(angs.length>1?"  ("+angCorte(p,c)+"°)":""),x+11,y);
+      if(conOrg&&c.org){doc.setFontSize(7);doc.setTextColor(110,100,92);doc.text(orgTxt(c.org,true).slice(0,40),x+1,y+4);doc.setTextColor(31,26,23)}});if(conOrg)y+=4;
     y+=5;doc.setFont("helvetica","normal");
     // dibujo de cada tira con sus cortes
     for(const [i,b] of bs.entries()){nl(9);doc.setFontSize(8);doc.text("Tira "+(i+1),16,y+4);let x=30;const W=150,esc2=W/D.L,BH=6;
@@ -2502,6 +2561,16 @@ document.addEventListener("click",async ev=>{
     case"cli-obra-ok":{const o=obra(id);if(!o)break;const nom=($("#co-cli")?.value||"").trim(),c=S.clientes.find(x=>(x.nombre||"").toLowerCase()===nom.toLowerCase());
       const o2={...o,clienteId:c?c.id:"",clienteNombre:c?"":nom,direccion:($("#co-dir")?.value||"").trim()};o2.nombre=nombreAuto(o2);try{await guardar("obras",o.id,o2);closeSheet();toast("Cliente actualizado")}catch(e){}break}
     case"compartir":compartirMenu(id);break;
+    case"prod-obra":{const P=prodGet(),on=b.checked;P.obras=(P.obras||[]).filter(x=>x!==id);if(on)P.obras.push(id);prodSave();render();break}
+    case"prod-quitar":{const P=prodGet(),k=b.dataset.k;if(P.quitar[k])delete P.quitar[k];else P.quitar[k]=1;prodSave();render();break}
+    case"prod-mas":{const P=prodGet(),k=b.dataset.k,x=prodDatos().per.find(p=>p.key===k);if(!x)break;const m=(+P.mas[k]||0)+(+b.dataset.v);P.mas[k]=Math.max(-x.n,m);prodSave();render();break}
+    case"prod-accq":{const P=prodGet(),k=b.dataset.k;if(P.accQ[k])delete P.accQ[k];else P.accQ[k]=1;prodSave();render();break}
+    case"prod-extra-add":{const n=($("#pe-nom")?.value||"").trim();if(!n){toast("Escribe el nombre del perfil");break}const P=prodGet();(P.extra=P.extra||[]).push({nombre:n,color:($("#pe-col")?.value||"").trim(),n:Math.max(1,Math.round(num($("#pe-n")?.value))||1)});prodSave();render();break}
+    case"prod-extra-n":{const P=prodGet(),x=P.extra?.[+b.dataset.i];if(!x)break;x.n=Math.max(0,(+x.n||0)+(+b.dataset.v));prodSave();render();break}
+    case"prod-extra-del":{const P=prodGet();P.extra.splice(+b.dataset.i,1);prodSave();render();break}
+    case"prod-cortes":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;go("cortes");break;
+    case"prod-compra":compartirTexto(textoCompra());break;
+    case"prod-limpiar":confirmar("Se quitan las obras elegidas y los ajustes de compra. Las cotizaciones no se tocan.","Empezar de nuevo",()=>{S.prod={obras:[],quitar:{},mas:{},extra:[],accQ:{}};prodSave()});break;
     case"tot-man-quitar":await totalManualSet(id,0,b.dataset.cat||"");break;
     case"item-menu":itemMenu(id,+b.dataset.i);break;
     case"draft-del-item":{const i=+b.dataset.i,it=S.draft?.items?.[i];if(!it)break;confirmar(`Se quita el ítem ${i+1} de la cotización${it.cant>1?" (las "+it.cant+" unidades)":""}.`,"Quitar ítem",()=>{S.draft.items.splice(i,1)});break}
@@ -2632,7 +2701,7 @@ document.addEventListener("click",async ev=>{
     case"copiar-cot":{const F=faltanObra(obra(id));if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}compartirTexto(textoCot(obra(id)));break}
     case"copiar-cobro":compartirTexto(textoCobro(S.cobros.find(x=>x.id===id)));break;
     case"copiar":copiar(b.dataset.v);break;
-    case"copiar-vidrios":{const sel=b.dataset.v;const items=(vistaCat(sel==="__draft"?S.draft:obra(sel),sel===S.cortesCatId?S.cortesCat:null)?.items)||[];const r=sumarDespiece(items);const o=obra(sel);
+    case"copiar-vidrios":{const sel=b.dataset.v;const items=(vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null)?.items)||[];const r=sumarDespiece(items);const o=obra(sel);
       copiar(`Pedido de vidrio — ${S.cfg.empresa.nombre}${o?"\nObra: "+o.nombre:""}\n\n`+r.vid.map(v=>`${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} cm · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n"));break}
     case"add-vidrio":S.cfgEdit.vidrios.push({id:uid(),nombre:"Nuevo vidrio",m2:0,lam:0,lamA:330,lamH:214});autoGuardarCfg();render();break;
     case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
