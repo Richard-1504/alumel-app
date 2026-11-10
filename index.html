@@ -430,7 +430,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.76.0";
+const APP_VER="1.77.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -493,7 +493,7 @@ const DEFAULT_CFG = {
     marmo:{ancho:122,alto:244,precio:0},
     cielo:{ancho:30,largo:600,precio:0}
   },
-  chapas:[{nombre:"Chapa",precio:0}],
+  chapas:[{nombre:"Chapa",precio:0}],chapasVen:[],
   escuadrasTxt:"2, 3, 5",
   rodamientos:{nylon:6000,abb:12000}, empaqueMl:2500, instalacion:60000, pasamanosRecargo:30, melamina:{colores:[{nombre:"Blanco",precio:0}],ancho:183,alto:244,precio:0,sierra:4,fondoAncho:183,fondoAlto:244,fondoPrecio:0,cantoFlex:0,cantoRigido:0},cocina:{naveDucha:28000,cobro:"tira",a15:90000,cobroA15:"metro",t78:0,cobroT78:"metro",maxPuertaInf:38,altoInf:80,escuadra:8,descPvc:3.7,bisagra:3000,manija:3000,empaque:2500,losero:30000,vidrioHueco:15000,recargo:30,maxPuerta:32,alto:61.5}, instalacionTipo:{division:200000}, division:{espesor:"8 mm",templadoM2:90000,especialM2:140000,accesorios:130000,paso:5,traslape:1,vidrios:[]}, redondeoVidrio:10, laminaVidrio:{ancho:330,alto:214},
   margen:0, redondeo:1000,
@@ -575,6 +575,11 @@ function chapaDe(it){if(it.chapa==="__no")return null;const L=chapasL();return L
 function chapaAcc(it,acc){const ch=chapaDe(it);if(ch)acc.push([ch.nombre,1,"chapa"])}
 const precioChapa=it=>+(chapaDe(it)?.precio)||0;
 const precioAccIt=(it,k)=>k==="chapa"?precioChapa(it):precioAccPta(k);
+/* Chapas de ventana (lista aparte en Ajustes). Solo se cobra si la ventana tiene una elegida */
+const chapasVenL=()=>Array.isArray(S.cfg.chapasVen)?S.cfg.chapasVen:[];
+function chapaVenDe(it){if(!it.chapaV||it.chapaV==="__no")return null;return chapasVenL().find(c=>c.nombre===it.chapaV)||null}
+function chapaVenSel(it){const L=chapasVenL();if(!L.length)return `<span class="small muted">Para elegir chapa en ventanas, agrégalas en Ajustes → Chapas de ventana.</span>`;
+  return `<div class="field"><label for="it-chapav">Chapa</label><select id="it-chapav" data-it="chapaV">${L.map(c=>`<option value="${esc(c.nombre)}" ${it.chapaV===c.nombre?"selected":""}>${esc(c.nombre)} · ${money(c.precio)}</option>`).join("")}<option value="__no" ${!chapaVenDe(it)?"selected":""}>Sin chapa</option></select></div>`}
 function chapaSel(it){return `<div class="field"><label for="it-chapa">Chapa</label><select id="it-chapa" data-it="chapa">${chapasL().map(c=>`<option value="${esc(c.nombre)}" ${chapaDe(it)?.nombre===c.nombre?"selected":""}>${esc(c.nombre)} · ${money(c.precio)}</option>`).join("")}<option value="__no" ${it.chapa==="__no"?"selected":""}>Sin chapa</option></select></div>`}
 function precioAccPta(k){const a=S.cfg.puertas.acc;if(k==="chapa")return +a.chapa||+a.chapa15||+a.chapa1||0;return +a[k]||0}
 /* Tablero de la puerta (mm): ancho, alto, cuántos lleva, material y ancho útil de cada pieza */
@@ -871,7 +876,7 @@ function despiece(it){
       const g=sc.vid[n]||sc.vid["2"],va=(A-g.dA*10)/n;
       if(corr)vid(va,H-g.hC*10,corr,"corrediza");if(fijas)vid(va,H-g.hF*10,fijas,"fija");
       const perim=V.reduce((s,v)=>s+2*(v.ancho+v.alto)*v.cant,0)/1000;
-      acc.push(["Rodamientos "+(it.rod==="abb"?"ABB":"nylon"),2*corr],["Empaque (m)",Math.round(perim*100)/100]);break}
+      acc.push(["Rodamientos "+(it.rod==="abb"?"ABB":"nylon"),2*corr],["Empaque (m)",Math.round(perim*100)/100]);{const ch=chapaVenDe(it);if(ch)acc.push([ch.nombre,1,"chapaV"])}break}
     case"corrediza":{const n=it.hojas||2,k=d.corrediza,ah=(A+k.traslape*(n-1))/n-k.hojaA,hh=H-k.hojaH;
       per("Cabezal marco",A,1);per("Sillar / riel",A,1);per("Jamba",H,2);
       per("Cabezal hoja",ah,n);per("Zócalo hoja",ah,n);per("Lateral hoja",hh,2);per("Enganche",hh,2*(n-1));
@@ -981,7 +986,7 @@ function calcCot(items,opts){opts=opts||{};
     if(!dvs&&vidrioPorLam(opts,vidrioDe(it.vidrio).id||it.vidrio)){const vv=vidrioDe(it.vidrio),key=vv.id||it.vidrio;for(const v of dp.vidrios)for(let k=0;k<v.cant*q;k++)(vpz[key]=vpz[key]||[]).push({i,w:v.ancho,h:v.alto,costo:redV(v.ancho)*redV(v.alto)/1e6*(+vv.m2||0)})}
     let acc=0;const A=(n,c,u)=>{if(!(c>0))return;acc+=c*u;const nm=n.replace(/ \(m\)$/,""),k=nm+"|"+u,d=accDet[k]=accDet[k]||{nombre:nm,metros:/\(m\)$/.test(n),unit:u,cant:0,valor:0};d.cant+=c*q;d.valor+=c*u*q};
     if(dvs)A("Accesorios división",1,+cfg.division.accesorios||0);else if(cfg.accesorios[it.tipo])A("Otros accesorios "+(TIPOS[it.tipo]?.corto||it.tipo),1,+cfg.accesorios[it.tipo]||0);
-    if(ser){for(const [n,c] of dp.acc){if(n.startsWith("Rodamientos"))A(n+" "+TIPOS[it.tipo].corto,c,precioRod(it.tipo,it.rod));if(n.startsWith("Empaque"))A(n,c,+cfg.empaqueMl||0)}}
+    if(ser){for(const [n,c,k] of dp.acc){if(k==="chapaV"){A(n,c,+chapaVenDe(it)?.precio||0);continue}if(n.startsWith("Rodamientos"))A(n+" "+TIPOS[it.tipo].corto,c,precioRod(it.tipo,it.rod));if(n.startsWith("Empaque"))A(n,c,+cfg.empaqueMl||0)}}
     if(pta){for(const [n,c,k] of dp.acc)if(k)A(n,c,precioAccIt(it,k))}
     if(it.tipo==="pesp"){for(const [n,c,k,pr] of dp.acc)A(n,c,k==="_libre"?+pr||0:precioAccIt(it,k))}
     if(it.tipo==="cocina"){const cc=cfg.cocina||{},ml=cfg.melamina||{};for(const [n,c,k] of dp.acc)if(k)A(k==="canto"?"Canto "+(it.canto==="rigido"?"rígido":"flex")+" (m)":n,c,k==="canto"?(+(it.canto==="rigido"?ml.cantoRigido:ml.cantoFlex)||0):(+cc[k]||0))}
@@ -1263,7 +1268,7 @@ function sketch(it){
   const glass='fill="var(--glass)"';
   const n=it.tipo==="corrediza"||it.tipo==="division"?(it.hojas||2):1;
   if(TIPOS[it.tipo]?.serie){const lay=layout(it),k=lay.length,hw=w/k;lay.forEach((t,i)=>{const cx=x+i*hw;
-      inner+=`<rect x="${cx+4}" y="${y+4}" width="${hw-8}" height="${h-8}" ${t==="C"?glass:'fill="var(--surface)"'} ${s} stroke-width="2"/><text x="${cx+hw/2}" y="${y+h/2+5}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" font-weight="500" fill="currentColor">${t}</text>`})}
+      inner+=`<rect x="${cx+4}" y="${y+4}" width="${hw-8}" height="${h-8}" ${t==="C"?glass:'fill="var(--surface)"'} ${s} stroke-width="2"/><text x="${cx+hw/2}" y="${y+h/2+5}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" font-weight="500" fill="currentColor">${t}</text>${t==="C"?(()=>{const d=lay[i-1]==="F"?-1:lay[i+1]==="F"?1:i<k/2?1:-1,ax=cx+hw/2,ay=y+h/2+18,L=Math.min(18,hw/4);return `<path d="M${ax-L*d} ${ay} L${ax+L*d} ${ay} M${ax+L*d-5*d} ${ay-4} L${ax+L*d} ${ay} L${ax+L*d-5*d} ${ay+4}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`})():""}`})}
   else if(it.tipo==="division"){const r=vidriosDivision(it),T=r.fijo+r.movil,sc=w/(it.ancho||1),fw=r.fijo*sc,mw=r.movil*sc,tf='font-family="IBM Plex Mono,monospace" font-size="11" fill="currentColor" text-anchor="middle"';
     inner=`<rect x="${x+2}" y="${y+2}" width="${fw-4}" height="${h-4}" ${glass} ${s} stroke-width="1.5"/><text x="${x+fw/2}" y="${y+h/2}" ${tf}>Fijo</text><text x="${x+fw/2}" y="${y+h/2+14}" ${tf}>${cm(r.fijo)}</text>
     <rect x="${x+w-mw+2}" y="${y+6}" width="${mw-4}" height="${h-10}" ${glass} ${s} stroke-width="1.5" stroke-dasharray="5 3" fill-opacity=".8"/><text x="${x+w-mw/2}" y="${y+h/2+30}" ${tf}>Móvil</text><text x="${x+w-mw/2}" y="${y+h/2+44}" ${tf}>${cm(r.movil)}</text>
@@ -1504,7 +1509,7 @@ function estadoSheet(oid){const o=obra(oid);if(!o)return;openSheet(()=>{const o=
 /* ===== Precios faltantes: un ítem no se cotiza mientras falte algún precio de lo que usa ===== */
 function faltanItem(it){if(!it||it.fuera||it.precioManual>0)return [];const F=new Set(),cfg=S.cfg,z=v=>!(+v>0),dp=despiece({...it,cant:1});
   if(TIPOS[it.tipo]?.serie){const sc=cfg.series[it.tipo];for(const p of dp.perfiles){const r=sc.perfiles.find(x=>x.nombre===p.nombre);if(!r||z(r.precio))F.add(TIPOS[it.tipo].corto+" · "+p.nombre)}
-    for(const [n,c] of dp.acc){if(!(c>0))continue;if(n.startsWith("Rodamientos")&&z(precioRod(it.tipo,it.rod)))F.add("Rodamiento "+(it.rod==="abb"?"ABB":"nylon")+" "+TIPOS[it.tipo].corto);if(n.startsWith("Empaque")&&z(cfg.empaqueMl))F.add("Empaque")}
+    for(const [n,c,k] of dp.acc){if(!(c>0))continue;if(k==="chapaV"&&z(chapaVenDe(it)?.precio))F.add(n);if(n.startsWith("Rodamientos")&&z(precioRod(it.tipo,it.rod)))F.add("Rodamiento "+(it.rod==="abb"?"ABB":"nylon")+" "+TIPOS[it.tipo].corto);if(n.startsWith("Empaque")&&z(cfg.empaqueMl))F.add("Empaque")}
     if(dp.vidrios.length&&z(vidrioDe(it.vidrio).m2))F.add("Vidrio "+vidrioDe(it.vidrio).nombre)}
   else if(TIPOS[it.tipo]?.puerta){for(const p of dp.perfiles){if(p.pool==="cielo"){if(z(cfg.puertas.cielo.precio))F.add("Tira PVC cielorraso");continue}if(z(cfg.puertas.perfiles[p.ref]))F.add(p.ref)}
     for(const [n,c,k] of dp.acc)if(k&&c>0&&z(precioAccIt(it,k)))F.add(n.replace(/ \(m\)/,""));if(dp.tab.length&&z(cfg.puertas.marmo.precio))F.add("Lámina PVC marmolizado")}
@@ -1835,7 +1840,7 @@ function vCotizar(){
 function itemSheet(i){
   const base={tipo:"s744",naves:2,dist:"FI",rod:"nylon",tab1:"f06",nave:"t87",tab15:"t166",orient:"H",mediaLam:true,instalacion:instDe("s744"),hojas:2,ancho:1500,alto:1200,cant:1,vidrio:S.cfg.vidrios[0]?.id||"",color:S.cfg.colores[0]?.nombre||"",ubicacion:"",precioManual:0,conPerfil:false};
   const vb={tipo:"vidrio",cant:1,vidrio:S.ultVidrio||S.cfg.vidrios[0]?.id||"",instalacion:null,ubicacion:"",precioManual:0,ancho:0,alto:0,loteOn:true,lote:[]};
-  const it=i!=null?{...S.draft.items[i]}:(areaDe(S.draft)==="vidrios"?vb:{...base,loteOn:true,lote:[{a:0,h:0,c:1,u:""}]});
+  const it=i!=null?{...S.draft.items[i]}:(areaDe(S.draft)==="vidrios"?vb:{...base,chapaV:S.ultChapaV??chapasVenL()[0]?.nombre??"",loteOn:true,lote:[{a:0,h:0,c:1,u:""}]});
   S.itemTmp=it;S.itemIdx=i;
   openSheet(()=>itemSheetHtml());
 }
@@ -1849,7 +1854,7 @@ function itemSheetHtml(){
     ${cat[2].length>1?`<div class="field"><label>Tipo</label><div class="seg">${cat[2].map(k=>`<button data-act="it-tipo" data-v="${k}" aria-pressed="${it.tipo===k}">${TIPOS[k].corto}</button>`).join("")}</div></div>`:""}`})()}
   ${ser?`<div class="field"><label>Naves</label><div class="seg">${[2,3,4].map(k=>`<button data-act="it-naves" data-v="${k}" aria-pressed="${n===k}">${k} naves</button>`).join("")}</div></div>
   <div class="field"><label>Distribución</label><div class="seg">${dists.map(([k,t])=>`<button data-act="it-dist" data-v="${k}" aria-pressed="${(dists.length===1)||(it.dist==="FC"?"FI":it.dist)===k}">${t}</button>`).join("")}</div></div>
-  <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(precioRod(it.tipo,k))}</button>`).join("")}</div></div>`:""}
+  <div class="field"><label>Rodamiento</label><div class="seg">${[["nylon","Nylon"],["abb","ABB"]].map(([k,t])=>`<button data-act="it-rod" data-v="${k}" aria-pressed="${(it.rod||"nylon")===k}">${t} · ${money(precioRod(it.tipo,k))}</button>`).join("")}</div></div>${chapaVenSel(it)}`:""}
   ${TIPOS[it.tipo]?.puerta?ptaOpciones(it):""}
   ${it.tipo==="division"?`<div class="field"><label>Vidrios</label><div class="seg"><button data-act="it-set" data-k="divModo" data-v="estandar" aria-pressed="${it.divModo!=="especial"}">Estándar (inventario)</button><button data-act="it-set" data-k="divModo" data-v="especial" aria-pressed="${it.divModo==="especial"}">Mandar a hacer · ${money(S.cfg.division.especialM2)}/m²</button></div></div>`:""}
   ${conHojas?`<div class="field"><label>Hojas</label><div class="seg">${[2,3,4].map(n=>`<button data-act="it-hojas" data-v="${n}" aria-pressed="${(it.hojas||2)===n}">${n} hojas</button>`).join("")}</div></div>`:""}
@@ -2332,6 +2337,8 @@ function vAjustes(){
    <div class="row sp"><h3>Chapas</h3><button class="btn sm" data-act="add-chapa">+ Chapa</button></div>
    ${(c.chapas||[]).map((v,i)=>`<div class="row"><input class="cin grow" aria-label="Nombre de la chapa" data-cfg="chapas.${i}.nombre" value="${esc(v.nombre)}">${inp("chapas."+i+".precio",v.precio,"Precio "+v.nombre,110)}<button class="btn sm danger" data-act="del-chapa" data-i="${i}" aria-label="Quitar chapa">✕</button></div>`).join("")}
    <span class="small muted">La primera es la que se pone por defecto en cada puerta; en la cotización se puede cambiar.</span>
+   <div class="row sp"><h3>Chapas de ventana</h3><button class="btn sm" data-act="add-chapav">+ Chapa</button></div>
+   ${(c.chapasVen||[]).map((v,i)=>`<div class="row"><input class="cin grow" aria-label="Nombre de la chapa de ventana" data-cfg="chapasVen.${i}.nombre" value="${esc(v.nombre)}">${inp("chapasVen."+i+".precio",v.precio,"Precio "+v.nombre,110)}<button class="btn sm danger" data-act="del-chapav" data-i="${i}" aria-label="Quitar chapa">✕</button></div>`).join("")||`<span class="small muted">Sin chapas de ventana. Agrega por ejemplo "Chapa Dumin" o "Chapa K11".</span>`}
    <h3>Puertas</h3><div class="fgrid">${PTA_ACC.filter(([k])=>k!=="chapa").map(([k,t,u])=>fld("pa-"+k,esc(t)+" $/"+u,"puertas.acc."+k,c.puertas.acc[k]??0)).join("")}</div>
    <h3>Cocinas</h3><div class="fgrid">
    ${fld("cc-bi","Bisagras $/par","cocina.bisagra",c.cocina.bisagra)}${fld("cc-ma","Manija $/unidad","cocina.manija",c.cocina.manija)}
@@ -2519,7 +2526,7 @@ function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de P
   guardarArchivo("Cortes_"+(o.numero?numCot(o):"cotizacion")+".pdf",doc)}
 
 /* ============ Hoja de taller: todo lo que necesita el trabajador en un PDF ============ */
-function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
+async function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const kc=catActiva(id);S.cortesCatId=id;S.cortesCat=kc;const o=vistaCat(obra(id),kc);if(!o)return;const doc=pdfBase(),c=clienteDe(o);pdfHeader(doc,"HOJA DE TALLER"+(kc?" · "+catLbl(kc).toUpperCase():""),numCot(o)+" · "+fechaCorta(hoy()));
   let y=40;const nl=n=>{if(y+n>262){doc.addPage();y=20}},tit=t=>{nl(14);doc.setFillColor(236,230,223);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text(t,16,y);doc.setFont("helvetica","normal");doc.setFontSize(9);y+=7};
   doc.setFontSize(10);const dato=(k,v)=>{if(!v)return;doc.setFont("helvetica","bold");doc.text(k,16,y);doc.setFont("helvetica","normal");const l=doc.splitTextToSize(v,150);doc.text(l,46,y);y+=l.length*5};
@@ -2538,7 +2545,7 @@ function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de PDF. R
   y+=6;nl(40);tit("Avance");doc.setFontSize(10);
   ["Cortado","Armado","Vidrio puesto","Instalado"].forEach((t,i)=>{const x=16+i*47;doc.setDrawColor(40,34,30);doc.rect(x,y-3.6,4.5,4.5);doc.text(t,x+7,y)});y+=12;
   doc.setDrawColor(150);doc.line(16,y,100,y);doc.line(116,y,200,y);doc.setFontSize(8);doc.setTextColor(106,95,88);doc.text("Responsable",16,y+4);doc.text("Fecha de entrega",116,y+4);doc.setTextColor(31,26,23);
-  guardarArchivo("Taller_"+numCot(o)+".pdf",doc)}
+  await pdfPlanos(doc,o,o.items);guardarArchivo("Taller_"+numCot(o)+".pdf",doc)}
 
 /* ============ Sheet ============ */
 let sheetFn=null;
@@ -2592,7 +2599,30 @@ function pdfHeader(doc,titulo,sub){const e=S.cfg.empresa;
 /* Carga el logo para los PDF (queda guardado para usarlo sin internet) */
 async function cargarLogoDoc(){try{const r=await fetch("logo-doc.jpg");if(!r.ok)return;const b=await r.blob();S.logoDoc=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){}}
 cargarLogoDoc();
-function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
+/* Dibujo de un ítem (SVG de pantalla) convertido a imagen para el PDF */
+function svgPng(svg,px){return new Promise(res=>{try{if(typeof Image==="undefined"||!document.createElement)return res(null);
+  const col={"var(--glass)":"#d6e8f0","var(--surface)":"#ffffff","var(--surface-2)":"#f2f2f4","var(--fg)":"#1f1a17","var(--muted)":"#6a5f58","var(--line)":"#cbd3db","currentColor":"#1f1a17"};
+  let t=svg.replace(/var\(--[a-z0-9-]+\)|currentColor/g,m=>col[m]||"#1f1a17").replace(/font-family="[^"]*"/g,'font-family="Helvetica, Arial, sans-serif"');if(!/xmlns=/.test(t))t=t.replace("<svg",'<svg xmlns="http://www.w3.org/2000/svg"');
+  const vb=/viewBox="([\d.\s-]+)"/.exec(t),[, , vw,vh]=(vb?vb[1]:"0 0 260 200").split(/\s+/).map(Number),W=Math.round(px),H=Math.round(px*vh/vw);
+  t=t.replace(/<svg([^>]*?)\swidth="[^"]*"/,"<svg$1").replace("<svg",`<svg width="${W}" height="${H}"`);
+  const img=new Image();img.onload=()=>{try{const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);res({url:c.toDataURL("image/png"),w:W,h:H})}catch(e){res(null)}};img.onerror=()=>res(null);
+  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(t)}catch(e){res(null)}})}
+function planoLineas(it){const t=TIPOS[it.tipo]||{},L=[];
+  if(t.serie){const lay=layout(it);L.push("Sentido: "+lay.map(x=>x==="F"?"fija":"corrediza").join(" · ")+(it.dist?"  ("+(describeItem(it).match(/\(([^)]*)\)/)||[,""])[1]+")":""));L.push("Rodamiento: "+(it.rod==="abb"?"ABB":"nylon"))}
+  if(t.serie){const ch=chapaVenDe(it);L.push("Chapa: "+(ch?ch.nombre:"sin chapa"))}else if(t.puerta||it.tipo==="pesp"){const ch=chapaDe(it);L.push("Chapa: "+(ch?ch.nombre:"sin chapa"))}
+  L.push("Línea: "+(t.corto||t.nombre||it.tipo)+(it.color?" · Color: "+it.color:""));
+  const dp=despiece({...it,cant:1});if(dp.vidrios?.length&&it.vidrio&&!esMel(it))L.push("Vidrio: "+vidrioDe(it.vidrio).nombre);
+  if(it.ubicacion)L.push("Ubicación: "+it.ubicacion);return L}
+async function pdfPlanos(doc,o,items){const L=(items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).sort(([a],[b])=>(a.n||0)-(b.n||0));if(!L.length)return;
+  const imgs=await Promise.all(L.map(([it])=>svgPng(sketch(it),520)));doc.addPage();pdfHeader(doc,"PLANOS",numCot(o)+" · "+tituloObra(o));
+  let y=40,col=0;const CW=90,IH=52,LS=L.map(([it])=>planoLineas(it)),hh=IH+14+Math.max(...LS.map(l=>l.length))*4.2;
+  L.forEach(([it,i],k)=>{const lin=LS[k];if(col===0&&y+hh>287){doc.addPage();y=20}const x=14+col*(CW+8);
+    doc.setDrawColor(203,211,219);doc.roundedRect(x,y-4,CW,hh,2,2,"S");doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.text(doc.splitTextToSize(`${it.n||k+1}. ${describeItem(it)}`,CW-6)[0],x+3,y+1);
+    doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.text(`${medidaLbl(it,true)} · ${it.cant} und`,x+3,y+5.5);
+    const im=imgs[k];if(im){const r=im.h/im.w;let w=CW-10,h=w*r;if(h>IH){h=IH;w=h/r}try{doc.addImage(im.url,"PNG",x+(CW-w)/2,y+8,w,h)}catch(e){}}
+    let yy=y+8+IH+3;doc.setFontSize(8);lin.forEach(l=>{doc.text(doc.splitTextToSize(l,CW-6)[0],x+3,yy);yy+=4.2});
+    if(col===1){y+=hh+6;col=0}else col=1});}
+async function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const doc=pdfBase(),c=clienteDe(o),calc=calcDe(o),R=calc.resumen;pdfHeader(doc,"COTIZACIÓN",numCot(o)+" · "+fechaCorta(o.fecha));
   let y=40;doc.setFontSize(10);if(c?.nombre){doc.setFont("helvetica","bold");doc.text("Cliente:",16,y);doc.setFont("helvetica","normal");doc.text(c.nombre+(c.nit?"  ·  "+c.nit:""),36,y);y+=6}
   doc.setFont("helvetica","bold");doc.text("Trabajos:",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(trabajosTxt(o)+(o.direccion?" · "+o.direccion:""),160),36,y);y+=10;
@@ -2613,6 +2643,7 @@ function pdfCot(o){if(!window.jspdf){toast("No cargó el generador de PDF. Revis
   y+=4;doc.setFillColor(40,34,30);doc.rect(120,y-5,82,10,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(areaDe(o)==="vidrios"&&o.sinInst?10:12);doc.text(areaDe(o)==="vidrios"&&o.sinInst?"TOTAL SIN INSTALACIÓN":"TOTAL",124,y+1.5);doc.text(money(totalObra(o)),200,y+1.5,{align:"right"});doc.setTextColor(31,26,23);
   y+=14;if(o.notas){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("Notas",16,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(o.notas,180),16,y+5);y+=doc.splitTextToSize(o.notas,180).length*4+8}
   if(S.cfg.empresa.firma){let yy=y+30;if(yy>262){doc.addPage();yy=50}pdfFirma(doc,yy)}
+  if(areaDe(o)!=="vidrios")await pdfPlanos(doc,o,o.items);
   guardarArchivo("Cotizacion_"+numCot(o)+".pdf",doc)}
 function pdfFirma(doc,y){const e=S.cfg.empresa;
   if(e.firma){try{const r=+e.firmaRatio||3;let w=60,h=w/r;if(h>22){h=22;w=h*r}doc.addImage(e.firma,"PNG",18,y-h-1,w,h)}catch(er){}}
@@ -2835,6 +2866,8 @@ document.addEventListener("click",async ev=>{
     case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});autoGuardarCfg();render();break;
     case"add-chapa":(S.cfgEdit.chapas=S.cfgEdit.chapas||[]).push({nombre:"Chapa nueva",precio:0});autoGuardarCfg();render();break;
+    case"add-chapav":(S.cfgEdit.chapasVen=S.cfgEdit.chapasVen||[]).push({nombre:"Chapa ventana",precio:0});autoGuardarCfg();render();break;
+    case"del-chapav":S.cfgEdit.chapasVen.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
     case"del-chapa":if((S.cfgEdit.chapas||[]).length>1){S.cfgEdit.chapas.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"add-vtemp":{const L=S.cfgEdit.division.vidrios,u=L[L.length-1];L.push({ancho:u?+u.ancho+5:60,alto:u?+u.alto:190,stock:0});autoGuardarCfg();render();break}
