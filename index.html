@@ -430,7 +430,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.77.1";
+const APP_VER="1.77.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -2613,18 +2613,18 @@ function planoProps(it){const t=TIPOS[it.tipo]||{},P=[];P.push(["Línea",t.corto
   const dp=despiece({...it,cant:1});if(dp.vidrios?.length&&it.vidrio&&!esMel(it))P.push(["Vidrio",vidrioDe(it.vidrio).nombre]);return P}
 const sentidoTxt=it=>TIPOS[it.tipo]?.serie?((describeItem(it).match(/\(([^)]*)\)/)||[,""])[1]||layout(it).map(x=>x==="F"?"fija":"corrediza").join(" + ")):"";
 async function pdfPlanos(doc,o,items){const L=(items||[]).map((it,i)=>[it,i]).filter(([it])=>!it.fuera).sort(([a],[b])=>(a.n||0)-(b.n||0));if(!L.length)return;
-  const imgs=await Promise.all(L.map(([it])=>svgPng(sketch({...it,cant:1}),420))),IMG=new Map(L.map(([it,i],k)=>[i,imgs[k]]));
+  const imgs=await Promise.all(L.map(([it])=>svgPng(sketch({...it,cant:1}).replace(/font-size="11"/g,'font-size="15" font-weight="600"'),420))),IMG=new Map(L.map(([it,i],k)=>[i,imgs[k]]));
   const G={};L.forEach(x=>{const k=catDe(x[0]);(G[k]=G[k]||[]).push(x)});const grupos=Object.entries(G).sort((a,b)=>CAT_ORD(a[0])-CAT_ORD(b[0]));
   doc.addPage();pdfHeader(doc,"PLANOS",numCot(o)+" · "+tituloObra(o));let y=38;const CW=58,GAP=4,IH=34,LH=3.6;let nn=0;
   for(const [k,X] of grupos){const PR=X.map(([it])=>planoProps(it)),claves=[...new Set(PR.flat().map(p=>p[0]))];
-    const com=claves.filter(c=>PR.every(P=>P.some(p=>p[0]===c))&&new Set(PR.map(P=>P.find(p=>p[0]===c)[1])).size===1).map(c=>[c,PR[0].find(p=>p[0]===c)[1]]);
+    const com=claves.filter(c=>{const V=PR.map(P=>P.find(p=>p[0]===c)).filter(Boolean).map(p=>p[1]);return new Set(V).size===1&&(V.length===PR.length||c==="Vidrio")}).map(c=>[c,PR.map(P=>P.find(p=>p[0]===c)).find(Boolean)[1]]);
     const hdr=doc.splitTextToSize(com.map(([c,v])=>c==="Línea"||c==="Color"?v:c+": "+v).join("  ·  "),186);if(y+12+hdr.length*4+IH>285){doc.addPage();y=20}
     doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(154,100,48);doc.text(catLbl(k).toUpperCase()+" · "+X.reduce((a,[it])=>a+(+it.cant||1),0)+" und",14,y);doc.setTextColor(31,26,23);
     doc.setFont("helvetica","normal");doc.setFontSize(8.5);if(hdr.length&&hdr[0]){doc.text(hdr,14,y+4.5);y+=4.5+hdr.length*4}else y+=4;y+=2;
     for(let r=0;r<X.length;r+=3){const fila=X.slice(r,r+3),lins=fila.map(([it],q)=>{const P=PR[r+q].filter(p=>!com.some(c=>c[0]===p[0]));const Ls=[];const se=sentidoTxt(it);if(se)Ls.push(se);P.forEach(([c,v])=>Ls.push(c==="Línea"||c==="Color"?v:c+": "+v));if(it.ubicacion)Ls.push(it.ubicacion);return Ls});
       const hh=IH+6+Math.max(...lins.map(l=>l.length))*LH+2;if(y+hh>288){doc.addPage();y=20}
       fila.forEach(([it,i],q)=>{const x=14+q*(CW+GAP),n=it.n||++nn;doc.setDrawColor(222,226,230);doc.roundedRect(x,y,CW,hh,1.5,1.5,"S");
-        doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.text(`${n}.`,x+2,y+4);doc.setFont("helvetica","normal");doc.text(`${cm(it.ancho||0)} × ${cm(it.alto||0)} cm`,x+7,y+4);doc.setFont("helvetica","bold");doc.text("× "+(it.cant||1),x+CW-2,y+4,{align:"right"});
+        doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.text(`${n}.`,x+2,y+4);doc.text("× "+(it.cant||1),x+CW-2,y+4,{align:"right"});
         const im=IMG.get(i);if(im){const rr=im.h/im.w;let w=CW-6,h=w*rr;if(h>IH-2){h=IH-2;w=h/rr}try{doc.addImage(im.url,"PNG",x+(CW-w)/2,y+6,w,h)}catch(e){}}
         doc.setFont("helvetica","normal");doc.setFontSize(7.5);let yy=y+IH+6;lins[q].forEach(l=>{doc.text(doc.splitTextToSize(l,CW-4)[0],x+2,yy);yy+=LH})});
       y+=hh+GAP}
