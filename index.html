@@ -378,6 +378,12 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 .pe-t .cin{padding:8px 6px;min-width:0;width:100%}.pe-blk{display:grid;gap:6px;padding:10px;border-radius:12px;background:var(--surface);box-shadow:inset 0 0 0 .5px var(--line)}.pe-bh{display:grid;grid-template-columns:1fr 34px;gap:6px}.pe-madd{justify-self:start;font-size:13px}
 .pe-res{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-2px}.pe-res:empty{display:none}
 .vf{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:14px}.vf b{grid-row:span 3;align-self:start;padding-top:8px}.vf span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.le-lam{position:relative;width:100%;background:var(--surface-2);border:1.5px solid var(--fg);border-radius:3px;touch-action:none;overflow:hidden}
+.le-p{position:absolute;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--fg);display:grid;place-items:center;font:600 10px/1.1 var(--f-mono);color:var(--fg);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden;text-align:center}
+.le-p span{pointer-events:none;padding:1px}.le-tp{position:relative;background:color-mix(in srgb,var(--warn) 18%,var(--surface))}
+.le-foot{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) calc(-20px - env(safe-area-inset-bottom,0px)) calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px));background:var(--bg);box-shadow:0 -6px 16px rgba(0,0,0,.08);display:grid;gap:8px;z-index:2}
+.le-tray{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;min-height:64px;max-height:28vh;overflow:auto;padding:10px;border:1.5px dashed var(--line);border-radius:12px;background:var(--surface)}
+.le-ghost{opacity:.9;box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:none}
 .prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
 .prod-o{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--line);cursor:pointer}.ipanel .prod-o:first-child{border-top:0}
 .prod-p{display:flex;gap:12px;padding:12px 16px;border-top:.5px solid var(--line)}.ipanel .prod-p:first-child{border-top:0}
@@ -431,7 +437,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.79.0";
+const APP_VER="1.80.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -666,7 +672,7 @@ function packFranjasUna(rects,SL,ST,orden,acost,mejorFr){const list=rects.slice(
     s.free=F;delete s.strips;delete s.y;unirSobrantes(s)}
   return sheets}
 /* Varias formas de cortar las láminas para que el usuario escoja */
-function opcionesLam(rects0,W0,H0,k){k=k||0;if(!rects0.length)return [];const area=rects0.reduce((a,r)=>a+r.w*r.h,0),W=W0+k,H=H0+k;let rects=inflar(rects0,k);
+function opcionesLam(rects0,W0,H0,k,key){k=k||0;if(!rects0.length)return [];const area=rects0.reduce((a,r)=>a+r.w*r.h,0),W=W0+k,H=H0+k;let rects=inflar(rects0,k);
   rects=rects.flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
   const tr=sh=>sh.map(x=>({items:x.items.map(r=>({...r,x:r.y,y:r.x,w:r.h,h:r.w})),free:x.free.map(f=>({x:f.y,y:f.x,w:f.h,h:f.w}))}));
   const Lg=Math.max(W,H),Ct=Math.min(W,H),largo=packFranjas(rects,Lg,Ct),ancho=packFranjas(rects,Ct,Lg);
@@ -674,15 +680,66 @@ function opcionesLam(rects0,W0,H0,k){k=k||0;if(!rects0.length)return [];const ar
   const O=[{id:"optimo",t:"Óptimo",d:"El sobrante más grande posible",sh:packRects(rects,W,H)},
     {id:"largo",t:"Cortes a lo largo",d:"Franjas a lo largo de la lámina",sh:W>=H?largo:tr(largo)},
     {id:"ancho",t:"Cortes a lo ancho",d:"Franjas a lo ancho de la lámina",sh:W<=H?ancho:tr(ancho)}];
+  const M=key?lamManVal(key,rects0,W0,H0,k):null;
+  if(M){const sh=M.sh.map(items=>({items:items.map(p=>({...p})),free:libreMayor(items,W,H)}));if(M.tray.length){if(!sh.length)sh.push({items:[],free:[]});sh[sh.length-1].items.push(...M.tray.map(p=>({...p,w:p.w-k,h:p.h-k,over:true})))}
+    O.push({id:"manual",t:"A mano",d:"Como la acomodaste tú",sh})}
   for(const o of O){o.sh=desinflar(o.sh,k,W0,H0);o.n=o.sh.length;o.fuera=o.sh.reduce((n,x)=>n+x.items.filter(r=>r.over).length,0);o.sob=o.sh.reduce((m,x)=>{const f=sobranteMayor(x);return f&&f.w*f.h>(m?m.w*m.h:0)?f:m},null);o.uso=area/(o.n*W0*H0)}
   return O}
+/* ===== Acomodar láminas a mano: arrastrar piezas, girarlas y sacarlas a la bandeja ===== */
+const lamPzs=(rects0,W,H,k)=>inflar(rects0,k).flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
+const lamFirma=rs=>rs.map(r=>Math.min(r.w,r.h)+"x"+Math.max(r.w,r.h)).sort().join(",");
+function lamManAll(){if(!S.lamMan){try{S.lamMan=JSON.parse(localStorage.getItem("alumel-lamman")||"{}")}catch(e){S.lamMan={}}}return S.lamMan}
+const lamManKey=key=>(S.cortesSel||"")+"|"+key;
+function lamManVal(key,rects,W0,H0,k){const M=lamManAll()[lamManKey(key)];if(!M||M.W!==W0||M.H!==H0||M.k!==k||M.f!==lamFirma(rects))return null;return M}
+/* El sobrante más grande (rectángulo libre) de una lámina acomodada a mano */
+function libreMayor(items,W,H){const P=items.filter(p=>!p.over),xs=[...new Set([0,...P.map(p=>p.x+p.w)])].filter(v=>v<W),ys=[...new Set([0,...P.map(p=>p.y+p.h)])].filter(v=>v<H),xe=[...new Set([W,...P.map(p=>p.x)])],ye=[...new Set([H,...P.map(p=>p.y)])];
+  let b=null;for(const x0 of xs)for(const y0 of ys){if(P.some(p=>x0>=p.x&&x0<p.x+p.w&&y0>=p.y&&y0<p.y+p.h))continue;for(const x1 of xe){if(x1<=x0)continue;for(const y1 of ye){if(y1<=y0)continue;const a=(x1-x0)*(y1-y0);if(b&&a<=b.w*b.h)continue;
+    if(!P.some(p=>p.x<x1-0.5&&p.x+p.w>x0+0.5&&p.y<y1-0.5&&p.y+p.h>y0+0.5))b={x:x0,y:y0,w:x1-x0,h:y1-y0}}}}return b?[b]:[]}
+function lamEditar(key){const R0=(S.lamReg||{})[key];if(!R0)return;const {rects,W,H,k}=R0,Wi=W+k,Hi=H+k,pz=lamPzs(rects,Wi,Hi,k),M=lamManVal(key,rects,W,H,k);
+  let sh,tray;if(M){sh=clone(M.sh);tray=clone(M.tray)}else{const O=opcionesLam(rects,W,H,k),sel=O.find(o=>o.id===lamOpcSel(key))||O[0];sh=sel.sh.map(x=>x.items.filter(r=>!r.over).map(r=>({w:r.w+k,h:r.h+k,x:r.x,y:r.y})));tray=sel.sh.flatMap(x=>x.items.filter(r=>r.over)).map(r=>({w:r.w,h:r.h}))}
+  S.lamEd={key,W,H,k,Wi,Hi,f:lamFirma(rects),sh,tray};openSheet(lamEdHtml);setTimeout(lamEdTam,30)}
+function lamEdHtml(){const E=S.lamEd;if(!E)return "";const lbl=p=>cm(p.w-E.k)+"×"+cm(p.h-E.k);
+  return `<div class="sheet-h"><h2>Acomodar a mano</h2><button class="btn sm" data-act="cerrar">Cancelar</button></div>
+   <span class="small muted">Arrastra cada pieza a donde la quieras. Tócala para girarla. Suéltala en la bandeja de abajo para sacarla de la lámina.</span>
+   <div id="le-root" class="stack" style="gap:10px">${E.sh.map((L,li)=>`<div><div class="row sp"><span class="small mono muted">Lámina ${li+1}</span>${L.length?"":`<button class="btn sm danger" data-act="le-dellam" data-i="${li}">Quitar lámina vacía</button>`}</div>
+     <div class="le-lam" data-li="${li}" style="aspect-ratio:${E.Hi}/${E.Wi}">${L.map((p,j)=>`<div class="le-p" data-pl="${li}.${j}" style="left:${p.y/E.Hi*100}%;top:${p.x/E.Wi*100}%;width:${p.h/E.Hi*100}%;height:${p.w/E.Wi*100}%"><span>${lbl(p)}</span></div>`).join("")}</div></div>`).join("")}
+   <button class="btn sm" style="align-self:flex-start" data-act="le-addlam">+ Lámina</button>
+   </div><div class="le-foot"><div class="eyebrow">Bandeja · piezas sin ubicar (${E.tray.length})</div>
+   <div class="le-tray" id="le-tray">${E.tray.map((p,j)=>`<div class="le-p le-tp" data-pt="${j}" data-w="${p.w}" data-h="${p.h}"><span>${lbl(p)}</span></div>`).join("")||`<span class="small muted">Vacía. Arrastra aquí las piezas que quieras reubicar.</span>`}</div>
+   <div class="fgrid"><button class="btn" data-act="le-reset">Volver al automático</button><button class="btn pri" data-act="le-ok">Guardar acomodo</button></div></div>`}
+function lamEdTam(){const E=S.lamEd,l=document.querySelector(".le-lam");if(!E||!l)return;const sc=l.clientWidth/E.Hi;document.querySelectorAll(".le-tp").forEach(d=>{d.style.width=(+d.dataset.h*sc)+"px";d.style.height=(+d.dataset.w*sc)+"px"})}
+function lamEdRender(){if(sheetFn===lamEdHtml){refreshSheet();lamEdTam()}}
+const leCruza=(a,L)=>L.some(p=>p!==a&&p.x<a.x+a.w-0.5&&p.x+p.w>a.x+0.5&&p.y<a.y+a.h-0.5&&p.y+p.h>a.y+0.5);
+function lamEdSoltar(src,cx,cy,offx,offy){const E=S.lamEd,pc=src.t==="s"?E.sh[src.li][src.j]:E.tray[src.j],el=document.elementFromPoint(cx,cy),lam=el?.closest?.(".le-lam"),tr=el?.closest?.("#le-tray");
+  const quitar=()=>{if(src.t==="s")E.sh[src.li].splice(src.j,1);else E.tray.splice(src.j,1)};
+  if(tr){if(src.t==="s"){quitar();E.tray.push({w:pc.w,h:pc.h})}lamEdRender();return}
+  if(!lam){lamEdRender();return}const li=+lam.dataset.li,r=lam.getBoundingClientRect(),L=E.sh[li];
+  let y=(cx-offx-r.left)/r.width*E.Hi,x=(cy-offy-r.top)/r.height*E.Wi;const tol=Math.max(E.Hi,E.Wi)*0.025,otros=L.filter(p=>p!==pc);
+  const pega=(v,len,ed)=>{let best=v,bd=tol;for(const e of ed){for(const c of [e,e-len]){const d=Math.abs(v-c);if(d<bd){bd=d;best=c}}}return best};
+  y=pega(y,pc.h,[0,E.Hi,...otros.flatMap(p=>[p.y,p.y+p.h])]);x=pega(x,pc.w,[0,E.Wi,...otros.flatMap(p=>[p.x,p.x+p.w])]);
+  y=Math.max(0,Math.min(E.Hi-pc.h,y));x=Math.max(0,Math.min(E.Wi-pc.w,x));
+  const nuevo={w:pc.w,h:pc.h,x:Math.round(x),y:Math.round(y)};if(pc.w>E.Wi+0.5||pc.h>E.Hi+0.5){toast("Esa pieza no cabe así en la lámina; gírala en la bandeja");lamEdRender();return}
+  if(leCruza(nuevo,otros)){toast("Ahí se cruza con otra pieza");lamEdRender();return}
+  quitar();E.sh[li].push(nuevo);lamEdRender()}
+function lamEdGirar(src){const E=S.lamEd;if(src.t==="t"){const p=E.tray[src.j];[p.w,p.h]=[p.h,p.w];lamEdRender();return}
+  const L=E.sh[src.li],p=L[src.j],g={...p,w:p.h,h:p.w};if(g.x+g.w>E.Wi+0.5||g.y+g.h>E.Hi+0.5||leCruza(g,L.filter(q=>q!==p))){toast("Girada no cabe ahí; sácala a la bandeja, gírala y vuelve a ponerla");return}L[src.j]=g;lamEdRender()}
+(function(){let d=null;
+  document.addEventListener("pointerdown",e=>{const pe=e.target.closest&&e.target.closest(".le-p");if(!pe||!S.lamEd)return;e.preventDefault();const r=pe.getBoundingClientRect();
+    const src=pe.dataset.pl?{t:"s",li:+pe.dataset.pl.split(".")[0],j:+pe.dataset.pl.split(".")[1]}:{t:"t",j:+pe.dataset.pt};d={pe,src,x0:e.clientX,y0:e.clientY,offx:e.clientX-r.left,offy:e.clientY-r.top,g:null,r}});
+  document.addEventListener("pointermove",e=>{if(!d)return;if(!d.g){if(Math.hypot(e.clientX-d.x0,e.clientY-d.y0)<6)return;const g=d.pe.cloneNode(true);g.className="le-p le-ghost";Object.assign(g.style,{position:"fixed",left:d.r.left+"px",top:d.r.top+"px",width:d.r.width+"px",height:d.r.height+"px",zIndex:99});document.body.appendChild(g);d.g=g;d.pe.style.opacity=".25"}
+    e.preventDefault();d.g.style.left=(e.clientX-d.offx)+"px";d.g.style.top=(e.clientY-d.offy)+"px"},{passive:false});
+  const fin=e=>{if(!d)return;const D=d;d=null;S.leFin=Date.now();if(!D.g){lamEdGirar(D.src);return}D.g.remove();lamEdSoltar(D.src,e.clientX,e.clientY,D.offx,D.offy)};
+  document.addEventListener("pointerup",fin);document.addEventListener("pointercancel",e=>{if(d){d.g?.remove();d=null;lamEdRender()}});
+  window.addEventListener("resize",()=>{if(S.lamEd)lamEdTam()})})();
 function lamOpcSel(key){const o=S.cortesSel==="__prod"?null:objSel(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
-function opcionesLamHtml(key,rects,W,H,cotizadas,k){const O=opcionesLam(rects,W,H,k);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+function opcionesLamHtml(key,rects,W,H,cotizadas,k){(S.lamReg=S.lamReg||{})[key]={rects,W,H,k};const O=opcionesLam(rects,W,H,k,key);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   return `<div class="small" style="font-weight:600;margin-top:4px">Forma de cortar · escoge la que más te sirva</div>
    <div class="lamopc">${O.map(o=>`<button class="lamopc-b" data-act="lam-opc" data-k="${esc(key)}" data-v="${o.id}" aria-pressed="${o===sel}"><b>${o.t}</b><span>${o.n} lámina${o.n===1?"":"s"}${o.fuera?" · "+o.fuera+" no caben":""}</span><span>${o.sob?"Sobra "+cm(o.sob.h)+"×"+cm(o.sob.w):"Sin sobrante"}</span><span style="white-space:nowrap">Usa ${Math.round(o.uso*100)} %</span></button>`).join("")}</div>
    ${cotizadas&&sel.n>Math.ceil(cotizadas)?`<div class="note" style="border-color:var(--warn)">Esta forma usa ${sel.n} láminas y en la cotización se cobraron ${String(cotizadas).replace(".",",")}.</div>`:""}
    ${k?`<span class="small muted">Incluye ${k} mm de corte de sierra entre piezas.</span>`:""}
-   ${dibujoLaminas(sel.sh,W,H)}`}
+   ${dibujoLaminas(sel.sh,W,H)}
+   ${sel.fuera&&sel.id==="manual"?`<div class="note" style="border-color:var(--warn)">Sin ubicar: ${sel.sh.flatMap(x=>x.items.filter(r=>r.over)).map(r=>cm(r.w)+"×"+cm(r.h)).join(", ")}</div>`:""}
+   ${S.readonly?"":`<button class="btn sm" style="align-self:flex-start" data-act="lam-edit" data-k="${esc(key)}">✋ Acomodar a mano</button>`}`}
 /* Cuántas tiras salen para una lista de cortes (primero el más largo) */
 function tirasNecesarias(list,L){const k=S.cfg.sierra||0,bins=[];
   for(const l of list.slice().sort((a,b)=>b-a)){if(l>L){bins.push(L);continue}const i=bins.findIndex(u=>u+k+l<=L);if(i<0)bins.push(l);else bins[i]+=k+l}
@@ -2482,7 +2539,7 @@ function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&
   for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})))t+=`\n*Vidrio ${vn.replace(/^Vidrio /i,"")}*\n`+L.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
 /* Plano de corte de láminas en el PDF (misma forma que escogiste en Cortes) */
-function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){doc.addPage();y=20}};const O=opcionesLam(rects,W,H,k);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){doc.addPage();y=20}};const O=opcionesLam(rects,W,H,k,key);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   const sc=Math.min(184/H,95/W),dw=H*sc,dh=W*sc;
   nl(dh+18);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(titulo+" · plano de corte ("+sel.t.toLowerCase()+")",16,y);doc.setFont("helvetica","normal");doc.setFontSize(8);
   doc.text("Lámina "+cm(W)+" × "+cm(H)+" cm"+(k?" · sierra "+k+" mm":""),200,y,{align:"right"});y+=4;
@@ -2566,7 +2623,7 @@ async function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de 
 let sheetFn=null;
 function openSheet(fn){sheetFn=fn;$("#sheet-root").innerHTML=`<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${fn()}</div></div>`;document.body.style.overflow="hidden"}
 function refreshSheet(){const sh=$(".sheet");if(!sh||!sheetFn)return;const st=sh.scrollTop,a=document.activeElement?.id;sh.innerHTML=sheetFn();sh.scrollTop=st;if(a){const el=document.getElementById(a);if(el){el.focus();if(el.setSelectionRange&&el.type!=="number")try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}}}
-function closeSheet(){if(S.editDirecto)finEditDirecto();sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";render()}
+function closeSheet(){S.lamEd=null;if(S.editDirecto)finEditDirecto();sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";render()}
 function confirmar(msg,okTxt,fn){S.confirmFn=fn;openSheet(()=>`<div class="sheet-h"><h2>¿Seguro?</h2></div><p style="margin:0">${esc(msg)}</p><div class="row"><button class="btn danger grow" data-act="confirm-ok">${esc(okTxt)}</button><button class="btn grow" data-act="cerrar">Cancelar</button></div>`)}
 
 /* ============ Texto y PDF ============ */
@@ -2718,7 +2775,7 @@ document.addEventListener("click",async ev=>{
   if(S.lpFired&&!ev.target.closest(".sheet")){S.lpFired=false;ev.preventDefault();return}
   if(S.swCerro&&ev.target.closest(".irow-c")&&!ev.target.closest("input")){ev.preventDefault();return}
   const b=ev.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;if(b.dataset.cierra){sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow=""}
-  if(a==="scrim"){if(ev.target===b)closeSheet();return}
+  if(a==="scrim"){if(ev.target===b&&!(S.leFin&&Date.now()-S.leFin<400))closeSheet();return}
   switch(a){
     case"go":await guardarCfgYa();S.cfgEdit=null;if(b.classList.contains("tab")){S.hist=[]}go(b.dataset.v);break;
     case"ir-precios":{if(sheetFn&&S.itemTmp&&S.view==="cotizar")S.reabrir={tmp:clone(S.itemTmp),idx:S.itemIdx,sheetScroll:$(".sheet")?.scrollTop||0,scroll:$("#main").scrollTop};
@@ -2900,6 +2957,14 @@ document.addEventListener("click",async ev=>{
     case"materiales":materialesSheet(id);break;
     case"enviar-cortes":compartirTexto(textoCortes(b.dataset.v));break;
     case"compartir-archivo":{const A=S.archivo;if(!A)break;try{await navigator.share({files:[A.f],title:A.nombre})}catch(e){}break}
+    case"lam-edit":lamEditar(b.dataset.k);break;
+    case"le-addlam":S.lamEd.sh.push([]);lamEdRender();break;
+    case"le-dellam":S.lamEd.sh.splice(+b.dataset.i,1);lamEdRender();break;
+    case"le-reset":{const E=S.lamEd,M=lamManAll();delete M[lamManKey(E.key)];try{localStorage.setItem("alumel-lamman",JSON.stringify(M))}catch(e){}const k=E.key;S.lamEd=null;sheetFn=null;
+      S.lamOpc={...(S.lamOpc||{}),[k]:"optimo"};lamEditar(k);break}
+    case"le-ok":{const E=S.lamEd,M=lamManAll();E.sh=E.sh.filter(L=>L.length);M[lamManKey(E.key)]={W:E.W,H:E.H,k:E.k,f:E.f,sh:E.sh,tray:E.tray};try{localStorage.setItem("alumel-lamman",JSON.stringify(M))}catch(e){}
+      const key=E.key;S.lamEd=null;sheetFn=null;$("#sheet-root").innerHTML="";document.body.style.overflow="";toast(E.tray.length?`Guardado · quedan ${E.tray.length} pieza(s) sin ubicar`:"Acomodo guardado");
+      b.dataset.k=key;b.dataset.v="manual";S.lamOpc={...(S.lamOpc||{}),[key]:"manual"};const sel=S.cortesSel;if(sel==="__draft"&&S.draft)S.draft.lamOpc={...(S.draft.lamOpc||{}),[key]:"manual"};else{const o=obra(sel);if(o&&!S.readonly){o.lamOpc={...(o.lamOpc||{}),[key]:"manual"};guardar("obras",o.id,o).catch(()=>{})}}render();break}
     case"lam-opc":{const k=b.dataset.k,v=b.dataset.v,sel=S.cortesSel;S.lamOpc={...(S.lamOpc||{}),[k]:v};
       if(sel==="__draft"&&S.draft)S.draft.lamOpc={...(S.draft.lamOpc||{}),[k]:v};else{const o=obra(sel);if(o&&!S.readonly){o.lamOpc={...(o.lamOpc||{}),[k]:v};guardar("obras",o.id,o).catch(()=>{})}}render();if(sheetFn)refreshSheet();break}
     case"pdf-cortes":pdfCortes(b.dataset.v);break;
