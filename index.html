@@ -384,6 +384,8 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 .le-foot{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) calc(-20px - env(safe-area-inset-bottom,0px)) calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px));background:var(--bg);box-shadow:0 -6px 16px rgba(0,0,0,.08);display:grid;gap:8px;z-index:2}
 .le-tray{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;min-height:64px;max-height:28vh;overflow:auto;padding:10px;border:1.5px dashed var(--line);border-radius:12px;background:var(--surface)}
 .le-ghost{opacity:.9;box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:none}
+svg text{pointer-events:none}
+.lam-ya{display:grid;gap:6px;padding:8px 10px;border:1.5px dashed var(--ok);border-radius:10px}.lam-ya-b{background:color-mix(in srgb,var(--ok) 16%,var(--surface))!important;color:var(--fg)!important;font-family:var(--f-mono)}
 .prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
 .prod-o{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--line);cursor:pointer}.ipanel .prod-o:first-child{border-top:0}
 .prod-p{display:flex;gap:12px;padding:12px 16px;border-top:.5px solid var(--line)}.ipanel .prod-p:first-child{border-top:0}
@@ -437,7 +439,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.80.0";
+const APP_VER="1.81.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -695,7 +697,7 @@ function lamManVal(key,rects,W0,H0,k){const M=lamManAll()[lamManKey(key)];if(!M|
 function libreMayor(items,W,H){const P=items.filter(p=>!p.over),xs=[...new Set([0,...P.map(p=>p.x+p.w)])].filter(v=>v<W),ys=[...new Set([0,...P.map(p=>p.y+p.h)])].filter(v=>v<H),xe=[...new Set([W,...P.map(p=>p.x)])],ye=[...new Set([H,...P.map(p=>p.y)])];
   let b=null;for(const x0 of xs)for(const y0 of ys){if(P.some(p=>x0>=p.x&&x0<p.x+p.w&&y0>=p.y&&y0<p.y+p.h))continue;for(const x1 of xe){if(x1<=x0)continue;for(const y1 of ye){if(y1<=y0)continue;const a=(x1-x0)*(y1-y0);if(b&&a<=b.w*b.h)continue;
     if(!P.some(p=>p.x<x1-0.5&&p.x+p.w>x0+0.5&&p.y<y1-0.5&&p.y+p.h>y0+0.5))b={x:x0,y:y0,w:x1-x0,h:y1-y0}}}}return b?[b]:[]}
-function lamEditar(key){const R0=(S.lamReg||{})[key];if(!R0)return;const {rects,W,H,k}=R0,Wi=W+k,Hi=H+k,pz=lamPzs(rects,Wi,Hi,k),M=lamManVal(key,rects,W,H,k);
+function lamEditar(key){const R0=(S.lamReg||{})[key];if(!R0)return;const {W,H,k}=R0,rects=R0.act||R0.rects,Wi=W+k,Hi=H+k,pz=lamPzs(rects,Wi,Hi,k),M=lamManVal(key,rects,W,H,k);
   let sh,tray;if(M){sh=clone(M.sh);tray=clone(M.tray)}else{const O=opcionesLam(rects,W,H,k),sel=O.find(o=>o.id===lamOpcSel(key))||O[0];sh=sel.sh.map(x=>x.items.filter(r=>!r.over).map(r=>({w:r.w+k,h:r.h+k,x:r.x,y:r.y})));tray=sel.sh.flatMap(x=>x.items.filter(r=>r.over)).map(r=>({w:r.w,h:r.h}))}
   S.lamEd={key,W,H,k,Wi,Hi,f:lamFirma(rects),sh,tray};openSheet(lamEdHtml);setTimeout(lamEdTam,30)}
 function lamEdHtml(){const E=S.lamEd;if(!E)return "";const lbl=p=>cm(p.w-E.k)+"×"+cm(p.h-E.k);
@@ -731,13 +733,25 @@ function lamEdGirar(src){const E=S.lamEd;if(src.t==="t"){const p=E.tray[src.j];[
   const fin=e=>{if(!d)return;const D=d;d=null;S.leFin=Date.now();if(!D.g){lamEdGirar(D.src);return}D.g.remove();lamEdSoltar(D.src,e.clientX,e.clientY,D.offx,D.offy)};
   document.addEventListener("pointerup",fin);document.addEventListener("pointercancel",e=>{if(d){d.g?.remove();d=null;lamEdRender()}});
   window.addEventListener("resize",()=>{if(S.lamEd)lamEdTam()})})();
+/* "Ya la tengo" en piezas de lámina (vidrio, PVC, melamina) */
+const dimK=(w,h)=>Math.min(w,h)+"x"+Math.max(w,h);
+const lamSel=()=>S._pdfSel||(S.view==="cortes"?S.cortesSel:null);
+function lamQuitar(key,rects){const sel=lamSel(),T=sel?((tengoGet()[sel]||{})["lam:"+key]||{}):{},rest={...T},quit={};
+  const r=rects.filter(x=>{const d=dimK(x.w,x.h);if(+rest[d]>0){rest[d]--;quit[d]=(quit[d]||0)+1;return false}return true});return {rects:r,quit:Object.entries(quit).map(([d,n])=>({d,n}))}}
+const dimTxt=d=>d.split("x").map(v=>cm(+v)).join(" × ");
+function lamPzMenu(key,d){const sel=lamSel();if(!sel)return;const R0=(S.lamReg||{})[key],tot=R0?R0.rects.filter(x=>dimK(x.w,x.h)===d).length:1,ya=+((tengoGet()[sel]||{})["lam:"+key]||{})[d]||0,q=tot-ya;
+  openSheet(()=>`<div class="ios-acts-t">Pieza de ${dimTxt(d)} cm<br><span>faltan por cortar ${q}</span></div>
+   <div class="ios-acts"><button class="btn block" data-cierra="1" data-act="tengo" data-v="${esc(sel)}" data-k="lam:${esc(key)}" data-l="${d}" data-n="1">Ya la tengo (quitar 1)</button>${q>1?`<button class="btn block" data-cierra="1" data-act="tengo" data-v="${esc(sel)}" data-k="lam:${esc(key)}" data-l="${d}" data-n="${q}">Ya las tengo todas (${q})</button>`:""}</div>
+   <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
+function lamTengoHtml(key,quit){const sel=lamSel();if(!quit.length||!sel)return "";return `<div class="lam-ya"><span class="small" style="color:var(--ok);font-weight:600">Ya tengo · no se cortan</span><div class="row" style="gap:6px;flex-wrap:wrap">${quit.map(x=>`<button class="btn sm lam-ya-b" data-act="tengo-dev" data-v="${esc(sel)}" data-k="lam:${esc(key)}" data-l="${x.d}" data-n="1" title="Tocar para devolverla al despiece">${dimTxt(x.d)} × ${x.n} ↩</button>`).join("")}</div></div>`}
+const lpRow=(key,w,h)=>lamSel()?` class="lp" data-lp="lamp" data-k="${esc(key)}" data-d="${dimK(w,h)}"`:"";
 function lamOpcSel(key){const o=S.cortesSel==="__prod"?null:objSel(S.cortesSel);return (o&&o.lamOpc&&o.lamOpc[key])||(S.lamOpc||{})[key]||"optimo"}
-function opcionesLamHtml(key,rects,W,H,cotizadas,k){(S.lamReg=S.lamReg||{})[key]={rects,W,H,k};const O=opcionesLam(rects,W,H,k,key);if(!O.length)return "";const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+function opcionesLamHtml(key,rects0,W,H,cotizadas,k){(S.lamReg=S.lamReg||{})[key]={rects:rects0,W,H,k};const {rects,quit}=lamQuitar(key,rects0);(S.lamReg[key]).act=rects;const O=opcionesLam(rects,W,H,k,key);if(!O.length)return lamTengoHtml(key,quit);const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   return `<div class="small" style="font-weight:600;margin-top:4px">Forma de cortar · escoge la que más te sirva</div>
    <div class="lamopc">${O.map(o=>`<button class="lamopc-b" data-act="lam-opc" data-k="${esc(key)}" data-v="${o.id}" aria-pressed="${o===sel}"><b>${o.t}</b><span>${o.n} lámina${o.n===1?"":"s"}${o.fuera?" · "+o.fuera+" no caben":""}</span><span>${o.sob?"Sobra "+cm(o.sob.h)+"×"+cm(o.sob.w):"Sin sobrante"}</span><span style="white-space:nowrap">Usa ${Math.round(o.uso*100)} %</span></button>`).join("")}</div>
    ${cotizadas&&sel.n>Math.ceil(cotizadas)?`<div class="note" style="border-color:var(--warn)">Esta forma usa ${sel.n} láminas y en la cotización se cobraron ${String(cotizadas).replace(".",",")}.</div>`:""}
    ${k?`<span class="small muted">Incluye ${k} mm de corte de sierra entre piezas.</span>`:""}
-   ${dibujoLaminas(sel.sh,W,H)}
+   ${dibujoLaminas(sel.sh,W,H,key)}${lamTengoHtml(key,quit)}
    ${sel.fuera&&sel.id==="manual"?`<div class="note" style="border-color:var(--warn)">Sin ubicar: ${sel.sh.flatMap(x=>x.items.filter(r=>r.over)).map(r=>cm(r.w)+"×"+cm(r.h)).join(", ")}</div>`:""}
    ${S.readonly?"":`<button class="btn sm" style="align-self:flex-start" data-act="lam-edit" data-k="${esc(key)}">✋ Acomodar a mano</button>`}`}
 /* Cuántas tiras salen para una lista de cortes (primero el más largo) */
@@ -1798,7 +1812,7 @@ function compartirMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls=
    <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
 /* Dejar presionado (dedo) o doble clic (mouse) sobre elementos con data-lp */
 (function(){let t=null,el=null,x0=0,y0=0;const fire=e2=>{const d=e2.dataset;S.lpFired=true;setTimeout(()=>S.lpFired=false,600);if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
-    if(d.lp==="corte")corteMenu(d.v,d.k,d.l);else if(d.lp==="tengo")tengoMenu(d.v,d.k,d.l);else if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
+    if(d.lp==="lamp")lamPzMenu(d.k,d.d);else if(d.lp==="corte")corteMenu(d.v,d.k,d.l);else if(d.lp==="tengo")tengoMenu(d.v,d.k,d.l);else if(d.lp==="item")editarItemDirecto(d.id,+d.i);else if(d.lp==="cliente")clienteObraSheet(d.id);else if(d.lp==="obra")obraMenu(d.id)};
   document.addEventListener("pointerdown",e=>{const c=e.target.closest&&e.target.closest("[data-lp]");if(!c||e.target.closest("input,select,button.btn"))return;el=c;x0=e.clientX;y0=e.clientY;clearTimeout(t);t=setTimeout(()=>{if(el)fire(el);el=null},550)});
   document.addEventListener("pointermove",e=>{if(el&&Math.hypot(e.clientX-x0,e.clientY-y0)>10){clearTimeout(t);el=null}});
   ["pointerup","pointercancel","scroll"].forEach(k=>document.addEventListener(k,()=>{clearTimeout(t);el=null},true));
@@ -2065,12 +2079,12 @@ function calcHtml(it){const F=faltanItem({...it,precioManual:0});
 }
 
 /* --- Cortes --- */
-function dibujoLaminas(hojas,W,H){return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
+function dibujoLaminas(hojas,W,H,key){const lp=key&&lamSel();return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect${lp?` class="lp" data-lp="lamp" data-k="${esc(key)}" data-d="${dimK(r.w,r.h)}" style="cursor:pointer"`:""} x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
       return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>`}
 function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const L=mel.filter(x=>x.g===g);if(!L.length)return "";
   const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media,kerfMel()),hojas=cl.hojas;
   return `<div class="panel"><div class="row sp"><h2>${t}</h2><span class="pill st-apr">${txtLam(cl.n)}</span></div><span class="small muted">Lámina de ${W} × ${H} cm${cl.media?` · la última es media lámina (${W>=H?cm(W*5)+" × "+H:W+" × "+cm(H*5)} cm)`:""}</span>
-   <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr><td>${esc(p.pieza)}${partesPieza(p.ancho,p.alto,W*10,H*10)>1?`<div class="small" style="color:var(--warn)">Más larga que la lámina: se corta en ${partesPieza(p.ancho,p.alto,W*10,H*10)} partes de ${cm(Math.max(p.ancho,p.alto)/partesPieza(p.ancho,p.alto,W*10,H*10))} y se unen</div>`:""}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
+   <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr${lpRow(g,p.ancho,p.alto)}><td>${esc(p.pieza)}${partesPieza(p.ancho,p.alto,W*10,H*10)>1?`<div class="small" style="color:var(--warn)">Más larga que la lámina: se corta en ${partesPieza(p.ancho,p.alto,W*10,H*10)} partes de ${cm(Math.max(p.ancho,p.alto)/partesPieza(p.ancho,p.alto,W*10,H*10))} y se unen</div>`:""}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
    ${opcionesLamHtml(g,r,W*10,H*10,cl.n,kerfMel())}</div>`}).join("")}
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada"&&enArea(o)).sort((a,b)=>(b.numero||0)-(a.numero||0));
@@ -2111,7 +2125,7 @@ function vCortes(){
   ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
    <span class="small muted">Lámina de ${mm.ancho} × ${mm.alto} cm${L2.media?" · la última se usa solo hasta la mitad":""}</span>
    <div class="tbl-wrap"><table><thead><tr><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>
-   ${res.pvc.map(p=>`<tr><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}
+   ${res.pvc.map(p=>`<tr${lpRow("pvc",p.ancho,p.alto)}><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}
    </tbody></table></div>
    ${opcionesLamHtml("pvc",rects,mm.ancho*10,mm.alto*10,L2.laminas)}
    <span class="small muted">Medidas en cm. Distribución sugerida para cortar; en cobre, el sobrante más grande de cada lámina.</span></div>`:""}
@@ -2120,7 +2134,7 @@ function vCortes(){
      L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});const n=rr.length,m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
      return `<div class="vgc"><div class="row sp"><h3>${esc(vn)}</h3><span class="small muted">${n} pieza(s) · ${m2.toFixed(2).replace(".",",")} m²</span></div>
       <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Ancho</th><th class="n">Alto</th><th></th></tr></thead><tbody>
-      ${L.map(v=>`<tr><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small muted">${esc(v.nota||"")}</td></tr>`).join("")}</tbody></table></div>
+      ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small muted">${esc(v.nota||"")}</td></tr>`).join("")}</tbody></table></div>
       <div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}</div>`}).join("")}
    <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
   <div class="panel"><h2>Accesorios</h2><div class="tbl-wrap"><table><tbody>${res.acc.map(([n,c])=>`<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join("")}</tbody></table></div></div>`}`;
@@ -2539,7 +2553,9 @@ function textoCortes(sel){const D=datosCortes(sel),o=D.o||{},a=x=>D.per.length&&
   for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})))t+=`\n*Vidrio ${vn.replace(/^Vidrio /i,"")}*\n`+L.map(v=>`   ${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)}${v.nota?" ("+v.nota+")":""}`).join("\n")+"\n";
   return t+"\nMedidas en cm."}
 /* Plano de corte de láminas en el PDF (misma forma que escogiste en Cortes) */
-function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){doc.addPage();y=20}};const O=opcionesLam(rects,W,H,k,key);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
+function pdfLaminas(doc,y,_nl,titulo,key,rects0,W,H,k){const nl=n=>{if(y+n>262){doc.addPage();y=20}};const {rects,quit}=lamQuitar(key,rects0);
+  if(quit.length){nl(6);doc.setFontSize(8);doc.setTextColor(46,125,50);doc.text(titulo+" · ya tengo (no cortar): "+quit.map(x=>x.n+" × "+dimTxt(x.d)).join("  ·  "),16,y);doc.setTextColor(31,26,23);y+=5}
+  const O=opcionesLam(rects,W,H,k,key);if(!O.length)return y;const sel=O.find(o=>o.id===lamOpcSel(key))||O[0];
   const sc=Math.min(184/H,95/W),dw=H*sc,dh=W*sc;
   nl(dh+18);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(titulo+" · plano de corte ("+sel.t.toLowerCase()+")",16,y);doc.setFont("helvetica","normal");doc.setFontSize(8);
   doc.text("Lámina "+cm(W)+" × "+cm(H)+" cm"+(k?" · sierra "+k+" mm":""),200,y,{align:"right"});y+=4;
@@ -2553,7 +2569,8 @@ function pdfLaminas(doc,y,_nl,titulo,key,rects,W,H,k){const nl=n=>{if(y+n>262){d
       else{fs=7;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rh-1){fs-=0.5;doc.setFontSize(fs)}doc.text(t,rx+rw/2+fs*0.13,ry+rh/2+doc.getTextWidth(t)/2,{angle:90})}}
     y+=dh+4});
   return y+2}
-function pdfCortes(sel,ext){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
+function pdfCortes(sel,ext){S._pdfSel=sel;try{return pdfCortes0(sel,ext)}finally{S._pdfSel=null}}
+function pdfCortes0(sel,ext){if(!window.jspdf){toast("No cargó el generador de PDF. Revisa la conexión.");return}
   const D=datosCortes(sel),o=D.o||{},doc=ext?ext.doc:pdfBase(),selPrev=S.cortesSel;S.cortesSel=sel;if(!ext)pdfHeader(doc,sel==="__prod"?"CORTES · PRODUCCIÓN":"LISTA DE CORTES",(o.numero?numCot(o)+" · ":"")+fechaCorta(hoy()));
   let y=ext?ext.y:40;const nl=n=>{if(y+n>262){doc.addPage();y=20}};nl(16);doc.setFontSize(ext?12:10);doc.setFont("helvetica","bold");doc.text(ext?"Cortes":(o.items?tituloObra(o):"Cotización en curso"),16,y);doc.setFont("helvetica","normal");doc.setFontSize(10);
   doc.text("Medidas en cm",200,y,{align:"right"});y+=8;
@@ -2798,8 +2815,8 @@ document.addEventListener("click",async ev=>{
     case"pe-del":{const it=S.itemTmp;it[b.dataset.g].splice(+b.dataset.i,1);refreshSheet();break}
     case"pe-fill":{const it=S.itemTmp,r=normPer(it.pPer[+b.dataset.i]),m=r?.m[+b.dataset.j||0];if(m){const cur=fTxt(m,"l","f");m.f=/^[\d.,\s]*$/.test(cur)?b.dataset.v:cur+b.dataset.v;refreshSheet();setTimeout(()=>{const el=document.querySelector(`[data-pe="pPer.${b.dataset.i}.m.${+b.dataset.j||0}.f"]`);if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(e){}}},30)}break}
     case"prod-obra":{const P=prodGet(),on=b.checked;P.obras=(P.obras||[]).filter(x=>x!==id);if(on)P.obras.push(id);prodSave();render();break}
-    case"tengo":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,+b.dataset.n||1);toast("Pieza quitada del despiece");render();break;
-    case"tengo-dev":tengoMod(b.dataset.v,b.dataset.k,+b.dataset.l,-(+b.dataset.n||1));render();break;
+    case"tengo":tengoMod(b.dataset.v,b.dataset.k,/x/.test(b.dataset.l)?b.dataset.l:+b.dataset.l,+b.dataset.n||1);toast("Pieza quitada del despiece");render();break;
+    case"tengo-dev":tengoMod(b.dataset.v,b.dataset.k,/x/.test(b.dataset.l)?b.dataset.l:+b.dataset.l,-(+b.dataset.n||1));render();break;
     case"prod-quitar":{const P=prodGet(),k=b.dataset.k;if(P.quitar[k])delete P.quitar[k];else P.quitar[k]=1;prodSave();render();break}
     case"prod-mas":{const P=prodGet(),k=b.dataset.k,x=prodDatos().per.find(p=>p.key===k);if(!x)break;const m=(+P.mas[k]||0)+(+b.dataset.v);P.mas[k]=Math.max(-x.n,m);prodSave();render();break}
     case"prod-accq":{const P=prodGet(),k=b.dataset.k;if(P.accQ[k])delete P.accQ[k];else P.accQ[k]=1;prodSave();render();break}
