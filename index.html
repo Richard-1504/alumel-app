@@ -377,6 +377,7 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 .pe-l2{display:grid;gap:4px;min-width:0}.pe-q2{display:grid;grid-template-columns:1fr 80px;gap:4px}.pe-x{padding:4px 0;min-height:0}
 .pe-t .cin{padding:8px 6px;min-width:0;width:100%}.pe-blk{display:grid;gap:6px;padding:10px;border-radius:12px;background:var(--surface);box-shadow:inset 0 0 0 .5px var(--line)}.pe-bh{display:grid;grid-template-columns:1fr 34px;gap:6px}.pe-madd{justify-self:start;font-size:13px}
 .pe-res{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-2px}.pe-res:empty{display:none}
+.vf{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:14px}.vf b{grid-row:span 3;align-self:start;padding-top:8px}.vf span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
 .prod-o{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--line);cursor:pointer}.ipanel .prod-o:first-child{border-top:0}
 .prod-p{display:flex;gap:12px;padding:12px 16px;border-top:.5px solid var(--line)}.ipanel .prod-p:first-child{border-top:0}
@@ -430,7 +431,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.78.0";
+const APP_VER="1.79.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -477,13 +478,13 @@ const DEFAULT_CFG = {
       {nombre:"Jamba",precio:65000,base:"H",c2:2,c3:2,c4:2,cobro:"metro"},{nombre:"Enganche",precio:72000,base:"HN",c2:2,c3:2,c4:2,cobro:"metro"},
       {nombre:"Traslape",precio:70000,base:"HN",c2:2,c3:4,c4:6,cobro:"metro"},{nombre:"Superior",precio:52000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},
       {nombre:"Inferior",precio:70000,base:"AN",c2:2,c3:3,c4:4,cobro:"metro"},{nombre:"Adaptador",precio:30000,base:"H",c2:0,c3:0,c4:1,cobro:"metro"}],
-      vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}},
+      vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}},vid6:{"2":{dA:3.9,hC:8.7,hF:8.7},"3":{dA:10.6,hC:8.5,hF:6.4},"4":{dA:19.5,hC:8.7,hF:8.7}}},
     s8025:{rod:{nylon:6000,abb:12000},perfiles:[
       {nombre:"Cabezal",precio:95000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},{nombre:"Sillar",precio:85000,base:"A",c2:1,c3:1,c4:1,cobro:"min3"},
       {nombre:"Jamba",precio:95000,base:"H",c2:2,c3:2,c4:2,cobro:"min3"},{nombre:"Enganche",precio:115000,base:"HN",c2:2,c3:2,c4:2,cobro:"min3"},
       {nombre:"Traslape",precio:105000,base:"HN",c2:2,c3:4,c4:6,cobro:"min3"},{nombre:"Zócalo superior",precio:100000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},
       {nombre:"Zócalo inferior",precio:120000,base:"AN",c2:2,c3:3,c4:4,cobro:"min3"},{nombre:"Adaptador",precio:40000,base:"H",c2:0,c3:0,c4:1,cobro:"min3"}],
-      vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}}}
+      vid:{"2":{dA:4.5,hC:9,hF:9},"3":{dA:11.5,hC:8.8,hF:6.7},"4":{dA:20.7,hC:9,hF:9}},vid6:{"2":{dA:3.9,hC:8.7,hF:8.7},"3":{dA:10.6,hC:8.5,hF:6.4},"4":{dA:19.5,hC:8.7,hF:8.7}}}
   },
   puertas:{
     perfiles:{U66:0,T77:0,T166:0,A61:0,U78:0,T87:0,T244:0,U71:0,S343:0,S344:0,F06:0},
@@ -522,6 +523,8 @@ function migrarCfg(c){if((c.rev||0)<3){for(const sc of Object.values(c.series||{
   if((c.rev||0)<6){c.instalacionTipo=c.instalacionTipo||{};const v=c.instalacionTipo.vidrio;if(v==null||v===""||+v===0||+v===+c.instalacion)c.instalacionTipo.vidrio=18000;c.rev=6}
   if((c.rev||0)<7){if(!Array.isArray(c.chapas)||!c.chapas.length)c.chapas=[{nombre:"Chapa",precio:+(c.puertas?.acc?.chapa)||0}];c.rev=7}
   if((c.rev||0)<8){c.cocina=c.cocina||{};if(c.cocina.escuadraAncho==null)c.cocina.escuadraAncho=Math.round((+c.cocina.escuadra||8)/4*10)/10;if(c.escuadrasTxt==null)c.escuadrasTxt="2, 3, 5";c.rev=8}
+  /* Vidrio de 6 mm en 744/8025: cada pieza 3 mm más de ancho y 3 mm más de alto que con 4 mm */
+  if((c.rev||0)<9){for(const sc of Object.values(c.series||{})){const v6={};for(const [n,g] of Object.entries(sc.vid||{}))v6[n]={dA:Math.round((+g.dA-0.3*n)*100)/100,hC:Math.round((+g.hC-0.3)*100)/100,hF:Math.round((+g.hF-0.3)*100)/100};sc.vid6=v6}c.rev=9}
   return c}
 function mergeCfg(base,over){const o=clone(base);for(const k in over){if(over[k]&&typeof over[k]==="object"&&!Array.isArray(over[k])&&o[k]&&typeof o[k]==="object"&&!Array.isArray(o[k]))o[k]=mergeCfg(o[k],over[k]);else o[k]=over[k]}return o}
 
@@ -699,6 +702,7 @@ const fTxt=(x,k,kf)=>x[kf]!=null&&x[kf]!==""?x[kf]:(+x[k]>0?cm(+x[k]):"");
 const escAncho=()=>+S.cfg.cocina?.escuadraAncho||(+S.cfg.cocina?.escuadra||8)/4;
 const escMedidas=()=>String(S.cfg.escuadrasTxt||"").split(/[;,\s]+/).map(x=>+x.replace(",","."))
   .filter(x=>x>0);
+const espVid=id=>{const m=/(\d+(?:[.,]\d+)?)\s*mm/i.exec(vidrioDe(id)?.nombre||"");return m?+m[1].replace(",","."):4};
 function perfEsp(v){if(v==="A:a15")return {ref:"a15",nombre:"A15",sis:"Escuadras"};if(!v)return null;const [g,a,b]=String(v).split(":");if(g==="J"&&a==="alamo")return {juego:[{ref:"S343",nombre:"S343",sis:"Puertas"},{ref:"S344",nombre:"S344",sis:"Puertas"}],nombre:"Juego Álamo"};if(g==="P")return {ref:a,nombre:a,sis:"Puertas"};if(g==="S"&&S.cfg.series[a])return {ser:a,nombre:b,sis:TIPOS[a].corto};return null}
 function perfEspOpts(sel){const pta=PTA_REFS.map(([r,u])=>[`P:${r}`,`${r} · ${u}`]),ser=Object.keys(S.cfg.series||{}).filter(k=>TIPOS[k]).map(k=>[TIPOS[k].corto,S.cfg.series[k].perfiles.map(p=>[`S:${k}:${p.nombre}`,p.nombre+" "+TIPOS[k].corto.replace("Serie ","")])]);
   const o=(v,t)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(t)}</option>`;return `<option value="">Elige perfil…</option><optgroup label="Juegos">${o("J:alamo","Juego Álamo (S343 + S344)")}</optgroup><optgroup label="Ángulo">${o("A:a15","A15 · escuadras")}</optgroup><optgroup label="Puertas">${pta.map(([v,t])=>o(v,t)).join("")}</optgroup>${ser.map(([g,L])=>`<optgroup label="${esc(g)}">${L.map(([v,t])=>o(v,t)).join("")}</optgroup>`).join("")}`}
@@ -873,7 +877,7 @@ function despiece(it){
       for(const p of sc.perfiles){const c=+p["c"+n]||0;if(!c)continue;let L=A,q=c;
         if(p.base==="H")L=H;else if(p.base==="A2")L=A/2;else if(p.base==="AN")L=AN;else if(p.base==="HN")L=HN;else if(p.base==="ANF"){L=AN;q=c*fijas}
         per(p.nombre,L,q)}
-      const g=sc.vid[n]||sc.vid["2"],va=(A-g.dA*10)/n;
+      const tv=espVid(it.vidrio)>=6&&sc.vid6?sc.vid6:sc.vid,g=tv[n]||tv["2"],va=(A-g.dA*10)/n;
       if(corr)vid(va,H-g.hC*10,corr,"corrediza");if(fijas)vid(va,H-g.hF*10,fijas,"fija");
       const perim=V.reduce((s,v)=>s+2*(v.ancho+v.alto)*v.cant,0)/1000;
       acc.push(["Rodamientos "+(it.rod==="abb"?"ABB":"nylon"),2*corr],["Empaque (m)",Math.round(perim*100)/100]);{const ch=chapaVenDe(it);if(ch)acc.push([ch.nombre,1,"chapaV"])}break}
@@ -2281,6 +2285,14 @@ function vAjustes(){
    <div class="row sp"><h3>Colores de aluminio · recargo</h3><button class="btn sm" data-act="add-color">+ Color</button></div>
    ${c.colores.map((v,i)=>`<div class="row"><input class="cin grow" aria-label="Color" data-cfg="colores.${i}.nombre" value="${esc(v.nombre)}">${inp("colores."+i+".factor",v.factor,"Factor "+v.nombre,80,true)}<button class="btn sm danger" data-act="del-color" data-i="${i}" aria-label="Quitar">✕</button></div>`).join("")}
    <span class="hint small muted">Factor 1 = precio base del perfil. 1,15 = 15 % más caro.</span>`)}
+
+  ${sec("aj-vidser","Vidrio de ventanas 744 y 8025","Fórmulas del vidrio según serie, naves y espesor",`
+   <span class="small muted">A = ancho de la ventana, H = alto, en cm. "Con 4 mm" se usa para vidrios de menos de 6 mm; "con 6 mm" para 6 mm o más.</span>
+   ${Object.entries(c.series).map(([k,sc])=>[["vid","4 mm"],["vid6","6 mm"]].map(([vk,el])=>`<h3>${TIPOS[k].corto} · vidrio ${el}</h3>
+    <div class="vf">${["2","3","4"].map(n=>{const g=(sc[vk]||{})[n]||{};return `<b>${n} naves</b>
+      <span>Ancho = (A − ${inp(`series.${k}.${vk}.${n}.dA`,g.dA,`Descuento ancho ${n} naves ${el}`,62,true)}) ÷ ${n}</span>
+      <span>Alto corrediza = H − ${inp(`series.${k}.${vk}.${n}.hC`,g.hC,`Descuento alto corrediza ${n} naves ${el}`,62,true)}</span>
+      <span>Alto fija = H − ${inp(`series.${k}.${vk}.${n}.hF`,g.hF,`Descuento alto fija ${n} naves ${el}`,62,true)}</span>`}).join("")}</div>`).join("")).join("")}`)}
 
   ${sec("aj-pvc","PVC","Lámina marmolizada y tira de cielorraso",`<div class="fgrid">
    ${fld("pt-mp","Lámina PVC marmolizado $","puertas.marmo.precio",c.puertas.marmo.precio)}
