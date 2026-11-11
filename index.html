@@ -439,7 +439,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.81.0";
+const APP_VER="1.82.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -867,6 +867,19 @@ function tramosEf(it){const T=tramosCocina(it),F=fondoCocina(it),inf=esInf(it),f
   if(f==="L"&&T.length===2){const larga=T[0]>=T[1]?0:1;return T.map((A,k)=>k===larga?rec(A):k===0?comp(A,0,F):comp(A,F,0))}
   if(f==="U"&&T.length===3)return T.map((A,k)=>k===1?comp(A,F,F):rec(A));
   return T.map(A=>comp(A,0,0))}
+/* Gabinete superior de aluminio con extractor: en el tramo elegido se separa un gabinete de 60,5 de ancho,
+   más bajo (alto − espacio del extractor), y el resto del tramo queda como uno o dos gabinetes normales */
+const extOn=it=>it.tipo==="cocina"&&!esInf(it)&&!esMel(it)&&!!it.ext;
+const extAlto=()=>Math.round((+(S.cfg.cocina?.extAlto??10))*10);
+function segCocina(it){const T=tramosEf(it),E=extOn(it)?{t:Math.min(+it.extT||0,T.length-1),pos:it.extPos||"der",x:+it.extX||0}:null,W=605;
+  return T.map((t,kt)=>{if(!E||E.t!==kt||t.Ap<W+150)return [{...t,kt,N:puertasTramo(it,kt)}];
+    const ci=t.ci||0,cd=t.cd||0,ext=(c1,c2)=>({A:W+c1+c2,Ap:W,ci:c1,cd:c2,kt,ext:true,N:2}),sug=(A,Ap,ci,cd,uno)=>({A,Ap:Math.max(0,Ap),ci,cd,kt,N:uno&&+it["np"+(kt+1)]>0?Math.round(+it["np"+(kt+1)]):puertasSug(Math.max(0,Ap),false)});
+    let pos=E.pos;if(pos==="medio"&&t.Ap<W+300)pos="der";
+    if(pos==="izq")return [ext(ci,0),sug(t.A-W-ci,t.Ap-W,0,cd,1)];
+    if(pos==="medio"){const lo=ci+150,hi=t.A-cd-W-150,x=Math.max(lo,Math.min(hi,E.x||Math.round(ci+(t.Ap-W)/2)));return [sug(x,x-ci,ci,0),ext(0,0),sug(t.A-W-x,t.A-W-x-cd,0,cd)]}
+    return [sug(t.A-W-cd,t.Ap-W,ci,0,1),ext(0,cd)]})}
+/* Huecos de 2 puertas (donde puede ir el losero) */
+function huecosDobles(it){const L=[];segCocina(it).forEach((S_,kt)=>S_.forEach((sg,j)=>{const g=gabinete(sg.Ap,false,sg.N);for(let h=0;h<g.P;h++)L.push({kt,j,h,ext:!!sg.ext})}));return L}
 function puertasTramo(it,k){const v=+(it["np"+(k+1)]||0);return v>0?Math.round(v):puertasSug(tramosEf(it)[k]?.Ap||tramosCocina(it)[k],esInf(it))}
 function gabinete(A,inf,nElegido){const N=nElegido>0?Math.round(nElegido):puertasSug(A,inf),P=Math.floor(N/2),sola=N%2,
   gPar=Math.max(0,P-1),gSola=P>0&&sola?1:0,puerta=(A-(inf?60:40)-38*gPar-25*gSola)/N;return {N,P,sola,divisores:gPar+gSola,puerta}}
@@ -922,16 +935,17 @@ function despieceCocina(it,P,acc,T){const sis="Cocina",cc=S.cfg.cocina||{},dp=(+
       P.push({nombre:"T77 (marco)",largo:Math.round(A),cant:2,ref:"T77",sis},{nombre:"T77 (marco)",largo:Math.round(H),cant:2,ref:"T77",sis});
       if(g.divisores)P.push({nombre:"T78 (divisor)",largo:Math.round(H-50),cant:g.divisores,ref:"T78",sis});
       if(!it.sinPuertas){marco(g.puerta,H-30,g.N);puertas+=g.N}}}
-  else for(const [k,{A,Ap}] of tramosEf(it).entries()){const g=gabinete(Ap,false,puertasTramo(it,k));
+  else{const LH=Math.min(+it.loseroH||0,Math.max(0,huecosDobles(it).length-1));let hd=0;
+    for(const sg of segCocina(it).flat()){const {A,Ap}=sg,g=gabinete(Ap,false,sg.N),H0=sg.ext?585-extAlto():585,HP=sg.ext?605-extAlto():605;
     marco(300,A,2);            // superior e inferior: 30 × ancho
-    marco(300,585,2);          // laterales: 30 × 58,5
-    marco(585,260,g.divisores);// divisores: 58,5 × 26
-    if(g.divisores)P.push({nombre:"T78 (divisor)",largo:585,cant:g.divisores,ref:"T78",sis}); // 1 T78 de 58,5 por divisor
-    marco(585,A-30,1);         // espaldar: 58,5 × (ancho − 3)
-    if(!it.sinPuertas){marco(g.puerta,605,g.N);puertas+=g.N} // puertas: ancho × 60,5
-    // A61: 2 de 58,5 por gabinete; el hueco del losero lleva 4 de 30 y cada uno de los demás huecos 2 de 30 con su vidrio
-    const huecos=g.P+g.sola,conLosero=it.losero!==false&&!loseros?1:0;
-    A61(585,2);A61(300,4*conLosero+2*(huecos-conLosero));loseros+=conLosero;vidrios+=huecos-conLosero}
+    marco(300,H0,2);           // laterales: 30 × 58,5 (el del extractor, más bajo)
+    marco(H0,260,g.divisores); // divisores: 58,5 × 26
+    if(g.divisores)P.push({nombre:"T78 (divisor)",largo:H0,cant:g.divisores,ref:"T78",sis}); // 1 T78 por divisor
+    marco(H0,A-30,1);          // espaldar: 58,5 × (ancho − 3)
+    if(!it.sinPuertas){marco(g.puerta,HP,g.N);puertas+=g.N} // puertas: ancho × 60,5
+    // A61: 2 de alto por gabinete; el hueco del losero (siempre va, en el hueco de 2 puertas elegido) lleva 4 de 30 y cada uno de los demás huecos 2 de 30 con su vidrio
+    const huecos=g.P+g.sola,conLosero=LH>=hd&&LH<hd+g.P?1:0;hd+=g.P;
+    A61(H0,2);A61(300,4*conLosero+2*(huecos-conLosero));loseros+=conLosero;vidrios+=huecos-conLosero}}
   for(const [k,n] of Object.entries(pv)){const [w,h]=k.split("x").map(Number);T.push({ancho:w,alto:h,cant:n})}
   if(marcos)P.push({nombre:"A15",largo:Math.round(escAncho()*10),cant:marcos*4,ref:"a15",sis:"Escuadras"});
   if(loseros)acc.push(["Losero",loseros,"losero"]);if(vidrios)acc.push(["Vidrios de entrepaño",vidrios,"vidrioHueco"]);
@@ -1363,14 +1377,17 @@ function sketch(it){
       cx+=tw+gap}}
   else if(it.tipo==="cocina"){const inf=esInf(it),T=tramosEf(it),tot=T.reduce((a,t)=>a+t.A,0)||1,gap=T.length>1?8:0,sc=(w-gap*(T.length-1))/tot;let cx=x;inner="";
     const dd=inf?0:Math.min(18,300*sc*0.45);  // profundidad (30 cm) en perspectiva para el gabinete superior
-    for(const [kt,{A,Ap,ci,cd}] of T.entries()){const g=gabinete(Ap,inf,puertasTramo(it,kt)),tw=A*sc,e=(inf?30:20)*sc,pw=g.puerta*sc,top=y+dd,hh=h-dd;let px=cx+ci*sc+e;
+    const SG=inf||esMel(it)?T.map((t,kt)=>[{...t,kt,N:puertasTramo(it,kt)}]):segCocina(it),LH=+it.loseroH||0;let hd=0;
+    for(const sgs of SG){for(const {A,Ap,ci,cd,kt,ext,N} of sgs){const g=gabinete(Ap,inf,N),tw=A*sc,e=(inf?30:20)*sc,pw=g.puerta*sc,top=y+dd,hh=(h-dd)*(ext?(615-extAlto())/615:1);let px=cx+ci*sc+e;
+      if(ext){const eh=(h-dd)-hh;inner+=`<rect x="${cx+tw*0.12}" y="${top+hh+2}" width="${tw*0.76}" height="${Math.max(3,eh-4)}" rx="2" fill="var(--surface-2)" ${s} stroke-width="1" stroke-dasharray="3 2"/><text x="${cx+tw/2}" y="${top+hh+eh/2+3}" text-anchor="middle" font-size="8" font-family="IBM Plex Mono,monospace" fill="var(--muted)">extractor</text>`}
+      let lbL="";if(!inf&&!esMel(it))for(let q=0;q<g.P;q++){if(hd===LH){const lx=cx+ci*sc+e+(q*2*g.puerta+q*38)*sc;lbL+=`<text x="${lx+pw}" y="${top+hh/2+4}" text-anchor="middle" font-size="10" font-weight="700" font-family="IBM Plex Mono,monospace" fill="var(--accent)">L</text>`}hd++}
       if(dd)inner+=`<path d="M${cx} ${top}L${cx+dd} ${y}H${cx+tw+dd}L${cx+tw} ${top}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/><path d="M${cx+tw} ${top}L${cx+tw+dd} ${y}V${y+hh}L${cx+tw} ${top+hh}Z" fill="var(--surface-2)" ${s} stroke-width="1.5"/>`;
       inner+=`<rect x="${cx}" y="${top}" width="${tw}" height="${hh}" fill="var(--surface)" ${s} stroke-width="2"/>`+ciegos(cx,top,tw,hh,ci*sc,cd*sc);
       for(let k=0;k<g.N;k++){if(!it.sinPuertas){inner+=`<rect x="${px+1}" y="${top+3}" width="${Math.max(1,pw-2)}" height="${hh-6}" fill="var(--surface-2)" ${s} stroke-width="1.2"/>`;
         const izq=k<2*g.P&&k%2===0,my=inf?top+8:top+hh-14;inner+=`<line x1="${izq?px+pw-6:px+5}" y1="${my}" x2="${izq?px+pw-6:px+5}" y2="${my+8}" ${s} stroke-width="2"/>`}
         px+=pw;if(k%2===1&&k<2*g.P-1){inner+=`<rect x="${px+0.5}" y="${top}" width="${Math.max(1,38*sc-1)}" height="${hh}" fill="currentColor" opacity=".5"/>`;px+=38*sc}
         else if(k===2*g.P-1&&g.sola){inner+=`<rect x="${px+0.5}" y="${top}" width="${Math.max(1,25*sc-1)}" height="${hh}" fill="currentColor" opacity=".5"/>`;px+=25*sc}}
-      cx+=tw+gap}}
+      inner+=lbL;cx+=tw}cx+=gap}}
   else if(TIPOS[it.tipo]?.puerta){const tb=tableroPta(it),pz=piezasTab(tb,it.orient),nl=tb.mat==="marmo"?0:Math.min(40,pz.cant),fl='fill="var(--surface)"';
     const lines=(bx,by,bw,bh)=>{let l="";for(let k=1;k<nl;k++)l+=it.orient==="V"?`<line x1="${bx+bw*k/nl}" y1="${by}" x2="${bx+bw*k/nl}" y2="${by+bh}" ${s} stroke-width=".7"/>`:`<line x1="${bx}" y1="${by+bh*k/nl}" x2="${bx+bw}" y2="${by+bh*k/nl}" ${s} stroke-width=".7"/>`;return l};
     const board=(bx,by,bw,bh)=>`<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" ${tb.mat==="marmo"?'fill="var(--surface-2)"':fl} ${s} stroke-width="1.2"/>${lines(bx,by,bw,bh)}`;
@@ -2031,8 +2048,13 @@ function cocinaCampos(it){const f=it.forma||"recta",seg=(k,opts,v)=>`<div class=
   <div class="sketch">${sketch(it)}</div>`;
   return `<div class="field"><label>Material</label>${seg("mat",[["aluminio","Aluminio"],["melamina","Melamina 15 mm"]],"aluminio")}</div>
   <div class="field"><label>Parte</label>${seg("parte",[["superior","Gabinete superior"],["inferior","Puertas inferiores"]],inf?"inferior":"superior")}</div>
-  ${inf?"":`<label class="row small" style="gap:8px;font-weight:600"><input type="checkbox" data-it="losero" ${it.losero!==false?"checked":""} style="width:20px;height:20px"> Lleva losero (en un hueco)</label>`}
   <div class="field"><label>Forma</label>${seg("forma",[["recta","Recto"],["L","En L"],["U","En U"]],f)}</div>
+  ${inf?"":`<div class="field"><label>Extractor</label>${seg("ext",[["","No lleva"],["1","Lleva extractor"]],it.ext?"1":"")}</div>
+   ${it.ext?`${f!=="recta"?`<div class="field"><label>Tramo del extractor</label>${seg("extT",(f==="U"?[["0","Tramo 1"],["1","Tramo 2"],["2","Tramo 3"]]:[["0","Tramo 1"],["1","Tramo 2"]]),String(+it.extT||0))}</div>`:""}
+    <div class="field"><label>Ubicación en el tramo</label>${seg("extPos",[["izq","Izquierda"],["medio","En medio"],["der","Derecha"]],it.extPos||"der")}</div>
+    ${it.extPos==="medio"?`<div class="field"><label for="it-extx">Distancia desde la izquierda hasta el extractor (cm)</label><input id="it-extx" inputmode="decimal" data-it="extX" value="${+it.extX>0?cm(it.extX):""}" placeholder="Si lo dejas vacío, queda centrado"></div>`:""}
+    <div class="field"><span class="hint">Gabinete del extractor: 60,5 de ancho, 2 puertas y ${String(61.5-extAlto()/10).replace(".",",")} cm de alto (deja ${cm(extAlto())} cm para el extractor). El resto del tramo se arma normal.</span></div>`:""}
+   ${(()=>{const H=huecosDobles(it);if(H.length<2)return "";const sel=Math.min(+it.loseroH||0,H.length-1);return `<div class="field"><label for="it-losh">Losero en</label><select id="it-losh" data-it="loseroH">${H.map((x,i)=>`<option value="${i}" ${i===sel?"selected":""}>Hueco ${i+1}${f!=="recta"?" · tramo "+(x.kt+1):""}${x.ext?" · gabinete del extractor":""}</option>`).join("")}</select><span class="hint">El losero siempre va, en un hueco de 2 puertas. En el dibujo sale marcado con L.</span></div>`})()}`}
   <div class="field"><label>Puertas</label>${seg("sinPuertas",[["","Con puertas"],["1","Sin puertas (solo estructura)"]],it.sinPuertas?"1":"")}${it.sinPuertas?`<span class="hint">Las puertas no se cotizan (ni bisagras ni manijas). El número de puertas de abajo solo sirve para ubicar los divisores.</span>`:""}</div>
   <div class="fgrid">${[["ancho",1],["ancho2",2],["ancho3",3]].filter(([k,n])=>n===1||(n===2&&f!=="recta")||(n===3&&f==="U")).map(([k,n])=>an(k,f==="recta"?"Ancho":"Ancho tramo "+n)+
       `<div class="field"><label for="it-np${n}">Puertas${f==="recta"?"":" tramo "+n}</label><input id="it-np${n}" inputmode="numeric" data-it="np${n}" value="${it["np"+n]||""}" placeholder="${it[k]>0?puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}"><span class="hint">${it[k]>0&&!(+it["np"+n]>0)?"Sugeridas: "+puertasSug(tramosEf(it)[n-1]?.Ap||it[k],inf):""}</span></div>`).join("")}
@@ -2056,7 +2078,7 @@ function melInfo(it){const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioM
   <div class="small muted">${t}${ck?" · "+esc(ck.replace(" (m)",""))+" "+String(a[ck]).replace(".",",")+" m":""} · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas</div>
   `}
 function esquinaTxt(it){const T=tramosEf(it);if(T.length<2||esInf(it))return "";return `<div class="small" style="color:var(--info)">${T.map((t,k)=>`Tramo ${k+1}: `+(t.rec?`se fabrica de ${cm(t.A)} (${cm(t.orig)} − fondo ${cm(fondoCocina(it))})`:t.Ap<t.A?`completo de ${cm(t.A)}, puertas en ${cm(t.Ap)} (esquina tapada)`:`completo de ${cm(t.A)}`)).join("<br>")}</div>`}
-function cocinaInfo(it){if(esMel(it))return esquinaTxt(it)+melInfo(it);const inf=esInf(it);return esquinaTxt(it)+tramosEf(it).map((t,k,arr)=>{const A=t.Ap,g=gabinete(A,inf,puertasTramo(it,k));return `<div class="small">${arr.length>1?"Tramo "+(k+1)+" · ":""}${cm(A)} cm: ${g.N} puertas de ${cm(g.puerta)} × ${inf?cm((it.alto||0)-30):"60,5"} cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}${inf&&g.divisores?" en T78 de "+cm((it.alto||0)-50)+" cm":""}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
+function cocinaInfo(it){if(esMel(it))return esquinaTxt(it)+melInfo(it);const inf=esInf(it);const nT=tramosEf(it).length,SG=inf?tramosEf(it).map((t,k)=>({...t,kt:k,N:puertasTramo(it,k)})):segCocina(it).flat();return esquinaTxt(it)+SG.map(t=>{const A=t.Ap,g=gabinete(A,inf,t.N),k=t.kt;return `<div class="small">${nT>1?"Tramo "+(k+1)+" · ":""}${t.ext?"<b>gabinete del extractor</b> ":""}${cm(A)} cm: ${g.N} puerta${g.N===1?"":"s"} de ${cm(g.puerta)} × ${inf?cm((it.alto||0)-30):t.ext?cm(605-extAlto()):"60,5"} cm (${g.P?g.P+(g.P>1?" pares":" par"):""}${g.P&&g.sola?" + ":""}${g.sola?"1 sola":""}) · ${g.divisores} divisor${g.divisores===1?"":"es"}${inf&&g.divisores?" en T78 de "+cm((it.alto||0)-50)+" cm":""}</div>`}).join("")+(()=>{const dp=despiece({...it,cant:1}),c=calcCot([{...it,precioManual:0}]),mt=(c.tableros||[]).find(t=>t.nombre==="PVC marmolizado"),a=Object.fromEntries(dp.acc.map(x=>[x[0],x[1]]));
     return `<div class="small muted">PVC marmolizado: ${a["Láminas de PVC marmolizado (piezas)"]||0} piezas${mt?" · "+esc(mt.cobrado):""} · empaque ${String(a["Empaque PVC (m)"]||0).replace(".",",")} m · ${a["Bisagras (par)"]||0} pares de bisagras y ${a["Manijas"]||0} manijas${a["Losero"]?" · losero":""}${a["Vidrios de entrepaño"]?" · "+a["Vidrios de entrepaño"]+" vidrios":""}</div>`})()}
 function calcHtml(it){const F=faltanItem({...it,precioManual:0});
   if(F.length&&!(it.precioManual>0))return `<div class="row sp"><span class="eyebrow">Precio calculado (unidad)</span><b style="color:var(--warn)">Falta precio</b></div>${avisoFaltan(F)}
@@ -2428,7 +2450,7 @@ function vAjustes(){
    <h3>Puertas</h3><div class="fgrid">${PTA_ACC.filter(([k])=>k!=="chapa").map(([k,t,u])=>fld("pa-"+k,esc(t)+" $/"+u,"puertas.acc."+k,c.puertas.acc[k]??0)).join("")}</div>
    <h3>Cocinas</h3><div class="fgrid">
    ${fld("cc-bi","Bisagras $/par","cocina.bisagra",c.cocina.bisagra)}${fld("cc-ma","Manija $/unidad","cocina.manija",c.cocina.manija)}
-   ${fld("cc-em","Empaque PVC $/metro","cocina.empaque",c.cocina.empaque)}${fld("cc-lo","Losero $","cocina.losero",c.cocina.losero)}
+   ${fld("cc-em","Empaque PVC $/metro","cocina.empaque",c.cocina.empaque)}${fld("cc-lo","Losero $","cocina.losero",c.cocina.losero)}${fld("cc-exa","Espacio del extractor (cm)","cocina.extAlto",c.cocina.extAlto??10,"El gabinete del extractor queda así de más bajo.",true)}
    ${fld("cc-vh","Vidrio por hueco $","cocina.vidrioHueco",c.cocina.vidrioHueco)}</div>
    ${(()=>{const ot=Object.entries(TIPOS).filter(([k,t])=>!t.oculto&&!t.puerta&&!t.div&&!t.coc&&!t.serie);return ot.length?`<h3>Otros trabajos</h3><div class="fgrid">${ot.map(([k,t])=>fld("ao-"+k,"Accesorios "+esc(t.corto)+" $/unidad","accesorios."+k,c.accesorios[k]??0)).join("")}</div>`:""})()}
    <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-acc","Accesorios $/división","division.accesorios",c.division.accesorios)}</div>`)}
@@ -2913,7 +2935,7 @@ document.addEventListener("click",async ev=>{
     case"lote-d":{const it=S.itemTmp,DS=distsLote(it),r=it.lote[+b.dataset.i],cur=r.d||((it.dist==="FC"?"FI":it.dist)||"FI"),k=DS.findIndex(x=>x[0]===cur);r.d=DS[(k+1)%DS.length][0];refreshSheet();break}
     case"lote-mas":{const r=S.itemTmp.lote[+b.dataset.i];r.open=!r.open;refreshSheet();if(r.open){const e=document.getElementById("lt-"+b.dataset.i+"-i");if(e)e.focus()}break}
     case"lote-del":S.itemTmp.lote.splice(+b.dataset.i,1);refreshSheet();break;
-    case"it-set":S.itemTmp[b.dataset.k]=b.dataset.v;if(b.dataset.k==="mat"||(b.dataset.k==="parte"&&esMel(S.itemTmp))){const d=S.itemTmp;if(esMel(d)){const inf=d.parte==="inferior";d.alto=inf?800:615;d.fondo=inf?550:300;if(d.espaldar==null)d.espaldar=true;d.canto=d.canto||"flex"}else{d.alto=d.parte==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10)}refreshSheet();break}if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
+    case"it-set":S.itemTmp[b.dataset.k]=["extT"].includes(b.dataset.k)?+b.dataset.v:b.dataset.v;if(b.dataset.k==="mat"||(b.dataset.k==="parte"&&esMel(S.itemTmp))){const d=S.itemTmp;if(esMel(d)){const inf=d.parte==="inferior";d.alto=inf?800:615;d.fondo=inf?550:300;if(d.espaldar==null)d.espaldar=true;d.canto=d.canto||"flex"}else{d.alto=d.parte==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10)}refreshSheet();break}if(b.dataset.k==="parte")S.itemTmp.alto=b.dataset.v==="inferior"?Math.round((+S.cfg.cocina.altoInf||80)*10):Math.round((+S.cfg.cocina.alto||61.5)*10);if(b.dataset.k==="divModo"&&b.dataset.v!=="especial"&&![1800,1900].includes(S.itemTmp.alto))S.itemTmp.alto=1900;refreshSheet();break;
     case"it-hojas":S.itemTmp.hojas=+b.dataset.v;refreshSheet();break;
     case"it-naves":{const n=+b.dataset.v;S.itemTmp.naves=n;S.itemTmp.dist=n===2?"FI":n===3?"FI":"FCCF";refreshSheet();break}
     case"it-dist":S.itemTmp.dist=b.dataset.v;refreshSheet();break;
