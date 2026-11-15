@@ -99,6 +99,10 @@ h3{font-size:17px;font-weight:600}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.resu{padding:4px 16px}.resu-r{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}.resu-r:first-child{border-top:0}
+.resu-r svg{flex:none;width:30px;height:30px;color:var(--accent,currentColor)}.resu-r .t{flex:1;min-width:0}.resu-r .t b{display:block;font:600 16px/1.2 var(--f-display)}.resu-r .t span{font-size:12.5px;color:var(--muted)}
+.resu-r .q{font:700 22px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}.resu-r .q small{font-size:13px;font-weight:600;color:var(--muted);margin-left:3px}
+.resu-a{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--line);font-size:14px}.resu-a b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;min-width:0}
 button.stat{text-align:left;cursor:pointer;font:inherit;color:inherit}
 button.stat:hover{border-color:var(--muted)}
@@ -439,7 +443,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.82.1";
+const APP_VER="1.83.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -2109,6 +2113,28 @@ function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const 
   return `<div class="panel"><div class="row sp"><h2>${t}</h2><span class="pill st-apr">${txtLam(cl.n)}</span></div><span class="small muted">Lámina de ${W} × ${H} cm${cl.media?` · la última es media lámina (${W>=H?cm(W*5)+" × "+H:W+" × "+cm(H*5)} cm)`:""}</span>
    <div class="tbl-wrap"><table><thead><tr><th>Pieza</th><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th></tr></thead><tbody>${L.map(p=>`<tr${lpRow(g,p.ancho,p.alto)}><td>${esc(p.pieza)}${partesPieza(p.ancho,p.alto,W*10,H*10)>1?`<div class="small" style="color:var(--warn)">Más larga que la lámina: se corta en ${partesPieza(p.ancho,p.alto,W*10,H*10)} partes de ${cm(Math.max(p.ancho,p.alto)/partesPieza(p.ancho,p.alto,W*10,H*10))} y se unen</div>`:""}</td><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n">${p.cant}</td></tr>`).join("")}</tbody></table></div>
    ${opcionesLamHtml(g,r,W*10,H*10,cl.n,kerfMel())}</div>`}).join("")}
+/* Resumen de la obra: lo que hay que comprar o tener, en números grandes */
+const icoRes={alu:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 21 21 3l8 8-18 18z"/><path d="M8 16l8 8M13 11l8 8M18 6l8 8" opacity=".5"/></svg>',
+ vid:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 4h20v24H6z"/><path d="M10 14l6-6M10 21l11-11" opacity=".6"/></svg>',
+ lam:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h24v16H4z"/><path d="M7 6h24v16" opacity=".5"/></svg>',
+ esc:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 6h6v14h14v6H6z"/></svg>'};
+function resumenObra(sel,res,sinAcc){const old=S._pdfSel,oldC=S.cortesSel;S._pdfSel=sel;S.cortesSel=sel;
+  try{const fila=(ic,t,sub,q,u)=>`<div class="resu-r">${icoRes[ic]}<div class="t"><b>${t}</b><span>${sub}</span></div><div class="q">${q}<small>${u}</small></div></div>`,nf=n=>String(n).replace(".",","),R=[];
+  const lamN=(key,rr,W,H,k)=>{const {rects}=lamQuitar(key,rr),O=opcionesLam(rects,W,H,k||0,key);if(!O.length)return 0;return (O.find(o=>o.id===lamOpcSel(key))||O[0]).n};
+  if(res.per.length){const nb=res.per.reduce((a,p)=>a+barras(p.cortes,kerfDe(p)).length,0),L=S.cfg.barra||6000,usado=res.per.reduce((a,p)=>a+p.cortes.reduce((b,c)=>b+c.largo*c.cant,0),0);
+    R.push(fila("alu","Aluminio",`${res.per.length} referencia${res.per.length===1?"":"s"} de ${nf(L/1000)} m${nb?` · <span style="white-space:nowrap">aprovecha ${Math.min(100,Math.round(usado/(nb*L)*100))} %</span>`:""}`,nb,nb===1?" barra":" barras"))}
+  if(res.esc)R.push(fila("esc","Escuadras A15","4 por marco",res.esc," und."));
+  Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,L])=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
+    L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});const m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6,n=lamN("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10);
+    R.push(fila("vid",esc(/^vidrio/i.test(vn)?vn:"Vidrio "+vn),`${rr.length} paño${rr.length===1?"":"s"} · ${m2.toFixed(2).replace(".",",")} m² netos`,n,n===1?" lámina":" láminas"))});
+  if(res.pvc.length){const rr=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});const n=laminasMarmo(lamQuitar("pvc",rr).rects,true).laminas;
+    R.push(fila("lam","PVC marmolizado",`${rr.length} pieza${rr.length===1?"":"s"}`,nf(n),n===1?" lámina":" láminas"))}
+  for(const {g,t,W,H,media} of gruposLam(res.mel||[])){const L=res.mel.filter(x=>x.g===g);if(!L.length)continue;const rr=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});
+    const n=contarLaminas(lamQuitar(g,rr).rects,W*10,H*10,media,kerfMel()).n;R.push(fila("lam",esc(t),`${rr.length} pieza${rr.length===1?"":"s"}`,nf(n),n===1?" lámina":" láminas"))}
+  const A=sinAcc?"":res.acc.filter(([n,c])=>+c>0&&!/^Láminas de PVC/i.test(n)).map(([n,c])=>`<div class="resu-a"><span>${esc(n.replace(/\s*\((m|par|piezas)\)\s*$/,""))}</span><b>${nf(Math.round(c*100)/100)}${/\(m\)\s*$/.test(n)?" m":/\(par\)/.test(n)?" pares":" und."}</b></div>`).join("");
+  if(!R.length&&!A)return "";
+  return `<div class="sec-t">Resumen de la obra</div><div class="panel resu">${R.join("")}${A?`<div class="small muted" style="padding:10px 0 2px;font-weight:600">Accesorios</div>${A}`:""}</div>`}
+  finally{S._pdfSel=old;S.cortesSel=oldC}}
 function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada"&&enArea(o)).sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
@@ -2136,11 +2162,7 @@ function vCortes(){
     ${prodIds().length?`<option value="__prod" ${sel==="__prod"?"selected":""}>Producción · ${prodIds().length} obras juntas</option>`:""}
     ${obras.map(o=>`<option value="${o.id}" ${o.id===sel?"selected":""}>${numCot(o)} · ${esc(tituloObra(o))}</option>`).join("")}</select></div>
   ${!items.length?emptyBox("No hay medidas para cortar","Elige una obra con ítems o crea una cotización. Los cortes salen de las medidas de cada ventana.",`<button class="btn pri" data-act="go" data-v="cotizar">Ir a cotizar</button>`):`
-  <div class="stats"><div class="stat"><div class="eyebrow">Barras de perfil</div><div class="v">${totalBarras}</div></div>
-   ${nVid?`<div class="stat"><div class="eyebrow">Vidrio</div><div class="v">${m2.toFixed(2).replace(".",",")} m²</div></div>
-   <div class="stat"><div class="eyebrow">Piezas vidrio</div><div class="v">${nVid}</div></div>`:""}
-   ${nPvc?`<div class="stat"><div class="eyebrow">Láminas PVC</div><div class="v">${String(L2.laminas).replace(".",",")}</div></div>
-   <div class="stat"><div class="eyebrow">Piezas PVC</div><div class="v">${nPvc}</div></div>`:""}</div>
+  ${resumenObra(sel,res)}
   <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
   <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button><button class="btn full" data-act="pedido" data-v="${sel}">Pedido de perfiles y accesorios</button></div>
   <h2>Perfiles</h2><span class="small muted" style="margin-top:-8px">¿Ya tienes una pieza en el taller? Déjala presionada (o doble clic) en la barra y elige "Ya la tengo": pasa a la barra verde "Ya tengo" de ese perfil.</span>${perfHtml}
@@ -2160,7 +2182,7 @@ function vCortes(){
       ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small muted">${esc(v.nota||"")}</td></tr>`).join("")}</tbody></table></div>
       <div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}</div>`}).join("")}
    <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
-  <div class="panel"><h2>Accesorios</h2><div class="tbl-wrap"><table><tbody>${res.acc.map(([n,c])=>`<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join("")}</tbody></table></div></div>`}`;
+  `}`;
 }
 
 /* --- Piezas que ya hay en el taller (retales): se quitan del despiece de esa obra o producción --- */
@@ -2211,8 +2233,8 @@ function vProd(){const P=prodGet(),T=S.obras.filter(o=>areaDe(o)==="taller"&&o.e
 </div>
   ${D.sep>D.juntas?`<div class="note ok">Juntando estas obras te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>.</div>`:""}
   <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button><button class="btn full" data-act="prod-compra">Pedido de perfiles y accesorios</button></div>
+  ${resumenObra("__prod",D.res,1)}
   ${D.res.acc.length?`<div class="sec-t">Accesorios</div><div class="panel"><div class="tbl-wrap"><table><tbody>${D.res.acc.map(([n,c])=>`<tr class="${P.accQ[n]?"sel-off":""}"><td>${esc(n)}</td><td class="n"><b>${c}</b></td><td class="n"><button class="btn sm ${P.accQ[n]?"pri":""}" data-act="prod-accq" data-k="${esc(n)}">${P.accQ[n]?"✓ Lo tengo":"Lo tengo"}</button></td></tr>`).join("")}</tbody></table></div></div>`:""}
-  ${D.res.vid.length?`<div class="sec-t">Vidrios</div><div class="panel">${Object.entries(D.res.vid.reduce((m,v)=>{(m[v.vidrio]=m[v.vidrio]||{n:0,m2:0}).n+=v.cant;m[v.vidrio].m2+=v.ancho*v.alto*v.cant/1e6;return m},{})).map(([vn,x])=>`<div class="row sp"><span>${esc(vn)}</span><span class="small muted">${x.n} pieza(s) · ${x.m2.toFixed(2).replace(".",",")} m²</span></div>`).join("")}<span class="small muted">Las medidas y el plano de cada lámina están en "Ver cortes juntos".</span></div>`:""}
   <button class="btn sm" style="align-self:flex-start" data-act="prod-limpiar">Empezar de nuevo</button>`}`}
 function prodCatalogo(){const L=new Set();for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])L.add((sc.nombre||k)+" · "+p.nombre);for(const k of Object.keys(S.cfg.puertas?.perfiles||{}))L.add("Puertas · "+k);return [...L]}
 /* Pedido al proveedor: perfiles por tiras completas y empaque por rollos completos de 100 m */
