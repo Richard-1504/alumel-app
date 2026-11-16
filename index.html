@@ -443,7 +443,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.83.0";
+const APP_VER="1.84.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -693,6 +693,11 @@ function opcionesLam(rects0,W0,H0,k,key){k=k||0;if(!rects0.length)return [];cons
   return O}
 /* ===== Acomodar láminas a mano: arrastrar piezas, girarlas y sacarlas a la bandeja ===== */
 const lamPzs=(rects0,W,H,k)=>inflar(rects0,k).flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
+/* Cada pieza de vidrio sabe de qué ítem es: se reparte por medida entre las piezas dibujadas */
+const vidRects=L=>{const rr=[];L.forEach(p=>{const O=Object.entries(p.org||{});let q=0;O.forEach(([lb,n])=>{for(let k=0;k<n;k++){rr.push({w:p.ancho,h:p.alto,lb});q++}});for(;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});return rr};
+const orgVid=org=>{const O=Object.entries(org||{});return O.map(([lb,n])=>lb+(n>1?" (×"+n+")":"")).join(", ")};
+function lamEtiq(sh,rects){const pool={};(rects||[]).forEach(r=>{if(r.lb!=null)(pool[dimK(r.w,r.h)]=pool[dimK(r.w,r.h)]||[]).push(r.lb)});if(!Object.keys(pool).length)return sh;
+  return sh.map(h=>({...h,items:h.items.map(r=>{if(r.over)return r;const P=pool[dimK(r.w,r.h)];return P&&P.length?{...r,lb:P.shift()}:r})}))}
 const lamFirma=rs=>rs.map(r=>Math.min(r.w,r.h)+"x"+Math.max(r.w,r.h)).sort().join(",");
 function lamManAll(){if(!S.lamMan){try{S.lamMan=JSON.parse(localStorage.getItem("alumel-lamman")||"{}")}catch(e){S.lamMan={}}}return S.lamMan}
 const lamManKey=key=>(S.cortesSel||"")+"|"+key;
@@ -1332,9 +1337,9 @@ function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T2
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
 function sumarDespiece(items){
   const per={},vid={},acc={},pvc={},melC={};let esc=0;
-  for(const it of items){if(it.fuera)continue;const dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
+  for(const [ix,it] of items.entries()){if(it.fuera)continue;const lbI=(it._o&&obra(it._o)?numCorto(obra(it._o))+"·":"")+(it.n||ix+1),dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
     for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang;if(it._o){const og=(per[key].org=per[key].org||{})[p.largo]=per[key].org[p.largo]||{};og[it._o]=(og[it._o]||0)+p.cant;(per[key].obras=per[key].obras||new Set()).add(it._o)}}
-    for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0});vid[key].cant+=v.cant}
+    for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0,org:{}});vid[key].cant+=v.cant;vid[key].org[lbI]=(vid[key].org[lbI]||0)+v.cant}
     for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const gg=g==="mel"?"mel|"+(t.color||"Blanco"):g,key=gg+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g:gg,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
@@ -2106,7 +2111,7 @@ function calcHtml(it){const F=faltanItem({...it,precioManual:0});
 }
 
 /* --- Cortes --- */
-function dibujoLaminas(hojas,W,H,key){const lp=key&&lamSel();return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect${lp?` class="lp" data-lp="lamp" data-k="${esc(key)}" data-d="${dimK(r.w,r.h)}" style="cursor:pointer"`:""} x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
+function dibujoLaminas(hojas,W,H,key){const lp=key&&lamSel();hojas=lamEtiq(hojas,key&&S.lamReg?.[key]?.act);return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect${lp?` class="lp" data-lp="lamp" data-k="${esc(key)}" data-d="${dimK(r.w,r.h)}" style="cursor:pointer"`:""} x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>${r.lb!=null?(()=>{const fs=Math.max(36,Math.min(80,Math.min(r.w,r.h)/4.5)),off=Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))*0.62+fs*0.62;return `<text x="${r.y+r.h/2}" y="${r.x+r.w/2+off}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" font-weight="700" fill="var(--accent)">Ítem ${esc(String(r.lb))}</text>`})():""}`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
       return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>`}
 function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const L=mel.filter(x=>x.g===g);if(!L.length)return "";
   const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media,kerfMel()),hojas=cl.hojas;
@@ -2125,7 +2130,7 @@ function resumenObra(sel,res,sinAcc){const old=S._pdfSel,oldC=S.cortesSel;S._pdf
     R.push(fila("alu","Aluminio",`${res.per.length} referencia${res.per.length===1?"":"s"} de ${nf(L/1000)} m${nb?` · <span style="white-space:nowrap">aprovecha ${Math.min(100,Math.round(usado/(nb*L)*100))} %</span>`:""}`,nb,nb===1?" barra":" barras"))}
   if(res.esc)R.push(fila("esc","Escuadras A15","4 por marco",res.esc," und."));
   Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,L])=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
-    L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});const m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6,n=lamN("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10);
+    rr.push(...vidRects(L));const m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6,n=lamN("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10);
     R.push(fila("vid",esc(/^vidrio/i.test(vn)?vn:"Vidrio "+vn),`${rr.length} paño${rr.length===1?"":"s"} · ${m2.toFixed(2).replace(".",",")} m² netos`,n,n===1?" lámina":" láminas"))});
   if(res.pvc.length){const rr=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});const n=laminasMarmo(lamQuitar("pvc",rr).rects,true).laminas;
     R.push(fila("lam","PVC marmolizado",`${rr.length} pieza${rr.length===1?"":"s"}`,nf(n),n===1?" lámina":" láminas"))}
@@ -2176,10 +2181,10 @@ function vCortes(){
    <span class="small muted">Medidas en cm. Distribución sugerida para cortar; en cobre, el sobrante más grande de cada lámina.</span></div>`:""}
   ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
    ${Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).map(([vn,L])=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
-     L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});const n=rr.length,m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
+     rr.push(...vidRects(L));const n=rr.length,m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
      return `<div class="vgc"><div class="row sp"><h3>${esc(vn)}</h3><span class="small muted">${n} pieza(s) · ${m2.toFixed(2).replace(".",",")} m²</span></div>
-      <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Ancho</th><th class="n">Alto</th><th></th></tr></thead><tbody>
-      ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small muted">${esc(v.nota||"")}</td></tr>`).join("")}</tbody></table></div>
+      <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Ancho</th><th class="n">Alto</th><th>Ítem</th></tr></thead><tbody>
+      ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small"><b style="color:var(--accent)">${esc(orgVid(v.org))}</b>${v.nota?`<div class="muted">${esc(v.nota)}</div>`:""}</td></tr>`).join("")}</tbody></table></div>
       <div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}</div>`}).join("")}
    <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
   `}`;
@@ -2604,13 +2609,15 @@ function pdfLaminas(doc,y,_nl,titulo,key,rects0,W,H,k){const nl=n=>{if(y+n>262){
   const sc=Math.min(184/H,95/W),dw=H*sc,dh=W*sc;
   nl(dh+18);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(titulo+" · plano de corte ("+sel.t.toLowerCase()+")",16,y);doc.setFont("helvetica","normal");doc.setFontSize(8);
   doc.text("Lámina "+cm(W)+" × "+cm(H)+" cm"+(k?" · sierra "+k+" mm":""),200,y,{align:"right"});y+=4;
-  sel.sh.forEach((h,i)=>{nl(dh+9);doc.setFontSize(8);doc.setTextColor(106,95,88);doc.text("Lámina "+(i+1),16,y+3);doc.setTextColor(31,26,23);y+=4.5;const x0=16;
+  lamEtiq(sel.sh,rects).forEach((h,i)=>{nl(dh+9);doc.setFontSize(8);doc.setTextColor(106,95,88);doc.text("Lámina "+(i+1),16,y+3);doc.setTextColor(31,26,23);y+=4.5;const x0=16;
     doc.setDrawColor(40,34,30);doc.setFillColor(236,230,223);doc.rect(x0,y,dw,dh,"FD");
     const f=sobranteMayor(h);if(f&&f.w>=100&&f.h>=100){doc.setFillColor(246,232,214);doc.rect(x0+f.y*sc,y+f.x*sc,f.h*sc,f.w*sc,"F");doc.setTextColor(150,100,50);doc.setFontSize(7);
       doc.text("Sobra "+cm(f.h)+"x"+cm(f.w),x0+(f.y+f.h/2)*sc,y+(f.x+f.w/2)*sc+1,{align:"center"});doc.setTextColor(31,26,23)}
     for(const r of h.items.filter(r=>!r.over)){const rx=x0+r.y*sc,ry=y+r.x*sc,rw=r.h*sc,rh=r.w*sc;doc.setFillColor(255,255,255);doc.setDrawColor(40,34,30);doc.rect(rx,ry,rw,rh,"FD");
       const t=cm(r.h)+"x"+cm(r.w);let fs=8;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rw-1){fs-=0.5;doc.setFontSize(fs)}
-      if(doc.getTextWidth(t)<=rw-0.5&&rh>fs*0.4)doc.text(t,rx+rw/2,ry+rh/2+fs*0.13,{align:"center"});
+      const lbt=r.lb!=null?"ítem "+r.lb:"";
+      if(doc.getTextWidth(t)<=rw-0.5&&rh>fs*0.4){const dy=lbt&&rh>fs*0.85?-fs*0.18:0;doc.text(t,rx+rw/2,ry+rh/2+fs*0.13+dy,{align:"center"});
+        if(lbt&&rh>fs*0.85){const f2=Math.min(fs,7);doc.setFontSize(f2);doc.setFont("helvetica","bold");doc.setTextColor(154,100,48);doc.text(lbt,rx+rw/2,ry+rh/2+fs*0.13+f2*0.42,{align:"center"});doc.setTextColor(31,26,23);doc.setFont("helvetica","normal")}}
       else{fs=7;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rh-1){fs-=0.5;doc.setFontSize(fs)}doc.text(t,rx+rw/2+fs*0.13,ry+rh/2+doc.getTextWidth(t)/2,{angle:90})}}
     y+=dh+4});
   return y+2}
@@ -2653,9 +2660,9 @@ function pdfCortes0(sel,ext){if(!window.jspdf){toast("No cargó el generador de 
   for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{}))){const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},n=L.reduce((a,v)=>a+v.cant,0),m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
     nl(22);doc.setFillColor(220,234,240);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text("Vidrio "+vn.replace(/^Vidrio /i,""),16,y);doc.setFontSize(9.5);doc.text(n+" pieza"+(n===1?"":"s")+" · "+m2.toFixed(2).replace(".",",")+" m²",200,y,{align:"right"});y+=8;
     L.forEach((v,k)=>{const x=16+(k%2)*94;if(k&&k%2===0)y+=7;nl(8);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(String(v.cant),x+7,y,{align:"right"});doc.setFont("helvetica","normal");doc.text("x  "+cm(v.ancho)+" × "+cm(v.alto),x+10,y);
-      if(v.nota){doc.setFontSize(8);doc.setTextColor(106,95,88);doc.text(v.nota,x+60,y);doc.setTextColor(31,26,23)}});y+=8;
+      {const t=[orgVid(v.org)?"ítem "+orgVid(v.org):"",v.nota||""].filter(Boolean).join(" · ");if(t){doc.setFontSize(7.5);doc.setTextColor(154,100,48);doc.text(doc.splitTextToSize(t,38)[0],x+50,y);doc.setTextColor(31,26,23)}}});y+=8;
     const Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
-    if(vv.id){const rr=[];L.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,"Vidrio "+vn.replace(/^Vidrio /i,""),"vid:"+vv.id,rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0)}}
+    if(vv.id){const rr=vidRects(L);y=pdfLaminas(doc,y,nl,"Vidrio "+vn.replace(/^Vidrio /i,""),"vid:"+vv.id,rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0)}}
   S.cortesSel=selPrev;if(ext)return y;
   guardarArchivo("Cortes_"+(o.numero?numCot(o):"cotizacion")+".pdf",doc)}
 
