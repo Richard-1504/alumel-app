@@ -453,7 +453,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.87.0";
+const APP_VER="1.87.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -705,6 +705,9 @@ function opcionesLam(rects0,W0,H0,k,key){k=k||0;if(!rects0.length)return [];cons
 /* ===== Acomodar láminas a mano: arrastrar piezas, girarlas y sacarlas a la bandeja ===== */
 const lamPzs=(rects0,W,H,k)=>inflar(rects0,k).flatMap(r=>{const n=partesPieza(r.w,r.h,W,H);if(n<=1)return [r];const lg=Math.max(r.w,r.h),ct=Math.min(r.w,r.h);return Array.from({length:n},()=>({...r,w:Math.round(lg/n),h:ct,parte:n}))});
 /* Cada pieza de vidrio sabe de qué ítem es: se reparte por medida entre las piezas dibujadas */
+/* Templado: se pide a la medida, no se corta de lámina */
+const vidNom=vn=>{const k=String(vn||"").replace(/^vidrio\s+/i,"").trim().toLowerCase();return S.cfg.vidrios.find(x=>x.nombre===vn)||S.cfg.vidrios.find(x=>x.nombre.replace(/^vidrio\s+/i,"").trim().toLowerCase()===k)||{nombre:vn}};
+const aMedida=vv=>!!vv&&(vv.med!=null?!!vv.med:/templ/i.test(vv.nombre||""));
 const vidRects=L=>{const rr=[];L.forEach(p=>{const O=Object.entries(p.org||{});let q=0;O.forEach(([lb,n])=>{for(let k=0;k<n;k++){rr.push({w:p.ancho,h:p.alto,lb});q++}});for(;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});return rr};
 const orgVid=org=>{const O=Object.entries(org||{});return O.map(([lb,n])=>lb+(n>1?" (×"+n+")":"")).join(", ")};
 function lamEtiq(sh,rects){const pool={};(rects||[]).forEach(r=>{if(r.lb!=null)(pool[dimK(r.w,r.h)]=pool[dimK(r.w,r.h)]||[]).push(r.lb)});if(!Object.keys(pool).length)return sh;
@@ -1686,7 +1689,7 @@ function vidrioDespieceHtml(id,ctx){const o=ctx==="__draft"?S.draft:obra(ctx);if
    <div class="tbl-wrap"><table><thead><tr><th class="n">Ancho</th><th class="n">Alto</th><th class="n">Cant</th><th>Ítem</th></tr></thead><tbody>
     ${L.map(p=>`<tr><td class="n mono">${cm(p.ancho)}</td><td class="n mono">${cm(p.alto)}</td><td class="n"><b>${p.cant}</b></td><td class="small">#${[...p.items].join(", #")}${p.nota?` · ${esc(p.nota)}`:""}</td></tr>`).join("")}</tbody></table></div>
    <span class="small muted">Medidas de corte en cm.</span>
-   ${rects.length?`<h3>Cómo sale de la lámina (${la} × ${lh} cm)</h3>${opcionesLamHtml("vid:"+id,rects,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}`:""}`}
+   ${rects.length&&aMedida(vv)?`<div class="note info">Se pide a la medida: no se corta de lámina.</div>`:rects.length?`<h3>Cómo sale de la lámina (${la} × ${lh} cm)</h3>${opcionesLamHtml("vid:"+id,rects,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}`:""}`}
 function perfilDespieceHtml(key,color,ctx){const o=ctx==="__draft"?S.draft:obra(ctx);if(!o)return "";const res=sumarDespiece(o.items||[]);
   const p=res.per.find(x=>angKey(x.sistema,x.nombre)===key&&(x.color||"")===(color||""))||res.per.find(x=>angKey(x.sistema,x.nombre)===key);if(!p)return `<div class="sheet-h"><h2>${esc(key)}</h2><button class="btn sm" data-act="cerrar">Cerrar</button></div><span class="small muted">Sin cortes.</span>`;
   const L=S.cfg.barra||6000,bs=barras(p.cortes,kerfDe(p)),med=[...new Set(p.cortes.map(c=>c.largo))],angs=angsPerfil(p);
@@ -2155,9 +2158,11 @@ function resumenObra(sel,res,sinAcc){const old=S._pdfSel,oldC=S.cortesSel;S._pdf
   if(res.per.length){const nb=res.per.reduce((a,p)=>a+barras(p.cortes,kerfDe(p)).length,0),L=S.cfg.barra||6000,usado=res.per.reduce((a,p)=>a+p.cortes.reduce((b,c)=>b+c.largo*c.cant,0),0);
     R.push(fila("alu","Aluminio",`${res.per.length} referencia${res.per.length===1?"":"s"} de ${nf(L/1000)} m${nb?` · <span style="white-space:nowrap">aprovecha ${Math.min(100,Math.round(usado/(nb*L)*100))} %</span>`:""}`,nb,nb===1?" barra":" barras"))}
   if(res.esc)R.push(fila("esc","Escuadras A15","4 por marco",res.esc," und."));
-  Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,L])=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
-    rr.push(...vidRects(L));const m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6,n=lamN("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10);
-    R.push(fila("vid",esc(/^vidrio/i.test(vn)?vn:"Vidrio "+vn),`${rr.length} paño${rr.length===1?"":"s"} · ${m2.toFixed(2).replace(".",",")} m² netos`,n,n===1?" lámina":" láminas"))});
+  Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,L])=>{const vv=vidNom(vn),Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
+    rr.push(...vidRects(L));const m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6,tt=esc(/^vidrio/i.test(vn)?vn:"Vidrio "+vn),m2t=m2.toFixed(2).replace(".",",")+" m² netos";
+    if(aMedida(vv)){R.push(fila("vid",tt,`a la medida · ${L.length} medida${L.length===1?"":"s"} · ${m2t}`,rr.length,rr.length===1?" pieza":" piezas"));return}
+    const n=lamN("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10);
+    R.push(fila("vid",tt,`${rr.length} paño${rr.length===1?"":"s"} · ${m2t}`,n,n===1?" lámina":" láminas"))});
   if(res.pvc.length){const rr=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});const n=laminasMarmo(lamQuitar("pvc",rr).rects,true).laminas;
     R.push(fila("lam","PVC marmolizado",`${rr.length} pieza${rr.length===1?"":"s"}`,nf(n),n===1?" lámina":" láminas"))}
   for(const {g,t,W,H,media} of gruposLam(res.mel||[])){const L=res.mel.filter(x=>x.g===g);if(!L.length)continue;const rr=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});
@@ -2206,12 +2211,12 @@ function vCortes(){
    ${opcionesLamHtml("pvc",rects,mm.ancho*10,mm.alto*10,L2.laminas)}
    <span class="small muted">Medidas en cm. Distribución sugerida para cortar; en cobre, el sobrante más grande de cada lámina.</span></div>`:""}
   ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
-   ${Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).map(([vn,L])=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
+   ${Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).map(([vn,L])=>{const vv=vidNom(vn),Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
      rr.push(...vidRects(L));const n=rr.length,m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
      return `<div class="vgc"><div class="row sp"><h3>${esc(vn)}</h3><span class="small muted">${n} pieza(s) · ${m2.toFixed(2).replace(".",",")} m²</span></div>
       <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Ancho</th><th class="n">Alto</th><th>Ítem</th></tr></thead><tbody>
       ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small"><b style="color:var(--accent)">${esc(orgVid(v.org))}</b>${v.nota?`<div class="muted">${esc(v.nota)}</div>`:""}</td></tr>`).join("")}</tbody></table></div>
-      <div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}</div>`}).join("")}
+      ${aMedida(vv)?`<div class="note info" style="margin-top:6px">Se pide a la medida: no se corta de lámina.</div>`:`<div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}`}</div>`}).join("")}
    <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
   `}`;
 }
@@ -2282,7 +2287,9 @@ function matLineas(sel,items){const res=despieceSel(sel,items),old=S._pdfSel,old
     if(res.esc){const ea=+(S.cfg.cocina?.escuadraAncho??2),m=res.esc*ea/100,x=L.find(l=>/^a15/i.test(l.nom)&&l.u==="m");if(x)x.need=Math.round((x.need+m)*100)/100;else L.push({g:"Perfiles de aluminio",key:"per:a15",nom:"A15",need:Math.round(m*100)/100,u:"m",paso:.5,txt:q=>`${nfm(q)} m A15`})}
     for(const [n,c] of res.acc){if(!(+c>0)||/^Láminas de PVC|^Escuadras/i.test(n))continue;const m=/\(m\)\s*$/.test(n),par=/\(par\)/.test(n),nom=n.replace(/\s*\((m|par|piezas)\)\s*$/,"");
       L.push({g:"Accesorios",key:"acc:"+n,nom,need:m?Math.round(c*100)/100:Math.ceil(c-1e-9),u:m?"m":par?"pares":"und",paso:1,txt:q=>m?`${nfm(q)} m ${minus(nom)}`:`${q}${par?" pares":""} ${minus(nom)}`})}
-    Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,Lv])=>{const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
+    Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,Lv])=>{const vv=vidNom(vn),Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
+      if(aMedida(vv)){const nm=/^vidrio/i.test(vn)?vn:"Vidrio "+vn,M={};Lv.forEach(v=>{const k=cm(v.ancho)+" x "+cm(v.alto);M[k]=(M[k]||0)+v.cant});
+        Object.entries(M).forEach(([md,c])=>L.push({g:"Vidrio y láminas",key:"vid:"+vn+":"+md,nom:nm+" · "+md,need:c,u:"und",paso:1,txt:q=>`${q} ${minus(nm)} ${md}`}));return}
       const n=lamN("vid:"+(vv.id||vn),vidRects(Lv),Math.min(la,lh)*10,Math.max(la,lh)*10),nm=/^vidrio/i.test(vn)?vn:"Vidrio "+vn;if(n)L.push({g:"Vidrio y láminas",key:"vid:"+vn,nom:nm,need:n,u:"láminas",paso:1,txt:q=>`${q} lámina${q===1?"":"s"} ${minus(nm)}`})});
     if(res.pvc.length){const rr=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});const n=laminasMarmo(lamQuitar("pvc",rr).rects,true).laminas;
       if(n)L.push({g:"Vidrio y láminas",key:"pvc",nom:"PVC marmolizado",need:n,u:"láminas",paso:.5,txt:q=>`${nfm(q)} lámina${q===1?"":"s"} pvc marmolizado`})}
@@ -2499,12 +2506,13 @@ function vAjustes(){
    ${fld("ml-cr","Canto rígido $/metro","melamina.cantoRigido",c.melamina.cantoRigido)}
    ${fld("ml-sie","Corte de sierra en láminas (mm)","melamina.sierra",c.melamina.sierra??4,"Lo que se pierde entre piezas al cortar la melamina y el fondo. El PVC no lleva.")}</div>`)}
 
-  ${sec("aj-vidrios","Vidrios","Precio por m² y por lámina de cada referencia",`
+  ${sec("aj-vidrios","Vidrios","Precio por m² y por lámina de cada referencia",`<span class="small muted">"A la medida": se pide cortado (como el templado), no sale de lámina.</span>
    <div class="row sp"><span></span><button class="btn sm" data-act="add-vidrio">+ Vidrio</button></div>
-   <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina</th><th class="n">Lámina (cm)</th><th></th></tr></thead><tbody>
+   <div class="tbl-wrap"><table><thead><tr><th>Vidrio</th><th class="n">$ por m²</th><th class="n">$ lámina</th><th class="n">Lámina (cm)</th><th class="n">A la medida</th><th></th></tr></thead><tbody>
    ${c.vidrios.map((v,i)=>`<tr data-hl="vid:${esc(v.id)}"><td><input class="cin" aria-label="Nombre vidrio" data-cfg="vidrios.${i}.nombre" value="${esc(v.nombre)}" style="width:100%;min-width:120px"></td>
     <td class="n">${inp("vidrios."+i+".m2",v.m2,"Precio m² "+v.nombre,96)}</td><td class="n">${inp("vidrios."+i+".lam",v.lam,"Precio lámina "+v.nombre,96)}</td>
     <td class="n" style="white-space:nowrap">${inp("vidrios."+i+".lamA",v.lamA,"Ancho lámina "+v.nombre,58)} × ${inp("vidrios."+i+".lamH",v.lamH,"Alto lámina "+v.nombre,58)}</td>
+    <td class="n"><input type="checkbox" class="sel-chk" data-act="vid-med" data-i="${i}" ${aMedida(v)?"checked":""} aria-label="${esc(v.nombre)} se pide a la medida"></td>
     <td class="n"><button class="btn sm danger" data-act="del-vidrio" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}
    </tbody></table></div>
    <div class="fgrid">${fld("rv","Redondeo para cobrar (cm)","redondeoVidrio",c.redondeoVidrio,"Cada medida se cobra al siguiente múltiplo.")}${fld("vmin","Mínimo por pieza · venta de vidrio (m²)","vidrioMinM2",c.vidrioMinM2??0,"Área Vidrios: una pieza pequeña se cobra como este mínimo. 0 = sin mínimo.",true)}</div>
@@ -2716,12 +2724,12 @@ function pdfCortes0(sel,ext){if(!window.jspdf){toast("No cargó el generador de 
     {const rr=[];D.res.pvc.forEach(p=>{for(let q=0;q<p.cant;q++)rr.push({w:p.ancho,h:p.alto})});y=pdfLaminas(doc,y,nl,"PVC marmolizado","pvc",rr,D.mm.ancho*10,D.mm.alto*10,0)}}
   if(D.res.esc){nl(10);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Escuadras A15: "+D.res.esc+" unidades (4 por marco)",16,y);doc.setFont("helvetica","normal");y+=7}
   // despiece de vidrios: por referencia, cantidad × ancho × alto y el plano de la lámina
-  for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{}))){const vv=S.cfg.vidrios.find(x=>x.nombre===vn)||{},n=L.reduce((a,v)=>a+v.cant,0),m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
+  for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{}))){const vv=vidNom(vn),n=L.reduce((a,v)=>a+v.cant,0),m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
     nl(22);doc.setFillColor(220,234,240);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text("Vidrio "+vn.replace(/^Vidrio /i,""),16,y);doc.setFontSize(9.5);doc.text(n+" pieza"+(n===1?"":"s")+" · "+m2.toFixed(2).replace(".",",")+" m²",200,y,{align:"right"});y+=8;
     L.forEach((v,k)=>{const x=16+(k%2)*94;if(k&&k%2===0)y+=7;nl(8);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(String(v.cant),x+7,y,{align:"right"});doc.setFont("helvetica","normal");doc.text("x  "+cm(v.ancho)+" × "+cm(v.alto),x+10,y);
       {const t=[orgVid(v.org)?"ítem "+orgVid(v.org):"",v.nota||""].filter(Boolean).join(" · ");if(t){doc.setFontSize(7.5);doc.setTextColor(154,100,48);doc.text(doc.splitTextToSize(t,38)[0],x+50,y);doc.setTextColor(31,26,23)}}});y+=8;
     const Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
-    if(vv.id){const rr=vidRects(L);y=pdfLaminas(doc,y,nl,"Vidrio "+vn.replace(/^Vidrio /i,""),"vid:"+vv.id,rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0)}}
+    if(vv.id&&!aMedida(vv)){const rr=vidRects(L);y=pdfLaminas(doc,y,nl,"Vidrio "+vn.replace(/^Vidrio /i,""),"vid:"+vv.id,rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0)}}
   S.cortesSel=selPrev;if(ext)return y;
   guardarArchivo("Cortes_"+(o.numero?numCot(o):"cotizacion")+".pdf",doc)}
 
@@ -3075,6 +3083,7 @@ document.addEventListener("click",async ev=>{
     case"copiar":copiar(b.dataset.v);break;
     case"copiar-vidrios":{const sel=b.dataset.v;const items=(vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null)?.items)||[];const r=sumarDespiece(items);const o=obra(sel);
       copiar(`Pedido de vidrio — ${S.cfg.empresa.nombre}${o?"\nObra: "+o.nombre:""}\n\n`+r.vid.map(v=>`${v.cant} × ${cm(v.ancho)} × ${cm(v.alto)} cm · ${v.vidrio}${v.nota?" ("+v.nota+")":""}`).join("\n"));break}
+    case"vid-med":{const v=S.cfgEdit.vidrios[+b.dataset.i];v.med=!aMedida(v);autoGuardarCfg();render();break}
     case"add-vidrio":S.cfgEdit.vidrios.push({id:uid(),nombre:"Nuevo vidrio",m2:0,lam:0,lamA:330,lamH:214});autoGuardarCfg();render();break;
     case"del-vidrio":if(S.cfgEdit.vidrios.length>1){S.cfgEdit.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"add-color":S.cfgEdit.colores.push({nombre:"Nuevo color",factor:1});autoGuardarCfg();render();break;
