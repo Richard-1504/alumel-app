@@ -453,7 +453,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.88.0";
+const APP_VER="1.88.1";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1066,7 +1066,7 @@ function calcCot(items,opts){opts=opts||{};
           const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:cc.cobroT78||"metro",serie:"Cocina",perfil:"T78",color:it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
           const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
         const a15=p.ref==="a15",key="COC|"+p.ref+"|"+(a15?"":it.color||""),tira=(+(a15?cc.a15:cc.naveDucha)||0)*(a15?1:f);
-        const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:(a15?cc.cobroA15:cc.cobro)||(a15?"metro":"tira"),serie:"Cocina",perfil:a15?"A15 (escuadras)":"Nave de ducha",color:a15?"":it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
+        const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:a15?"metro":cc.cobro||"tira",serie:"Cocina",perfil:a15?"A15 (escuadras)":"Nave de ducha",color:a15?"":it.color||"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
       for(const t of dp.tab)marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
     else if(pta){
@@ -1077,7 +1077,7 @@ function calcCot(items,opts){opts=opts||{};
         const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m])}
       for(const t of dp.tab)marmo.push({i,w:t.ancho,h:t.alto,cant:t.cant*q})}
     else if(it.tipo==="pesp"){for(const p of dp.perfiles){
-        if(p.ref==="a15"){const cc=cfg.cocina||{},tira=+cc.a15||0,key="COC|a15|";const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:cc.cobroA15||"metro",serie:"Cocina",perfil:"A15 (escuadras)",color:"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
+        if(p.ref==="a15"){const cc=cfg.cocina||{},tira=+cc.a15||0,key="COC|a15|";const pl=pools[key]=pools[key]||{tipo:"Cocina",modo:"metro",serie:"Cocina",perfil:"A15 (escuadras)",color:"",precio:tira/((cfg.barra||6000)/1000),tira,m:0,partes:[]};
           const m=p.largo*p.cant*q/1000;pl.m+=m;pl.partes.push([i,m]);continue}
         if(p.ser){const sc=cfg.series[p.ser],ref=sc.perfiles.find(x=>x.nombre===p.nombre),key=p.ser+"|"+p.nombre+"|"+(it.color||"");
           const pl=pools[key]=pools[key]||{tipo:p.ser,modo:ref?.cobro||modoPorDefecto(p.ser),serie:TIPOS[p.ser].corto,perfil:p.nombre,color:it.color||"",precio:(+ref?.precio||0)*f/((cfg.barra||6000)/1000),tira:(+ref?.precio||0)*f,m:0,partes:[]};
@@ -2468,7 +2468,7 @@ function vAjustes(){
    <span class="small muted">${MODOS_AYUDA} Cada referencia se suma en todo el pedido, sin importar si es de puerta, cocina u otro trabajo.</span>
    <span class="small muted">Toca el dibujo de cada perfil para ver su plano con medidas.</span>
    <div class="pf-h"><span>$ tira</span><span>Cobro</span><span>Corte</span></div>
-   ${refs.map(([r,u,pp,v,pc,vc])=>`<div class="pf" data-hl="pf:${esc(r)}"><div class="row" style="gap:8px;flex-wrap:nowrap">${pfFoto(r)}<div class="grow"><b class="mono">${esc(r)}</b> <span class="small muted">${esc(u)}</span></div></div><div class="pf-c">${inp(pp,v,"Precio "+r)}${selModo(pc,vc,r)}${ang(r)}</div></div>`).join("")}
+   ${refs.map(([r,u,pp,v,pc,vc])=>`<div class="pf" data-hl="pf:${esc(r)}"><div class="row" style="gap:8px;flex-wrap:nowrap">${pfFoto(r)}<div class="grow"><b class="mono">${esc(r)}</b> <span class="small muted">${esc(u)}</span></div></div><div class="pf-c">${inp(pp,v,"Precio "+r)}${r==="A15"?`<span class="small muted" style="align-self:center">Siempre por metro</span>`:selModo(pc,vc,r)}${ang(r)}</div></div>`).join("")}
    ${Object.entries(c.series).map(([k,sc])=>`<h3>${TIPOS[k].nombre}</h3>
     <div class="pf-h"><span>$ tira</span><span>Cobro</span><span>Corte</span></div>
     ${sc.perfiles.map((p,i)=>`<div class="pf" data-hl="pf:${esc(TIPOS[k].corto+" · "+p.nombre)}"><div class="row" style="gap:8px;flex-wrap:nowrap">${pfFoto(TIPOS[k].corto+" · "+p.nombre)}<input aria-label="Nombre perfil" data-cfg="series.${k}.perfiles.${i}.nombre" value="${esc(p.nombre)}" class="cin grow" style="font-weight:700;min-width:0"></div><div class="pf-c">${inp("series."+k+".perfiles."+i+".precio",p.precio,"Precio "+p.nombre)}${selModo("series."+k+".perfiles."+i+".cobro",p.cobro||modoPorDefecto(k),p.nombre)}${ang(TIPOS[k].corto+" · "+p.nombre)}</div></div>`).join("")}`).join("")}
