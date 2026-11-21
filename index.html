@@ -453,7 +453,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.87.2";
+const APP_VER="1.88.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1853,7 +1853,7 @@ async function eliminarItemDirecto(oid,i){const o=obra(oid);if(!o)return;if((o.i
 function compartirMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls="",ex="")=>`<button data-cierra="1" class="btn block ${cls}" data-act="${act}" data-id="${o.id}" ${ex}>${txt}</button>`;
   openSheet(()=>`<div class="ios-acts-t">${numCot(o)} · ${esc(tituloObra(o))}</div>
    <div class="ios-acts">${B("pdf-cot","Ver PDF")}${B("copiar-cot","Enviar por WhatsApp")}</div>
-   ${areaDe(o)==="vidrios"?"":`${catActiva(o.id)?`<div class="ios-acts-t">Taller: solo ${esc(catLbl(catActiva(o.id)).toLowerCase())} (la pestaña elegida)</div>`:""}<div class="ios-acts">${B("materiales","Lista de materiales")}${B("cortes-obra","Ver cortes")}${B("hoja-taller","Hoja de taller (PDF)")}</div>`}
+   ${areaDe(o)==="vidrios"?"":`${catActiva(o.id)?`<div class="ios-acts-t">Taller: solo ${esc(catLbl(catActiva(o.id)).toLowerCase())} (la pestaña elegida)</div>`:""}<div class="ios-acts">${B("materiales","Pedido de materiales")}${B("cortes-obra","Ver cortes")}${B("hoja-taller","Hoja de taller (PDF)")}</div>`}
    ${S.readonly?"":`<div class="ios-acts">${B("nuevo-cobro","Hacer cuenta de cobro","",`data-obra="${o.id}"`)}${B("dup-obra","Duplicar cotización")}${B("editar-obra","Editar todo (dirección, fecha, notas…)")}</div>
    <div class="ios-acts">${B("borrar-obra","Eliminar cotización","danger")}</div>`}
    <button class="btn block ios-cancel" data-act="cerrar">Cancelar</button>`)}
@@ -1959,7 +1959,7 @@ function vCotizar(){
   </div>`}
   <div class="field"><label for="d-notas">Notas para el cliente</label><textarea id="d-notas" data-draft="notas" placeholder="Ej: Incluye instalación. Anticipo del 50%.">${esc(d.notas)}</textarea></div>
   <div id="cot-res">${d.items.length?resumenCtx(d,calc,"__draft",true):""}</div>
-  ${d.items.length&&areaDe(d)!=="vidrios"?`<button class="btn block" data-act="materiales" data-id="__draft">Lista de materiales</button>`:""}
+  ${d.items.length&&areaDe(d)!=="vidrios"?`<button class="btn block" data-act="materiales" data-id="__draft">Pedido de materiales</button>`:""}
   <button class="btn pri block" data-act="guardar-obra" ${S.readonly?"disabled":""}>${d.id?"Guardar cambios":"Guardar cotización"}</button>`;
 }
 function itemSheet(i){
@@ -2175,7 +2175,7 @@ function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada"&&enArea(o)).sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
   const cc=sel===S.cortesCatId?S.cortesCat:null,items=(vistaCat(objSel(sel),cc)?.items)||[];
-  const res=despieceSel(sel,items);
+  const res=despieceSel(sel,items),tab=S.cTab==="pedido"?"pedido":"cortes";
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p));totalBarras+=bs.length;
@@ -2190,17 +2190,19 @@ function vCortes(){
   const nPvc=rects.length,L2=nPvc?laminasMarmo(rects,true):null;
   return `
   ${backBtn()}
-  ${sel==="__prod"?`<div class="note info row sp" style="gap:8px"><span>Cortes de <b>${prodIds().length} obras juntas</b>. Entre paréntesis, a qué obra va cada corte.</span><button class="btn sm" data-act="go" data-v="prod">Producción</button></div>`:""}
-  <div class="head"><div><div class="eyebrow">Despiece · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)</div><h1>Cortes</h1></div></div>
+  <div class="head"><div><div class="eyebrow">Taller · barras de ${cm(L)} cm · corte ${S.cfg.sierra} mm (diagonal ${S.cfg.sierra45??S.cfg.sierra} mm)</div><h1>${tab==="pedido"?"Pedido de materiales":"Cortes"}</h1></div></div>
   ${sel===S.cortesCatId&&S.cortesCat?`<div class="note info row sp" style="gap:8px"><span>Solo <b>${esc(catLbl(S.cortesCat).toLowerCase())}</b> de esta cotización.</span><button class="btn sm" data-act="cortes-todo">Ver todo</button></div>`:""}
   <div class="field"><label for="c-obra">Obra</label><select id="c-obra" data-act-change="cortes-obra">
     ${S.draft&&S.draft.items.length?`<option value="__draft" ${sel==="__draft"?"selected":""}>Cotización en curso (sin guardar)</option>`:""}
     ${prodIds().length?`<option value="__prod" ${sel==="__prod"?"selected":""}>Producción · ${prodIds().length} obras juntas</option>`:""}
     ${obras.map(o=>`<option value="${o.id}" ${o.id===sel?"selected":""}>${numCot(o)} · ${esc(tituloObra(o))}</option>`).join("")}</select></div>
+  ${sel==="__prod"?(()=>{const D=prodDatos();return `<div class="note info row sp" style="gap:8px"><span><b>${prodIds().length} obras juntas</b>${D.sep>D.juntas?` · te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>`:""}. Entre paréntesis, a qué obra va cada corte.</span><button class="btn sm" data-act="go" data-v="prod">Cambiar obras</button></div>`})():""}
+  ${items.length?`<div class="seg"><button data-act="c-tab" data-v="cortes" aria-pressed="${tab==="cortes"}">Cortes</button><button data-act="c-tab" data-v="pedido" aria-pressed="${tab==="pedido"}">Pedido de materiales</button></div>`:""}
   ${!items.length?emptyBox("No hay medidas para cortar","Elige una obra con ítems o crea una cotización. Los cortes salen de las medidas de cada ventana.",`<button class="btn pri" data-act="go" data-v="cotizar">Ir a cotizar</button>`):`
+  ${tab==="pedido"?`${pedidoHtml(sel)}<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="pd-sugerido" data-v="${esc(sel)}">Volver todo a lo sugerido</button></div>`:`
   ${resumenObra(sel,res)}
   <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
-  <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button><button class="btn full" data-act="pedido" data-v="${sel}">Pedido de perfiles y accesorios</button></div>
+  <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button></div>
   <h2>Perfiles</h2><span class="small muted" style="margin-top:-8px">¿Ya tienes una pieza en el taller? Déjala presionada (o doble clic) en la barra y elige "Ya la tengo": pasa a la barra verde "Ya tengo" de ese perfil.</span>${perfHtml}
   ${(res.mel||[]).length?melCortesHtml(res.mel):""}
   ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
@@ -2210,7 +2212,7 @@ function vCortes(){
    </tbody></table></div>
    ${opcionesLamHtml("pvc",rects,mm.ancho*10,mm.alto*10,L2.laminas)}
    <span class="small muted">Medidas en cm. Distribución sugerida para cortar; en cobre, el sobrante más grande de cada lámina.</span></div>`:""}
-  ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2><button class="btn sm" data-act="copiar-vidrios" data-v="${sel}">Copiar pedido</button></div>
+  ${nVid?`<div class="panel"><div class="row sp"><h2>Vidrios</h2></div>
    ${Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).map(([vn,L])=>{const vv=vidNom(vn),Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
      rr.push(...vidRects(L));const n=rr.length,m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
      return `<div class="vgc"><div class="row sp"><h3>${esc(vn)}</h3><span class="small muted">${n} pieza(s) · ${m2.toFixed(2).replace(".",",")} m²</span></div>
@@ -2218,7 +2220,7 @@ function vCortes(){
       ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small"><b style="color:var(--accent)">${esc(orgVid(v.org))}</b>${v.nota?`<div class="muted">${esc(v.nota)}</div>`:""}</td></tr>`).join("")}</tbody></table></div>
       ${aMedida(vv)?`<div class="note info" style="margin-top:6px">Se pide a la medida: no se corta de lámina.</div>`:`<div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}`}</div>`}).join("")}
    <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
-  `}`;
+  `}`}`;
 }
 
 /* --- Piezas que ya hay en el taller (retales): se quitan del despiece de esa obra o producción --- */
@@ -2260,16 +2262,15 @@ function vProd(){const P=prodGet(),ids=prodIds(),act=S.obras.filter(o=>areaDe(o)
   const fila=o=>`<label class="prod-o"><input type="checkbox" class="sel-chk" data-act="prod-obra" data-id="${o.id}" ${ids.includes(o.id)?"checked":""}><span class="grow"><b>${esc(tituloObra(o))}</b><br><span class="small muted">${numCot(o)} · ${(o.items||[]).filter(i=>!i.fuera).length} ítem(s)</span></span></label>`;
   return `${backBtn()}
   <div class="head"><div class="grow"><div class="eyebrow">Taller</div><h1>Producción y pedido</h1></div></div>
-  <span class="muted">Marca las obras en producción que vas a fabricar juntas (las que ya cortaste, déjalas sin marcar). Los cortes se acomodan en las mismas barras y abajo sale el pedido de materiales.</span>
+  <span class="muted">Marca las obras en producción que vas a fabricar juntas (las que ya cortaste, déjalas sin marcar). Los cortes se acomodan en las mismas barras y el pedido sale de todas juntas.</span>
   <div class="sec-t">Obras en producción · ${ids.length} elegida${ids.length===1?"":"s"}</div>
   <div class="panel ipanel">${act.length?act.map(fila).join(""):`<div class="muted small" style="padding:14px 16px">No hay obras en producción. Cuando apruebes una cotización, pásala a "En producción" y aparece aquí.</div>`}</div>
   ${!D?"":`
   <div class="stats"><div class="stat"><div class="eyebrow">Barras juntas</div><div class="v">${D.juntas}</div></div>
    <div class="stat"><div class="eyebrow">Por separado</div><div class="v">${D.sep}</div></div></div>
   ${D.sep>D.juntas?`<div class="note ok">Juntando estas obras te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>.</div>`:""}
-  <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes juntos</button><button class="btn" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button></div>
-  ${pedidoHtml()}
-  <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="pd-sugerido">Volver todo a lo sugerido</button><button class="btn sm" data-act="prod-limpiar">Empezar de nuevo</button></div>`}`}
+  <div class="fgrid"><button class="btn pri" data-act="prod-cortes">Ver cortes</button><button class="btn pri" data-act="prod-pedido">Pedido de materiales</button><button class="btn full" data-act="pdf-cortes" data-v="__prod">PDF de cortes</button></div>
+  <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="prod-limpiar">Empezar de nuevo</button></div>`}`}
 /* --- Pedido de materiales: como lo pide el proveedor (referencia, color y cantidad), sin decir para qué se usa --- */
 function bodega(){return S.cfg.bodega||(S.cfg.bodega={})}
 function bodegaSet(k,v){const B=bodega();if(v>0)B[k]=v;else delete B[k];if(S.cfgEdit)S.cfgEdit.bodega=clone(B);clearTimeout(S.bodT);S.bodT=setTimeout(()=>guardarCfg(S.cfg),700)}
@@ -2297,24 +2298,27 @@ function matLineas(sel,items){const res=despieceSel(sel,items),old=S._pdfSel,old
       const n=contarLaminas(lamQuitar(g,rr).rects,W*10,H*10,media,kerfMel()).n;if(n)L.push({g:"Vidrio y láminas",key:"mel:"+g,nom:t,need:n,u:"láminas",paso:.5,txt:q=>`${nfm(q)} lámina${q===1?"":"s"} ${minus(t)}`})}}
   finally{S._pdfSel=old;S.cortesSel=oldC}
   return L}
-function pedidoLineas(){const L=matLineas("__prod",prodObra().items),B=bodega(),P=prodGet();P.pedir=P.pedir||{};
-  L.forEach(x=>{x.tengo=+B[x.key]||0;const falta=Math.max(0,x.need-x.tengo);x.sug=x.u==="m"?Math.round(falta*100)/100:Math.ceil(falta-1e-9);x.ed=P.pedir[x.key]!=null;x.pedir=x.ed?+P.pedir[x.key]:x.sug});
+/* Lo mismo para una obra sola o para varias juntas (Producción) */
+function itemsSel(sel){if(sel==="__prod")return prodObra().items;const cc=sel===S.cortesCatId?S.cortesCat:null;return (vistaCat(objSel(sel),cc)?.items)||[]}
+function pedirMap(sel){const P=prodGet();if(sel==="__prod")return P.pedir=P.pedir||{};P.pedirO=P.pedirO||{};return P.pedirO[sel]=P.pedirO[sel]||{}}
+function pedidoLineas(sel="__prod"){const L=matLineas(sel,itemsSel(sel)),B=bodega(),M=pedirMap(sel);
+  L.forEach(x=>{x.tengo=+B[x.key]||0;const falta=Math.max(0,x.need-x.tengo);x.sug=x.u==="m"?Math.round(falta*100)/100:Math.ceil(falta-1e-9);x.ed=M[x.key]!=null;x.pedir=x.ed?+M[x.key]:x.sug});
   return L}
 function textoMat(titulo,L,q){const T=[titulo];let g0=null;L.filter(x=>q(x)>0).forEach(x=>{if(x.g!==g0){T.push("");g0=x.g}T.push(x.txt(q(x)))});return T.join("\n").trim()}
-function textoPedidoMat(L){return textoMat(`Pedido ${S.cfg.empresa.nombre} · ${prodIds().map(id=>numCot(obra(id))).join(", ")}`,L,x=>x.pedir)}
-function textoPedido(sel){const o=objSel(sel)||{};if(sel==="__prod")return textoPedidoMat(pedidoLineas());
-  return textoMat(`Pedido ${S.cfg.empresa.nombre} · ${o.numero?numCot(o):tituloObra(o)}`,matLineas(sel,(o.items||[]).filter(i=>!i.fuera)),x=>x.need)}
+const selTitulo=sel=>{if(sel==="__prod")return prodIds().map(id=>numCot(obra(id))).join(", ");const o=objSel(sel)||{};return o.numero?numCot(o):"cotización en curso"};
+function textoPedidoMat(L,sel="__prod"){return textoMat(`Pedido ${S.cfg.empresa.nombre} · ${selTitulo(sel)}`,L,x=>x.pedir)}
+function textoPedido(sel){return textoPedidoMat(pedidoLineas(sel),sel)}
 function textoCompra(){return textoPedido("__prod")}
-function pedidoHtml(){const L=pedidoLineas(),G={};if(!L.length)return `<div class="note info">Las obras elegidas no tienen materiales para pedir.</div>`;L.forEach(x=>(G[x.g]=G[x.g]||[]).push(x));
-  const nb=L.filter(x=>x.u==="barras").reduce((a,x)=>a+x.pedir,0),nl=L.filter(x=>x.u==="láminas").reduce((a,x)=>a+x.pedir,0),na=L.filter(x=>x.g==="Accesorios"&&x.pedir>0).length,nm=L.filter(x=>x.g!=="Accesorios"&&x.u==="m"&&x.pedir>0);
-  const row=x=>`<div class="pd-r${x.pedir===0&&x.sug===0?" cero":""}"><div class="pd-n"><b>${esc((t=>t.charAt(0).toUpperCase()+t.slice(1))(nomProv(x.nom)))}</b>${x.ed&&x.pedir!==x.sug?`<button class="pd-ed" data-act="pd-reset" data-k="${esc(x.key)}">↺ volver a ${nfm(x.sug)}</button>`:""}</div>
+function pedidoHtml(sel="__prod"){const L=pedidoLineas(sel),G={},sv=esc(sel);if(!L.length)return `<div class="note info">No hay materiales para pedir.</div>`;L.forEach(x=>(G[x.g]=G[x.g]||[]).push(x));
+  const nb=L.filter(x=>x.u==="barras").reduce((a,x)=>a+x.pedir,0),nl=L.filter(x=>x.u==="láminas").reduce((a,x)=>a+x.pedir,0),na=L.filter(x=>x.g==="Accesorios"&&x.pedir>0).length,nm=L.filter(x=>x.g!=="Accesorios"&&x.u==="m"&&x.pedir>0),nv=L.filter(x=>x.g==="Vidrio y láminas"&&x.u==="und").reduce((a,x)=>a+x.pedir,0);
+  const row=x=>`<div class="pd-r${x.pedir===0&&x.sug===0?" cero":""}"><div class="pd-n"><b>${esc((t=>t.charAt(0).toUpperCase()+t.slice(1))(nomProv(x.nom)))}</b>${x.ed&&x.pedir!==x.sug?`<button class="pd-ed" data-act="pd-reset" data-v="${sv}" data-k="${esc(x.key)}">↺ volver a ${nfm(x.sug)}</button>`:""}</div>
     <div class="pd-g"><div><span class="lb">Necesitas</span><span class="vv">${nfm(x.need)}<small class="muted" style="font-size:11px;font-weight:600"> ${x.u==="barras"||x.u==="láminas"?"":x.u}</small></span></div>
-     <div><span class="lb">Tengo</span><input class="pd-in" inputmode="decimal" data-pdt="${esc(x.key)}" value="${x.tengo?nfm(x.tengo):""}" placeholder="0"></div>
+     <div><span class="lb">Tengo</span><input class="pd-in" inputmode="decimal" data-pdt="${esc(x.key)}" data-sel="${sv}" value="${x.tengo?nfm(x.tengo):""}" placeholder="0"></div>
      <div><span class="lb">Sugerido</span><span class="vv" style="color:var(--muted)">${nfm(x.sug)}</span></div>
-     <div><span class="lb">Pedir${x.u==="m"?" (m)":""}</span><div class="pd-stp"><button data-act="pd-step" data-k="${esc(x.key)}" data-d="-1" aria-label="Menos">−</button><input inputmode="decimal" data-pdp="${esc(x.key)}" value="${nfm(x.pedir)}"><button data-act="pd-step" data-k="${esc(x.key)}" data-d="1" aria-label="Más">+</button></div></div></div></div>`;
-  return `<div class="sec-t" style="margin-top:6px">Pedido de materiales</div><span class="small muted">En <b>Tengo</b> pon lo que hay en bodega (queda guardado). En <b>Pedir</b> sale lo sugerido y lo puedes subir o bajar.</span>
+     <div><span class="lb">Pedir${x.u==="m"?" (m)":""}</span><div class="pd-stp"><button data-act="pd-step" data-v="${sv}" data-k="${esc(x.key)}" data-d="-1" aria-label="Menos">−</button><input inputmode="decimal" data-pdp="${esc(x.key)}" data-sel="${sv}" value="${nfm(x.pedir)}"><button data-act="pd-step" data-v="${sv}" data-k="${esc(x.key)}" data-d="1" aria-label="Más">+</button></div></div></div></div>`;
+  return `<span class="small muted">En <b>Tengo</b> pon lo que hay en bodega (queda guardado). En <b>Pedir</b> sale lo sugerido y lo puedes subir o bajar.</span>
   ${Object.entries(G).map(([g,X])=>`<div class="sec-t">${esc(g)}</div><div class="panel ipanel">${X.map(row).join("")}</div>`).join("")}
-  <div class="pd-tot"><div class="grow">Vas a pedir<br><b>${[nb?nb+" barra"+(nb===1?"":"s"):"",nm.length?nm.map(x=>nfm(x.pedir)+" m "+x.nom).join(" · "):"",nl?nfm(nl)+" lámina"+(nl===1?"":"s"):"",na?na+" accesorio"+(na===1?"":"s"):""].filter(Boolean).join(" · ")||"nada"}</b></div><button class="btn pri" data-act="pd-enviar">Enviar pedido</button></div>`}
+  <div class="pd-tot"><div class="grow">Vas a pedir<br><b>${[nb?nb+" barra"+(nb===1?"":"s"):"",nm.length?nm.map(x=>nfm(x.pedir)+" m "+x.nom).join(" · "):"",nl?nfm(nl)+" lámina"+(nl===1?"":"s"):"",nv?nv+" vidrio"+(nv===1?"":"s")+" a la medida":"",na?na+" accesorio"+(na===1?"":"s"):""].filter(Boolean).join(" · ")||"nada"}</b></div><button class="btn pri" data-act="pd-enviar" data-v="${sv}">Enviar pedido</button></div>`}
 function prodCatalogo(){const L=new Set();for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])L.add((sc.nombre||k)+" · "+p.nombre);for(const k of Object.keys(S.cfg.puertas?.perfiles||{}))L.add("Puertas · "+k);return [...L]}
 /* Pedido al proveedor: perfiles por tiras completas y empaque por rollos completos de 100 m */
 function pedidoAcc(n,c){const m=/\(m\)\s*$/.test(n),nom=minus(n.replace(/\s*\(m\)\s*$/,""));if(m&&/^Empaque/i.test(n)){const r=+S.cfg.rolloEmpaque||100,k=Math.max(1,Math.ceil(c/r-1e-9));return `${k} rollo${k===1?"":"s"} ${nom} (${k*r}m)`}
@@ -2745,9 +2749,9 @@ async function pdfTaller(id){if(!window.jspdf){toast("No cargó el generador de 
     const l2=detalleItem(it),a=doc.splitTextToSize(l1,184),b=l2?doc.splitTextToSize(l2,178):[];nl(a.length*4.6+b.length*4.2+2);
     doc.setFont("helvetica","bold");doc.text(a,16,y);y+=a.length*4.6;doc.setFont("helvetica","normal");if(b.length){doc.setTextColor(106,95,88);doc.text(b,20,y);doc.setTextColor(31,26,23);y+=b.length*4.2}y+=1.5});
   if(o.notas){const l=doc.splitTextToSize("Notas: "+o.notas,184);nl(l.length*4.5);doc.text(l,16,y);y+=l.length*4.5}
-  y+=3;const G=listaMateriales(o.items||[]);if(G.length){tit("Materiales");
-    for(const g of G){nl(10);doc.setFont("helvetica","bold");doc.text(g.h,16,y);doc.setFont("helvetica","normal");y+=4.6;
-      for(const f of g.filas){const l=doc.splitTextToSize(f[0]+(f[2]?"  ("+f[2]+")":""),150);nl(l.length*4.3);doc.text(l,20,y);doc.setFont("helvetica","bold");doc.text(String(f[1]),200,y,{align:"right"});doc.setFont("helvetica","normal");y+=l.length*4.3}y+=1.5}}
+  y+=3;const ML=matLineas(id,(o.items||[]));if(ML.length){tit("Materiales");const G={};ML.forEach(x=>(G[x.g]=G[x.g]||[]).push(x));
+    for(const [h,X] of Object.entries(G)){nl(10);doc.setFont("helvetica","bold");doc.text(h,16,y);doc.setFont("helvetica","normal");y+=4.6;
+      for(const x of X){const l=doc.splitTextToSize(nomProv(x.nom),150);nl(l.length*4.3);doc.text(l,20,y);doc.setFont("helvetica","bold");doc.text(nfm(x.need)+" "+x.u,200,y,{align:"right"});doc.setFont("helvetica","normal");y+=l.length*4.3}y+=1.5}}
   y+=4;y=pdfCortes(id,{doc,y});
   // avance para marcar a mano
   y+=6;nl(40);tit("Avance");doc.setFontSize(10);
@@ -2938,15 +2942,17 @@ document.addEventListener("click",async ev=>{
     case"tengo-dev":tengoMod(b.dataset.v,b.dataset.k,/x/.test(b.dataset.l)?b.dataset.l:+b.dataset.l,-(+b.dataset.n||1));render();break;
     case"prod-quitar":{const P=prodGet(),k=b.dataset.k;if(P.quitar[k])delete P.quitar[k];else P.quitar[k]=1;prodSave();render();break}
     case"prod-mas":{const P=prodGet(),k=b.dataset.k,x=prodDatos().per.find(p=>p.key===k);if(!x)break;const m=(+P.mas[k]||0)+(+b.dataset.v);P.mas[k]=Math.max(-x.n,m);prodSave();render();break}
-    case"pd-step":{const P=prodGet(),k=b.dataset.k,x=pedidoLineas().find(z=>z.key===k);if(!x)break;P.pedir=P.pedir||{};P.pedir[k]=Math.max(0,Math.round((x.pedir+ +b.dataset.d*(x.paso||1))*100)/100);prodSave();render();break}
-    case"pd-reset":{const P=prodGet();if(P.pedir)delete P.pedir[b.dataset.k];prodSave();render();break}
-    case"pd-sugerido":{const P=prodGet();P.pedir={};prodSave();render();toast("Todo quedó en lo sugerido");break}
-    case"pd-enviar":compartirTexto(textoPedidoMat(pedidoLineas()));break;
+    case"pd-step":{const sl=b.dataset.v||"__prod",k=b.dataset.k,x=pedidoLineas(sl).find(z=>z.key===k);if(!x)break;pedirMap(sl)[k]=Math.max(0,Math.round((x.pedir+ +b.dataset.d*(x.paso||1))*100)/100);prodSave();render();break}
+    case"pd-reset":{delete pedirMap(b.dataset.v||"__prod")[b.dataset.k];prodSave();render();break}
+    case"pd-sugerido":{const sl=b.dataset.v||"__prod",M=pedirMap(sl);Object.keys(M).forEach(k=>delete M[k]);prodSave();render();toast("Todo quedó en lo sugerido");break}
+    case"pd-enviar":{const sl=b.dataset.v||"__prod";compartirTexto(textoPedidoMat(pedidoLineas(sl),sl));break}
+    case"c-tab":S.cTab=b.dataset.v;render();break;
+    case"prod-pedido":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;S.cTab="pedido";go("cortes");break;
     case"prod-accq":{const P=prodGet(),k=b.dataset.k;if(P.accQ[k])delete P.accQ[k];else P.accQ[k]=1;prodSave();render();break}
     case"prod-extra-add":{const n=($("#pe-nom")?.value||"").trim();if(!n){toast("Escribe el nombre del perfil");break}const P=prodGet();(P.extra=P.extra||[]).push({nombre:n,color:($("#pe-col")?.value||"").trim(),n:Math.max(1,Math.round(num($("#pe-n")?.value))||1)});prodSave();render();break}
     case"prod-extra-n":{const P=prodGet(),x=P.extra?.[+b.dataset.i];if(!x)break;x.n=Math.max(0,(+x.n||0)+(+b.dataset.v));prodSave();render();break}
     case"prod-extra-del":{const P=prodGet();P.extra.splice(+b.dataset.i,1);prodSave();render();break}
-    case"prod-cortes":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;go("cortes");break;
+    case"prod-cortes":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;S.cTab="cortes";go("cortes");break;
     case"prod-compra":compartirTexto(textoCompra());break;
     case"pedido":compartirTexto(textoPedido(b.dataset.v));break;
     case"prod-limpiar":confirmar("Se quitan las obras elegidas y los ajustes de compra. Las cotizaciones no se tocan.","Empezar de nuevo",()=>{S.prod={obras:[],quitar:{},mas:{},extra:[],accQ:{},pedir:{}};prodSave()});break;
@@ -2971,7 +2977,7 @@ document.addEventListener("click",async ev=>{
     case"nueva-cot-cliente":S.draft={...nuevoDraft(),clienteId:id,direccion:cliente(id)?.direccion||""};go("cotizar");break;
     case"editar-obra":S.draft=clone(obra(id));S.draftBase=JSON.stringify(S.draft);go("cotizar");break;
     case"descartar":{const bid=S.draft?.borradorId,eid=S.draft?.id;S.draft=nuevoDraft();S.draftBase=null;if(bid)await borrar("borradores",bid);if(eid&&obra(eid))volverAObra(eid);else render();break}
-    case"cortes-obra":S.cortesObra=id;S.cortesCatId=id;S.cortesCat=catActiva(id);go("cortes");break;
+    case"cortes-obra":S.cortesObra=id;S.cortesCatId=id;S.cortesCat=catActiva(id);S.cTab="cortes";go("cortes");break;
     case"aprobar-obra":{const F=faltanObra(obra(id));if(F.length){toast("Faltan precios: "+F.slice(0,4).join(", ")+(F.length>4?"…":""));return}pagoSheet(id,"aprobar");break}
     case"abono-obra":pagoSheet(id,"pago");break;
     case"estado-pago":pagoSheet(id,"estado",b.dataset.v);break;
@@ -3096,7 +3102,7 @@ document.addEventListener("click",async ev=>{
     case"del-vtemp":S.cfgEdit.division.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
     case"subir-locales":b.disabled=true;await subirLocales();break;
     case"descartar-locales":confirmar("Se oculta este aviso. Los datos de este equipo no se suben.","Ocultar aviso",async()=>{try{localStorage.setItem("alumel-subido","1")}catch(e){}});break;
-    case"materiales":materialesSheet(id);break;
+    case"materiales":closeSheet();S.cortesObra=id;S.cortesCatId=id;S.cortesCat=catActiva(id);S.cTab="pedido";go("cortes");break;
     case"enviar-cortes":compartirTexto(textoCortes(b.dataset.v));break;
     case"compartir-archivo":{const A=S.archivo;if(!A)break;try{await navigator.share({files:[A.f],title:A.nombre})}catch(e){}break}
     case"lam-edit":lamEditar(b.dataset.k);break;
@@ -3159,7 +3165,7 @@ document.addEventListener("input",ev=>{
 });
 document.addEventListener("change",ev=>{const t=ev.target;
   if(t.dataset&&t.dataset.pdt!==undefined){bodegaSet(t.dataset.pdt,Math.max(0,num(t.value)||0));render();return}
-  if(t.dataset&&t.dataset.pdp!==undefined){const P=prodGet();P.pedir=P.pedir||{};P.pedir[t.dataset.pdp]=Math.max(0,Math.round((num(t.value)||0)*100)/100);prodSave();render();return}
+  if(t.dataset&&t.dataset.pdp!==undefined){pedirMap(t.dataset.sel||"__prod")[t.dataset.pdp]=Math.max(0,Math.round((num(t.value)||0)*100)/100);prodSave();render();return}
   if(t.dataset&&t.dataset.totMan!==undefined){totalManualSet(t.dataset.totMan,+String(t.value).replace(/\D/g,"")||0,t.dataset.cat||"");return}
   if(t.dataset&&t.dataset.vr&&/\.instalacion$/.test(t.dataset.vr)&&S.draft){const it=S.draft.items[+t.dataset.vr.split(".")[0]],v=Math.round(num(t.value));if(it&&v>0){delete it.instalacion;guardarInstTam(it,v);vidPanel()}return}
   if(t.dataset&&t.dataset.itInst!==undefined&&S.draft){const it=S.draft.items[+t.dataset.itInst];if(it){const v=Math.round(num(t.value));if(it.tipo==="vidrio"&&v>0){delete it.instalacion;guardarInstTam(it,v)}else it.instalacion=v;render()}return}
