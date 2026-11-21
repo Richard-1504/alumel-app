@@ -453,7 +453,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.88.1";
+const APP_VER="1.89.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1459,6 +1459,7 @@ window.addEventListener("online",setSync);window.addEventListener("offline",setS
 
 function firebaseListo(){const c=window.ALUMEL_FIREBASE;return !!(window.firebase&&c&&c.apiKey&&!/PEGAR/.test(c.apiKey))}
 async function iniciar(){
+  draftRestaurar();
   if(!firebaseListo()){S.offline=true;loadLocal();S.view=S.view||"obras";setSync();render();return}
   firebase.initializeApp(window.ALUMEL_FIREBASE);
   const db=firebase.firestore();
@@ -1868,6 +1869,19 @@ function compartirMenu(oid){const o=obra(oid);if(!o)return;const B=(act,txt,cls=
 })();
 /* Cotización a medias: al tocar el logo se guarda como "pendiente de completar" */
 const draftConDatos=d=>!!d&&((d.items||[]).length>0||!!String(d.nombre||"").trim())&&JSON.stringify(d)!==S.draftBase;
+/* Guardado automático: la cotización que se está armando se guarda sola en este equipo (cada 2 s)
+   y en la nube como "Pendiente de completar" (unos segundos después). Al guardarla o descartarla se borra. */
+const DRAFT_LS="alumel-draft";
+function draftRestaurar(){try{const x=JSON.parse(localStorage.getItem(DRAFT_LS)||"null");if(x&&x.d&&(x.d.items||[]).length+String(x.d.nombre||"").trim().length>0){S.draft=x.d;S.draftBase=x.base??null;S.draftAuto=x.t;S._dLast=JSON.stringify(x.d);setTimeout(()=>toast("Recuperé la cotización que estabas haciendo. Está en Cotizar."),1200)}}catch(e){}}
+function autoGuardarDraft(){if(S.editDirecto)return;const d=S.draft;
+  if(!draftConDatos(d)){if(S._dLast!==undefined&&S._dLast!==null){try{localStorage.removeItem(DRAFT_LS)}catch(e){}S._dLast=null}return}
+  const js=JSON.stringify(d);if(js===S._dLast)return;S._dLast=js;const t=new Date().toISOString();S.draftAuto=t;
+  try{localStorage.setItem(DRAFT_LS,JSON.stringify({d,base:S.draftBase,t}))}catch(e){}
+  const ind=$("#auto-ind");if(ind)ind.textContent="✓ Guardado automático";
+  if(S.db&&!S.readonly){clearTimeout(S._dCloud);S._dCloud=setTimeout(async()=>{const dd=S.draft;if(!draftConDatos(dd)||S.editDirecto)return;
+    if(!dd.borradorId)dd.borradorId=uid();const c=clone(dd),bid=c.borradorId,ed=c.id;delete c.id;delete c.borradorId;delete c.calc;
+    try{await guardar("borradores",bid,{...c,editaDe:ed||null,guardado:new Date().toISOString(),dia:hoy(),auto:true})}catch(e){}},4000)}}
+{const _ai=setInterval(autoGuardarDraft,2000);_ai?.unref?.()}
 async function guardarBorrador(){const d=clone(S.draft),bid=d.borradorId||uid();const ed=d.id;delete d.id;delete d.borradorId;delete d.calc;
   await guardar("borradores",bid,{...d,editaDe:ed||null,guardado:new Date().toISOString(),dia:hoy()});S.draft=null;S.draftBase=null}
 function continuarBorrador(id){const b=S.borradores.find(x=>x.id===id);if(!b)return;const d=clone(b),ed=d.editaDe&&obra(d.editaDe);
@@ -1877,7 +1891,7 @@ function continuarBorrador(id){const b=S.borradores.find(x=>x.id===id);if(!b)ret
 function panelBorradores(){const L=[...S.borradores].filter(enArea).sort((a,b)=>(b.guardado||"").localeCompare(a.guardado||""));if(!L.length)return "";
   return `<div class="panel" style="border-color:var(--warn)"><h2>Pendientes de completar (${L.length})</h2>
   <div class="list">${L.map(b=>{const c=clienteDe(b),ed=b.editaDe&&obra(b.editaDe);return `<div class="li"><div class="grow">
-   <div class="eyebrow">${ed?"Cambios sin guardar · "+numCot(ed):"Nueva cotización"} · ${fechaCorta(b.dia||b.fecha||"")}</div>
+   <div class="eyebrow">${b.id===S.draft?.borradorId?"<b>La que tienes abierta en Cotizar</b> · ":""}${ed?"Cambios sin guardar · "+numCot(ed):"Nueva cotización"} · ${fechaCorta(b.dia||b.fecha||"")}</div>
    <div class="t">${esc(tituloObra(b))}</div>
    <div class="small muted">${esc(c?.nombre||"Sin cliente")} · ${(b.items||[]).length} ítem(s)</div>
    <div class="row" style="margin-top:8px;gap:8px"><button class="btn sm pri" data-act="continuar-borrador" data-id="${b.id}">Continuar</button><button class="btn sm danger" data-act="borrar-borrador" data-id="${b.id}">Descartar</button></div></div></div>`}).join("")}</div></div>`}
@@ -1938,7 +1952,7 @@ function vCotizar(){
   const clientes=[...S.clientes].sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   return `
   ${S.hist.length?backBtn():""}
-  <div class="head"><div><div class="eyebrow">${areaDe(d)==="vidrios"?"Vidrios · ":""}${d.id?"Editando "+numCot(obra(d.id)||d)+" · al guardar se usan los precios de hoy":"Nueva cotización"}</div><h1>Cotizar</h1></div>
+  <div class="head"><div><div class="eyebrow">${areaDe(d)==="vidrios"?"Vidrios · ":""}${d.id?"Editando "+numCot(obra(d.id)||d)+" · al guardar se usan los precios de hoy":"Nueva cotización"}</div><h1>Cotizar</h1>${draftConDatos(d)?`<span id="auto-ind" class="small" style="color:var(--ok);font-weight:600">${S.draftAuto?"✓ Guardado automático":"Se guarda sola mientras la haces"}</span>`:`<span id="auto-ind" class="small" style="color:var(--ok);font-weight:600"></span>`}</div>
    ${d.id||d.items.length?`<button class="btn sm" data-act="descartar">Descartar</button>`:""}</div>
   ${S.cfg.preciosEjemplo?`<div class="note">Los precios de vidrio, rodamientos, empaque y mano de obra son de ejemplo. Ponle los tuyos en <button class="linkish" data-act="go" data-v="ajustes">Ajustes</button> para que las cotizaciones salgan bien.</div>`:""}
   <div class="panel">
