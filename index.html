@@ -453,7 +453,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.87.1";
+const APP_VER="1.87.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -2288,7 +2288,7 @@ function matLineas(sel,items){const res=despieceSel(sel,items),old=S._pdfSel,old
     for(const [n,c] of res.acc){if(!(+c>0)||/^Láminas de PVC|^Escuadras/i.test(n))continue;const m=/\(m\)\s*$/.test(n),par=/\(par\)/.test(n),nom=n.replace(/\s*\((m|par|piezas)\)\s*$/,"");
       L.push({g:"Accesorios",key:"acc:"+n,nom,need:m?Math.round(c*100)/100:Math.ceil(c-1e-9),u:m?"m":par?"pares":"und",paso:1,txt:q=>m?`${nfm(q)} m ${minus(nom)}`:`${q}${par?" pares":""} ${minus(nom)}`})}
     Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).forEach(([vn,Lv])=>{const vv=vidNom(vn),Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
-      if(aMedida(vv)){const nm=/^vidrio/i.test(vn)?vn:"Vidrio "+vn,M={};Lv.forEach(v=>{const k=cm(v.ancho)+" x "+cm(v.alto);M[k]=(M[k]||0)+v.cant});
+      if(aMedida(vv)){const nm=/^vidrio/i.test(vn)?vn:"Vidrio "+vn,M={};Lv.forEach(v=>{const tg=String(v.nota||"").split("·").map(x=>x.trim()).filter(x=>x&&!/templ/i.test(x)).join(", "),k=cm(v.ancho)+" x "+cm(v.alto)+(tg?" "+tg:"");M[k]=(M[k]||0)+v.cant});
         Object.entries(M).forEach(([md,c])=>L.push({g:"Vidrio y láminas",key:"vid:"+vn+":"+md,nom:nm+" · "+md,need:c,u:"und",paso:1,txt:q=>`${q} ${minus(nm)} ${md}`}));return}
       const n=lamN("vid:"+(vv.id||vn),vidRects(Lv),Math.min(la,lh)*10,Math.max(la,lh)*10),nm=/^vidrio/i.test(vn)?vn:"Vidrio "+vn;if(n)L.push({g:"Vidrio y láminas",key:"vid:"+vn,nom:nm,need:n,u:"láminas",paso:1,txt:q=>`${q} lámina${q===1?"":"s"} ${minus(nm)}`})});
     if(res.pvc.length){const rr=[];res.pvc.forEach(p=>{for(let k=0;k<p.cant;k++)rr.push({w:p.ancho,h:p.alto})});const n=laminasMarmo(lamQuitar("pvc",rr).rects,true).laminas;
