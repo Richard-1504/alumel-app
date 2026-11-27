@@ -391,6 +391,8 @@ button.stat[aria-pressed="true"]{background:#fff;box-shadow:0 2px 8px rgba(0,0,0
 svg text{pointer-events:none}
 .lam-ya{display:grid;gap:6px;padding:8px 10px;border:1.5px dashed var(--ok);border-radius:10px}.lam-ya-b{background:color-mix(in srgb,var(--ok) 16%,var(--surface))!important;color:var(--fg)!important;font-family:var(--f-mono)}
 .prod-btn{display:flex;align-items:center;justify-content:center;gap:8px}
+.let-r{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:.5px solid var(--line)}.let-in{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;max-width:55%}
+.let-in input{width:44px;height:36px;text-align:center;font:700 16px var(--f-display);text-transform:uppercase;border:1.5px solid var(--accent);border-radius:8px;background:var(--surface);color:var(--accent);padding:0}
 .pd-r{padding:9px 14px;border-top:.5px solid var(--line)}.pd-r:first-child{border-top:0}.pd-r.cero{opacity:.55}
 .pd-n{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pd-n b{font-size:15px}
 .pd-g{display:grid;grid-template-columns:1fr 1fr 1fr 1.6fr;gap:8px;margin-top:5px;align-items:end}.pd-g>div{display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -453,7 +455,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.91.0";
+const APP_VER="1.92.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -1349,11 +1351,15 @@ function pdfPerfilIcon(doc,key,x,y,sz){const f=!(S.cfg.perfilImg||{})[key]&&PERF
 function refsAngulo(){const r=["Nave de ducha","T77","T78","A61","A15","T87","T244","T166","U66","U78","U71","F06"];
   for(const [k,sc] of Object.entries(S.cfg.series||{}))for(const p of sc.perfiles||[])r.push(TIPOS[k].corto+" · "+p.nombre);return r}
 function ordenTope(bars){const seq=bars.flatMap(b=>b.cuts),g=[];for(const l of seq){const u=g[g.length-1];if(u&&u[0]===l)u[1]++;else g.push([l,1])}return g}
+/* Letras de las ventanas: cada ventana armada lleva una letra (A, B, C…), en el orden de la cotización.
+   Se pueden cambiar a mano (it.letras) por si en el taller les pusieron otra. */
+const letraN=n=>{let s="";n++;while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}return s};
+function letrasObra(items){let k=0;return (items||[]).map(it=>{if(it.tipo==="otro")return [];const q=Math.max(1,Math.round(+it.cant||1)),L=[];for(let u=0;u<q;u++){L.push(String(it.letras?.[u]||"").trim().toUpperCase()||letraN(k));k++}return L})}
 function sumarDespiece(items){
-  const per={},vid={},acc={},pvc={},melC={};let esc=0;
-  for(const [ix,it] of items.entries()){if(it.fuera)continue;const lbI=(it._o&&obra(it._o)?numCorto(obra(it._o))+"·":"")+(it.n||ix+1),dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
+  const per={},vid={},acc={},pvc={},melC={};let esc=0;const LL=letrasObra(items);
+  for(const [ix,it] of items.entries()){if(it.fuera)continue;const pre=it._o&&obra(it._o)?numCorto(obra(it._o))+"·":"",lets=it._let||LL[ix]||[],lbI=pre+(lets.length?lets.join(","):(it.n||ix+1)),qU=Math.max(1,lets.length),dp=despiece(it),color=it.color||"",vn=it.tipo==="division"?vidrioDivTxt():vidrioDe(it.vidrio).nombre;
     for(const p of dp.perfiles){const sis=p.sis||TIPOS[it.tipo].corto,sc=p.pool==="cielo"||p.ref==="a15"?"":color,key=sis+"|"+p.nombre+"|"+sc;(per[key]=per[key]||{sistema:sis,nombre:p.nombre,color:sc,cortes:{},ang:{}});per[key].cortes[p.largo]=(per[key].cortes[p.largo]||0)+p.cant;if(p.ang)per[key].ang[p.largo]=p.ang;if(it._o){const og=(per[key].org=per[key].org||{})[p.largo]=per[key].org[p.largo]||{};og[it._o]=(og[it._o]||0)+p.cant;(per[key].obras=per[key].obras||new Set()).add(it._o)}}
-    for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0,org:{}});vid[key].cant+=v.cant;vid[key].org[lbI]=(vid[key].org[lbI]||0)+v.cant}
+    for(const v of dp.vidrios){const key=vn+"|"+v.ancho+"|"+v.alto+"|"+v.nota;(vid[key]=vid[key]||{vidrio:vn,ancho:v.ancho,alto:v.alto,nota:v.nota,cant:0,org:{}});vid[key].cant+=v.cant;const pu=v.cant/qU;if(lets.length&&Number.isInteger(pu))lets.forEach(l=>{vid[key].org[pre+l]=(vid[key].org[pre+l]||0)+pu});else vid[key].org[lbI]=(vid[key].org[lbI]||0)+v.cant}
     for(const [arr,g] of [[dp.mel||[],"mel"],[dp.fon||[],"fon"]])for(const t of arr){const gg=g==="mel"?"mel|"+(t.color||"Blanco"):g,key=gg+"|"+t.pieza+"|"+t.ancho+"|"+t.alto;(melC[key]=melC[key]||{g:gg,pieza:t.pieza,ancho:t.ancho,alto:t.alto,cant:0});melC[key].cant+=t.cant}
     for(const t of dp.tab||[]){const key=t.ancho+"|"+t.alto;(pvc[key]=pvc[key]||{ancho:t.ancho,alto:t.alto,cant:0});pvc[key].cant+=t.cant}
     for(const [n,c] of dp.acc){if(/^Láminas de PVC|^Tablero marmolizado/.test(n))continue;acc[n]=Math.round(((acc[n]||0)+c)*100)/100}}
@@ -1663,7 +1669,7 @@ function tablaItems(items,calc,editable,cong,ctx,opts,cat){
   const val=(it,i)=>it.fuera?`<span class="small muted">No incluido</span>`:!cong&&faltanItem(it).length?`<span class="small" style="color:var(--warn);font-weight:700">Falta precio</span>`:`<b class="num">${money(valLinea(calc,i).total)}</b>`;
   const solo=(it,i)=>{const l=calc.lineas?.[i];if(calc.resumen?.ajusteManual||it.fuera||!l||l.manual||l.tSolo==null||Math.abs(l.tSolo-l.total)<1000)return "";
      return `<div class="small muted irow-solo" title="Lo que valdría este ítem cotizado solo"><s>${money(l.tSolo)}</s>${it.cant>1?` · <s>c/u ${money(l.uSolo)}</s>`:""}<br><span>si fuera solo</span></div>`};
-  const todosC=cat?!orden.some(([it])=>it.fuera):todos;
+  const todosC=cat?!orden.some(([it])=>it.fuera):todos,LET=letrasObra(items),letT=(it,i)=>{const L=LET[i]||[];if(!L.length||!despiece(it).vidrios.length)return "";return ` <span style="color:var(--accent);font-weight:700">· ${L.length>3?L[0]+"–"+L[L.length-1]:L.join(", ")}</span>`};
   return `${st&&orden.length>1?`<label class="irow-todos"><input type="checkbox" class="sel-chk" data-act="sel-todos" data-ctx="${esc(ctx)}" data-cat="${cat||""}" ${todosC?"checked":""}> Incluir todos${cat?" (solo "+esc(catLbl(cat).toLowerCase())+")":""}</label>`:""}
   <div class="ilist">${orden.map(([it,i])=>{const k=catDe(it),hd=multi&&!cat&&k!==prevK?`<div class="igrp"><b>${esc(catLbl(k))}</b><span>${items.filter(x=>catDe(x)===k).length} · ${money(sub(k))}</span></div>`:"";prevK=k;return hd+`<div class="irow${it.fuera?" sel-off":""}"${acc?` data-sw="1"`:""}>
     ${acc?`<div class="irow-acts"><button class="sw-ed" data-act="${dr?"editar-item":"item-editar"}" data-id="${esc(ctx||"")}" data-i="${i}">Editar</button><button class="sw-del" data-act="${dr?"draft-del-item":"item-eliminar"}" data-id="${esc(ctx||"")}" data-i="${i}">Eliminar</button></div>`:""}
@@ -1672,7 +1678,7 @@ function tablaItems(items,calc,editable,cong,ctx,opts,cat){
       ${miniatura(it)?`<div class="it-thumb" role="img" aria-label="${esc(medidaLbl(it,true))}">${miniatura(it)}</div>`:""}
       <div class="irow-m"><div class="irow-t">${it.n?`<span class="vchip-n" style="margin-right:4px">${it.n}</span>`:""}${esc(describeItem(it))}</div>
         <div class="small muted">${esc([detalleItem(it),TIPOS[it.tipo]?.serie?"rodamiento "+(it.rod==="abb"?"ABB":"nylon"):"",it.ubicacion||""].filter(Boolean).join(" · "))}</div>
-        <div class="irow-b"><span class="small num">${miniatura(it)||!medidaLbl(it)?"":medidaLbl(it)+" · "}<b>× ${it.cant}</b>${it.tipo==="otro"?` <span class="muted">· ${money(+it.precioManual||0)} c/u</span>`:it.precioManual>0?` <span class="muted">· manual</span>`:""}</span><span class="irow-v">${val(it,i)}${solo(it,i)}</span></div></div>
+        <div class="irow-b"><span class="small num">${miniatura(it)||!medidaLbl(it)?"":medidaLbl(it)+" · "}<b>× ${it.cant}</b>${letT(it,i)}${it.tipo==="otro"?` <span class="muted">· ${money(+it.precioManual||0)} c/u</span>`:it.precioManual>0?` <span class="muted">· manual</span>`:""}</span><span class="irow-v">${val(it,i)}${solo(it,i)}</span></div></div>
       <div class="irow-r">${acc?`<button class="it-mas" data-act="item-menu" data-id="${esc(ctx||"__draft")}" data-i="${i}" aria-label="Opciones del ítem ${i+1}" title="Opciones"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>`:""}</div>
     </div></div>`}).join("")}</div>`;
 }
@@ -2154,7 +2160,7 @@ function calcHtml(it){if(it.tipo==="otro"){const q=Math.max(1,Math.round(+it.can
 }
 
 /* --- Cortes --- */
-function dibujoLaminas(hojas,W,H,key){const lp=key&&lamSel();hojas=lamEtiq(hojas,key&&S.lamReg?.[key]?.act);return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect${lp?` class="lp" data-lp="lamp" data-k="${esc(key)}" data-d="${dimK(r.w,r.h)}" style="cursor:pointer"`:""} x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>${r.lb!=null?(()=>{const fs=Math.max(36,Math.min(80,Math.min(r.w,r.h)/4.5)),off=Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))*0.62+fs*0.62;return `<text x="${r.y+r.h/2}" y="${r.x+r.w/2+off}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" font-weight="700" fill="var(--accent)">Ítem ${esc(String(r.lb))}</text>`})():""}`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
+function dibujoLaminas(hojas,W,H,key){const lp=key&&lamSel();hojas=lamEtiq(hojas,key&&S.lamReg?.[key]?.act);return `<div class="stack" style="gap:8px">${hojas.map((h,k)=>`<div><div class="small mono muted">Lámina ${k+1}</div><svg viewBox="0 0 ${H} ${W}" style="width:100%;height:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:4px">${h.items.filter(r=>!r.over).map(r=>`<rect${lp?` class="lp" data-lp="lamp" data-k="${esc(key)}" data-d="${dimK(r.w,r.h)}" style="cursor:pointer"`:""} x="${r.y}" y="${r.x}" width="${r.h}" height="${r.w}" fill="var(--surface)" stroke="currentColor" stroke-width="6"/><text x="${r.y+r.h/2}" y="${r.x+r.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))}" font-family="IBM Plex Mono,monospace" fill="currentColor">${cm(r.h)}×${cm(r.w)}</text>${r.lb!=null?(()=>{const fs=Math.max(36,Math.min(80,Math.min(r.w,r.h)/4.5)),off=Math.max(40,Math.min(90,Math.min(r.w,r.h)/4))*0.62+fs*0.62;return `<text x="${r.y+r.h/2}" y="${r.x+r.w/2+off}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" font-weight="700" fill="var(--accent)">${esc(String(r.lb))}</text>`})():""}`).join("")}${(()=>{const f=sobranteMayor(h);if(!f||f.w<100||f.h<100)return "";
       return `<rect x="${f.y}" y="${f.x}" width="${f.h}" height="${f.w}" fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="6" stroke-dasharray="30 18"/><text x="${f.y+f.h/2}" y="${f.x+f.w/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(40,Math.min(80,Math.min(f.w,f.h)/4))}" font-family="IBM Plex Mono,monospace" fill="var(--accent)">Sobra ${cm(f.h)}×${cm(f.w)}</text>`})()}</svg></div>`).join("")}</div>`}
 function melCortesHtml(mel){return gruposLam(mel).map(({g,t,W,H,media})=>{const L=mel.filter(x=>x.g===g);if(!L.length)return "";
   const r=[];L.forEach(p=>{for(let k=0;k<p.cant;k++)r.push({w:p.ancho,h:p.alto})});const cl=contarLaminas(r,W*10,H*10,media,kerfMel()),hojas=cl.hojas;
@@ -2230,13 +2236,27 @@ function vCortes(){
    ${Object.entries(res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{})).map(([vn,L])=>{const vv=vidNom(vn),Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214,rr=[];
      rr.push(...vidRects(L));const n=rr.length,m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
      return `<div class="vgc"><div class="row sp"><h3>${esc(vn)}</h3><span class="small muted">${n} pieza(s) · ${m2.toFixed(2).replace(".",",")} m²</span></div>
-      <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Ancho</th><th class="n">Alto</th><th>Ítem</th></tr></thead><tbody>
+      <div class="tbl-wrap"><table><thead><tr><th class="n">Cant</th><th class="n">Ancho</th><th class="n">Alto</th><th>Ventana</th></tr></thead><tbody>
       ${L.map(v=>`<tr${lpRow("vid:"+(vv.id||vn),v.ancho,v.alto)}><td class="n"><b>${v.cant}</b></td><td class="n mono">${cm(v.ancho)}</td><td class="n mono">${cm(v.alto)}</td><td class="small"><b style="color:var(--accent)">${esc(orgVid(v.org))}</b>${v.nota?`<div class="muted">${esc(v.nota)}</div>`:""}</td></tr>`).join("")}</tbody></table></div>
       ${aMedida(vv)?`<div class="note info" style="margin-top:6px">Se pide a la medida: no se corta de lámina.</div>`:`<div class="small" style="font-weight:600;margin-top:6px">Lámina ${la} × ${lh} cm</div>${opcionesLamHtml("vid:"+(vv.id||vn),rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0,0)}`}</div>`}).join("")}
-   <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>`:""}
+   <span class="small muted">Medidas en cm. La forma de cortar que escojas queda guardada con la obra y sale igual en el PDF.</span></div>${letrasPanel(sel)}`:""}
   `}`}`;
 }
 
+/* Lista de ventanas con su letra; se puede cambiar */
+function letrasPanel(sel){const obs=sel==="__prod"?prodIds().map(obra):[objSel(sel)].filter(Boolean);if(!obs.length)return "";
+  const filas=obs.map(o=>{const its=o.items||[],LL=letrasObra(its),oid=sel==="__draft"?"__draft":o.id;
+    const rows=its.map((it,i)=>{if(it.tipo==="otro"||it.fuera||!despiece(it).vidrios.length)return "";
+      return `<div class="let-r"><span class="grow"><b>${esc(describeItem(it))}</b><br><span class="small muted">Ítem ${it.n||i+1} · ${esc(medidaTxt(it))}${it.cant>1?" · "+it.cant+" ventanas":""}</span></span>
+       <span class="let-in">${LL[i].map((l,u)=>`<input aria-label="Letra ventana ${u+1} del ítem ${it.n||i+1}" data-let="${esc(oid)}|${i}|${u}" value="${esc(l)}" maxlength="4" autocapitalize="characters">`).join("")}</span></div>`}).join("");
+    return rows?(obs.length>1?`<div class="small" style="font-weight:700;margin-top:8px">${esc(numCot(o))} · ${esc(tituloObra(o))}</div>`:"")+rows:""}).join("");
+  if(!filas)return "";
+  return `<div class="panel"><h2>Letras de las ventanas</h2><span class="small muted">Cada ventana armada lleva su letra y cada vidrio dice a cuál va. Si en el taller les pusieron otra, cámbiala aquí.</span>${filas}</div>`}
+async function letraSet(oid,i,u,v){v=String(v||"").trim().toUpperCase();
+  const o=oid==="__draft"?S.draft:obra(oid);if(!o)return;const it=o.items[i];if(!it)return;const L=letrasObra(o.items)[i],auto=(()=>{const c={...it,letras:[]};return letrasObra(o.items.map((x,j)=>j===i?c:x))[i][u]})();
+  const ls=[...(it.letras||[])];while(ls.length<L.length)ls.push("");ls[u]=v===auto?"":v;const nuevo={...it,letras:ls.some(Boolean)?ls:undefined};if(!nuevo.letras)delete nuevo.letras;
+  if(oid==="__draft"){o.items[i]=nuevo;render();return}
+  const items=o.items.slice();items[i]=nuevo;try{await guardar("obras",o.id,{...o,items})}catch(e){}render()}
 /* --- Piezas que ya hay en el taller (retales): se quitan del despiece de esa obra o producción --- */
 function tengoGet(){if(!S.tengo){try{S.tengo=JSON.parse(localStorage.getItem("alumel-tengo")||"null")}catch(e){}S.tengo=S.tengo||{}}return S.tengo}
 function tengoSave(){try{localStorage.setItem("alumel-tengo",JSON.stringify(S.tengo))}catch(e){}}
@@ -2285,7 +2305,7 @@ const tkS=sel=>sel==="__prod"&&S.prodId?"__prod:"+S.prodId:sel;
 const CHEV_R=`<svg width="10" height="16" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex:none"><path d="M2 2l8 8-8 8"/></svg>`;
 const numCorto=o=>"#"+(o.numero||"?");
 function orgTxt(org,pdf){return Object.entries(org).map(([id,n])=>{const o=obra(id);return (o?numCorto(o):"?")+" ×"+n}).join(pdf?"  ":" · ")}
-function prodObra(){const ids=prodIds(),items=[];ids.forEach(id=>(obra(id).items||[]).forEach(it=>{if(!it.fuera)items.push({...it,_o:id})}));
+function prodObra(){const ids=prodIds(),items=[];ids.forEach(id=>{const its=obra(id).items||[],LL=letrasObra(its);its.forEach((it,i)=>{if(!it.fuera)items.push({...it,_o:id,_let:LL[i]})})});
   return {id:"__prod",items,_titulo:prodNombre()+": "+ids.map(id=>numCot(obra(id))).join(", ")}}
 function prodDatos(){const P=prodGet(),ids=prodIds(),res=despieceSel("__prod",prodObra().items);
   const per=res.per.map(p=>{const key=perKey(p),n=barras(p.cortes,kerfDe(p)).length,q=false,m=+P.mas[key]||0;return {p,key,n,q,m,compra:Math.max(0,n+m)}});
@@ -2752,7 +2772,7 @@ function pdfLaminas(doc,y,_nl,titulo,key,rects0,W,H,k){const nl=n=>{if(y+n>262){
       doc.text("Sobra "+cm(f.h)+"x"+cm(f.w),x0+(f.y+f.h/2)*sc,y+(f.x+f.w/2)*sc+1,{align:"center"});doc.setTextColor(31,26,23)}
     for(const r of h.items.filter(r=>!r.over)){const rx=x0+r.y*sc,ry=y+r.x*sc,rw=r.h*sc,rh=r.w*sc;doc.setFillColor(255,255,255);doc.setDrawColor(40,34,30);doc.rect(rx,ry,rw,rh,"FD");
       const t=cm(r.h)+"x"+cm(r.w);let fs=8;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rw-1){fs-=0.5;doc.setFontSize(fs)}
-      const lbt=r.lb!=null?"ítem "+r.lb:"";
+      const lbt=r.lb!=null?String(r.lb):"";
       if(doc.getTextWidth(t)<=rw-0.5&&rh>fs*0.4){const dy=lbt&&rh>fs*0.85?-fs*0.18:0;doc.text(t,rx+rw/2,ry+rh/2+fs*0.13+dy,{align:"center"});
         if(lbt&&rh>fs*0.85){const f2=Math.min(fs,7);doc.setFontSize(f2);doc.setFont("helvetica","bold");doc.setTextColor(154,100,48);doc.text(lbt,rx+rw/2,ry+rh/2+fs*0.13+f2*0.42,{align:"center"});doc.setTextColor(31,26,23);doc.setFont("helvetica","normal")}}
       else{fs=7;doc.setFontSize(fs);while(fs>3&&doc.getTextWidth(t)>rh-1){fs-=0.5;doc.setFontSize(fs)}doc.text(t,rx+rw/2+fs*0.13,ry+rh/2+doc.getTextWidth(t)/2,{angle:90})}}
@@ -2797,7 +2817,7 @@ function pdfCortes0(sel,ext){if(!window.jspdf){toast("No cargó el generador de 
   for(const [vn,L] of Object.entries(D.res.vid.reduce((m,v)=>((m[v.vidrio]=m[v.vidrio]||[]).push(v),m),{}))){const vv=vidNom(vn),n=L.reduce((a,v)=>a+v.cant,0),m2=L.reduce((a,v)=>a+v.ancho*v.alto*v.cant,0)/1e6;
     nl(22);doc.setFillColor(220,234,240);doc.rect(14,y-4.5,188,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text("Vidrio "+vn.replace(/^Vidrio /i,""),16,y);doc.setFontSize(9.5);doc.text(n+" pieza"+(n===1?"":"s")+" · "+m2.toFixed(2).replace(".",",")+" m²",200,y,{align:"right"});y+=8;
     L.forEach((v,k)=>{const x=16+(k%2)*94;if(k&&k%2===0)y+=7;nl(8);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(String(v.cant),x+7,y,{align:"right"});doc.setFont("helvetica","normal");doc.text("x  "+cm(v.ancho)+" × "+cm(v.alto),x+10,y);
-      {const t=[orgVid(v.org)?"ítem "+orgVid(v.org):"",v.nota||""].filter(Boolean).join(" · ");if(t){doc.setFontSize(7.5);doc.setTextColor(154,100,48);doc.text(doc.splitTextToSize(t,38)[0],x+50,y);doc.setTextColor(31,26,23)}}});y+=8;
+      {const t=[orgVid(v.org)?"vent. "+orgVid(v.org):"",v.nota||""].filter(Boolean).join(" · ");if(t){doc.setFontSize(7.5);doc.setTextColor(154,100,48);doc.text(doc.splitTextToSize(t,38)[0],x+50,y);doc.setTextColor(31,26,23)}}});y+=8;
     const Lg=S.cfg.laminaVidrio||{ancho:330,alto:214},la=+vv.lamA||+Lg.ancho||330,lh=+vv.lamH||+Lg.alto||214;
     if(vv.id&&!aMedida(vv)){const rr=vidRects(L);y=pdfLaminas(doc,y,nl,"Vidrio "+vn.replace(/^Vidrio /i,""),"vid:"+vv.id,rr,Math.min(la,lh)*10,Math.max(la,lh)*10,0)}}
   S.cortesSel=selPrev;if(ext)return y;
@@ -3239,6 +3259,7 @@ document.addEventListener("input",ev=>{
   if(t.dataset.buscar!==undefined){S.buscar=t.value;const pos=t.selectionStart;render();const nb=$("#buscar");nb.focus();try{nb.setSelectionRange(pos,pos)}catch(e){}}
 });
 document.addEventListener("change",ev=>{const t=ev.target;
+  if(t.dataset&&t.dataset.let!==undefined){const [oid,i,u]=t.dataset.let.split("|");letraSet(oid,+i,+u,t.value);return}
   if(t.dataset&&t.dataset.pdt!==undefined){bodegaSet(t.dataset.pdt,Math.max(0,num(t.value)||0));render();return}
   if(t.dataset&&t.dataset.pdp!==undefined){pedirMap(t.dataset.sel||"__prod")[t.dataset.pdp]=Math.max(0,Math.round((num(t.value)||0)*100)/100);prodSave();render();return}
   if(t.dataset&&t.dataset.totMan!==undefined){totalManualSet(t.dataset.totMan,+String(t.value).replace(/\D/g,"")||0,t.dataset.cat||"");return}
