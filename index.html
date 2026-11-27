@@ -453,7 +453,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.90.0";
+const APP_VER="1.91.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -2189,7 +2189,7 @@ function vCortes(){
   const obras=[...S.obras].filter(o=>o.estado!=="anulada"&&enArea(o)).sort((a,b)=>(b.numero||0)-(a.numero||0));
   const sel=S.cortesObra||(S.draft&&S.draft.items.length?"__draft":(obras[0]?.id||""));S.cortesSel=sel;
   const cc=sel===S.cortesCatId?S.cortesCat:null,items=(vistaCat(objSel(sel),cc)?.items)||[];
-  const res=despieceSel(sel,items),tab=S.cTab==="pedido"?"pedido":"cortes";
+  const res0=despieceSel(sel,items),res=filtrarRes(res0,matFil(res0)),tab=S.cTab==="pedido"?"pedido":"cortes";
   const L=S.cfg.barra;
   let totalBarras=0;
   const perfHtml=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p));totalBarras+=bs.length;
@@ -2211,13 +2211,13 @@ function vCortes(){
     ${prodIds().length?`<option value="__prod" ${sel==="__prod"?"selected":""}>${esc(prodNombre())} · ${prodIds().length} obras juntas</option>`:""}
     ${obras.map(o=>`<option value="${o.id}" ${o.id===sel?"selected":""}>${numCot(o)} · ${esc(tituloObra(o))}</option>`).join("")}</select></div>
   ${sel==="__prod"?(()=>{const D=prodDatos();return `<div class="note info row sp" style="gap:8px"><span><b>${prodIds().length} obras juntas</b>${D.sep>D.juntas?` · te ahorras <b>${D.sep-D.juntas} barra${D.sep-D.juntas===1?"":"s"}</b>`:""}. Entre paréntesis, a qué obra va cada corte.</span><button class="btn sm" data-act="prod-ver" data-id="${esc(S.prodId||"")}">Cambiar obras</button></div>`})():""}
-  ${items.length?`<div class="seg"><button data-act="c-tab" data-v="cortes" aria-pressed="${tab==="cortes"}">Cortes</button><button data-act="c-tab" data-v="pedido" aria-pressed="${tab==="pedido"}">Pedido de materiales</button></div>`:""}
+  ${items.length?`<div class="seg"><button data-act="c-tab" data-v="cortes" aria-pressed="${tab==="cortes"}">Cortes</button><button data-act="c-tab" data-v="pedido" aria-pressed="${tab==="pedido"}">Pedido de materiales</button></div>${matChips(res0)}`:""}
   ${!items.length?emptyBox("No hay medidas para cortar","Elige una obra con ítems o crea una cotización. Los cortes salen de las medidas de cada ventana.",`<button class="btn pri" data-act="go" data-v="cotizar">Ir a cotizar</button>`):`
   ${tab==="pedido"?`${pedidoHtml(sel)}<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="pd-sugerido" data-v="${esc(sel)}">Volver todo a lo sugerido</button></div>`:`
   ${resumenObra(sel,res)}
-  <div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>
+  ${res.per.length?`<div class="note info">Los descuentos de cada sistema se ajustan en Ajustes → Descuentos de despiece. Revísalos con tus perfiles antes de cortar.</div>`:""}
   <div class="fgrid"><button class="btn pri" data-act="enviar-cortes" data-v="${sel}">Enviar por WhatsApp</button><button class="btn" data-act="pdf-cortes" data-v="${sel}">PDF de cortes</button></div>
-  <h2>Perfiles</h2><span class="small muted" style="margin-top:-8px">¿Ya tienes una pieza en el taller? Déjala presionada (o doble clic) en la barra y elige "Ya la tengo": pasa a la barra verde "Ya tengo" de ese perfil.</span>${perfHtml}
+  ${res.per.length?`<h2>Perfiles</h2><span class="small muted" style="margin-top:-8px">¿Ya tienes una pieza en el taller? Déjala presionada (o doble clic) en la barra y elige "Ya la tengo": pasa a la barra verde "Ya tengo" de ese perfil.</span>${perfHtml}`:""}
   ${(res.mel||[]).length?melCortesHtml(res.mel):""}
   ${nPvc?`<div class="panel"><div class="row sp"><h2>PVC marmolizado</h2><span class="pill st-apr">${String(L2.laminas).replace(".",",")} lámina${L2.laminas===1?"":"s"}</span></div>
    <span class="small muted">Lámina de ${mm.ancho} × ${mm.alto} cm${L2.media?" · la última se usa solo hasta la mitad":""}</span>
@@ -2241,6 +2241,13 @@ function vCortes(){
 function tengoGet(){if(!S.tengo){try{S.tengo=JSON.parse(localStorage.getItem("alumel-tengo")||"null")}catch(e){}S.tengo=S.tengo||{}}return S.tengo}
 function tengoSave(){try{localStorage.setItem("alumel-tengo",JSON.stringify(S.tengo))}catch(e){}}
 const perKey=p=>p.sistema+"|"+p.nombre+"|"+p.color;
+/* Filtro de materiales en Cortes y Pedido: todo, solo aluminio, solo vidrios, solo PVC/melamina o solo accesorios */
+const MATF=[["todo","Todo"],["alu","Aluminio"],["vid","Vidrios"],["lam","PVC y melamina"],["acc","Accesorios"]];
+function matDisp(res){const D=[];if(res.per.length||res.esc)D.push("alu");if(res.vid.length)D.push("vid");if(res.pvc.length||(res.mel||[]).length)D.push("lam");if(res.acc.some(([n,c])=>+c>0))D.push("acc");return D}
+function matFil(res){const f=S.matFil||"todo";return f==="todo"||!matDisp(res).includes(f)?"todo":f}
+function filtrarRes(res,f){if(!f||f==="todo")return res;const r={...res};if(f!=="alu"){r.per=[];r.esc=0}if(f!=="vid")r.vid=[];if(f!=="lam"){r.pvc=[];r.mel=[]}if(f!=="acc")r.acc=[];return r}
+function matChips(res){const D=matDisp(res);if(D.length<2)return "";const f=matFil(res);
+  return `<div class="chips" role="group" aria-label="Qué materiales ver">${MATF.filter(([k])=>k==="todo"||D.includes(k)).map(([k,t])=>`<button class="chip" data-act="mat-fil" data-v="${k}" aria-pressed="${f===k}">${t}</button>`).join("")}</div>`}
 function despieceSel(sel,items){const res=sumarDespiece(items),T=tengoGet()[tkS(sel)]||{},quit=[];
   res.per.forEach(p=>{const t=T[perKey(p)];if(!t)return;p.cortes.forEach(c=>{const n=Math.min(c.cant,+t[c.largo]||0);if(!n)return;c.cant-=n;quit.push({p,largo:c.largo,n});(p.tengo=p.tengo||[]).push({largo:c.largo,n});
       if(c.org){let r=n;for(const id of Object.keys(c.org).reverse()){const d=Math.min(r,c.org[id]);c.org[id]-=d;r-=d;if(!c.org[id])delete c.org[id];if(!r)break}}});
@@ -2337,7 +2344,7 @@ const nfm=n=>String(Math.round(n*100)/100).replace(".",",");
 /* "T77 (marco)" → "T77"; en las series se agrega el número: "Cabezal 744" */
 function refPedido(p){let n=String(p.nombre||"").replace(/\s*\([^)]*\)\s*/g," ").trim();const m=/serie\s*(\S+)/i.exec(p.sistema||"");if(m&&!n.includes(m[1]))n+=" "+m[1];return n}
 const nomProv=t=>String(t).split(" ").map(w=>/[0-9]/.test(w)&&/[A-Za-z]/.test(w)?w.toUpperCase():w.toLowerCase()).join(" ");
-function matLineas(sel,items){const res=despieceSel(sel,items),old=S._pdfSel,oldC=S.cortesSel;S._pdfSel=sel;S.cortesSel=sel;const L=[];
+function matLineas(sel,items,fil){const r0=despieceSel(sel,items),res=fil?filtrarRes(r0,matFil(r0)):r0,old=S._pdfSel,oldC=S.cortesSel;S._pdfSel=sel;S.cortesSel=sel;const L=[];
   try{const lamN=(key,rr,W,H,k)=>{const {rects}=lamQuitar(key,rr),O=opcionesLam(rects,W,H,k||0,key);if(!O.length)return 0;return (O.find(o=>o.id===lamOpcSel(key))||O[0]).n};
     /* perfiles: se juntan por referencia y color, sin importar si son de ventana, puerta o cocina */
     const G={};for(const p of res.per){const r=refPedido(p),c=p.color||"",k=r.toLowerCase()+"|"+c.toLowerCase();(G[k]=G[k]||{r,c,cortes:[]}).cortes.push(...p.cortes)}
@@ -2360,7 +2367,7 @@ function matLineas(sel,items){const res=despieceSel(sel,items),old=S._pdfSel,old
 /* Lo mismo para una obra sola o para varias juntas (Producción) */
 function itemsSel(sel){if(sel==="__prod")return prodObra().items;const cc=sel===S.cortesCatId?S.cortesCat:null;return (vistaCat(objSel(sel),cc)?.items)||[]}
 function pedirMap(sel){if(sel==="__prod"){const P=prodGet();return P.pedir=P.pedir||{}}const L=prodLocal();L.pedirO=L.pedirO||{};return L.pedirO[sel]=L.pedirO[sel]||{}}
-function pedidoLineas(sel="__prod"){const L=matLineas(sel,itemsSel(sel)),B=bodega(),M=pedirMap(sel);
+function pedidoLineas(sel="__prod"){const L=matLineas(sel,itemsSel(sel),true),B=bodega(),M=pedirMap(sel);
   L.forEach(x=>{x.tengo=+B[x.key]||0;const falta=Math.max(0,x.need-x.tengo);x.sug=x.u==="m"?Math.round(falta*100)/100:Math.ceil(falta-1e-9);x.ed=M[x.key]!=null;x.pedir=x.ed?+M[x.key]:x.sug});
   return L}
 function textoMat(titulo,L,q){const T=[titulo];let g0=null;L.filter(x=>q(x)>0).forEach(x=>{if(x.g!==g0){T.push("");g0=x.g}T.push(x.txt(q(x)))});return T.join("\n").trim()}
@@ -2719,7 +2726,7 @@ function materialesSheet(id){const o=vistaCat(objSel(id),catActiva(id));if(!o)re
 function textoMateriales(o,G){return `*Materiales — ${S.cfg.empresa.nombre}*\n${o.nombre||""}\n\n`+G.map(g=>`*${g.h}*\n`+g.filas.map(f=>`• ${f[0]}: ${f[1]}${g.h==="Vidrio"?"\n   "+f[2]:""}`).join("\n")).join("\n\n")}
 
 /* ============ Enviar lista de cortes ============ */
-function datosCortes(sel){const o=vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null),items=o?.items||[],res=despieceSel(sel,items),L=S.cfg.barra||6000;
+function datosCortes(sel){const o=vistaCat(objSel(sel),sel===S.cortesCatId?S.cortesCat:null),items=o?.items||[],r0=despieceSel(sel,items),res=filtrarRes(r0,matFil(r0)),L=S.cfg.barra||6000;
   const per=res.per.map(p=>{const bs=barras(p.cortes,kerfDe(p)),angs=angsPerfil(p);return {p,bs,angs,orden:ordenTope(bs)}});
   const mm=S.cfg.puertas.marmo,rects=[];res.pvc.forEach(x=>{for(let k=0;k<x.cant;k++)rects.push({w:x.ancho,h:x.alto})});
   return {o,res,per,L,lam:rects.length?laminasMarmo(rects,false).laminas:0,mm}}
@@ -3014,6 +3021,7 @@ document.addEventListener("click",async ev=>{
     case"pd-sugerido":{const sl=b.dataset.v||"__prod",M=pedirMap(sl);Object.keys(M).forEach(k=>delete M[k]);prodSave();render();toast("Todo quedó en lo sugerido");break}
     case"pd-enviar":{const sl=b.dataset.v||"__prod";compartirTexto(textoPedidoMat(pedidoLineas(sl),sl));break}
     case"c-tab":S.cTab=b.dataset.v;render();break;
+    case"mat-fil":S.matFil=b.dataset.v;render();break;
     case"prod-pedido":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;S.cTab="pedido";go("cortes");break;
     case"prod-accq":{const P=prodGet(),k=b.dataset.k;if(P.accQ[k])delete P.accQ[k];else P.accQ[k]=1;prodSave();render();break}
     case"prod-extra-add":{const n=($("#pe-nom")?.value||"").trim();if(!n){toast("Escribe el nombre del perfil");break}const P=prodGet();(P.extra=P.extra||[]).push({nombre:n,color:($("#pe-col")?.value||"").trim(),n:Math.max(1,Math.round(num($("#pe-n")?.value))||1)});prodSave();render();break}
