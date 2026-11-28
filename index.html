@@ -457,7 +457,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.93.2";
+const APP_VER="1.94.0";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -872,13 +872,14 @@ function despiecePuerta(it,P,acc,T){
    anchos lo más parejos posible y el más ancho es el móvil */
 function vidriosDivision(it){const dv=S.cfg.division||{},A=it.ancho||0,H=it.alto||0,tr=(+dv.traslape||1)*10,paso=(+dv.paso||5)*10;
   const cat=(dv.vidrios||[]).filter(v=>+v.ancho>0&&Math.abs(+v.alto*10-H)<1),hayCat=(dv.vidrios||[]).length>0;
-  let alt6=null;if(it.divModo!=="especial"&&cat.length){const st={};for(const v of cat){const w=Math.round(+v.ancho*10);st[w]=(st[w]||0)+(+v.stock||0)}
+  let alt6=null;if(it.divModo!=="especial"&&cat.length){const st={},SF={},SM={},SA={};for(const v of cat){const w=Math.round(+v.ancho*10);SF[w]=(SF[w]||0)+(+v.stockF||0);SM[w]=(SM[w]||0)+(+v.stockM||0);SA[w]=(SA[w]||0)+(+v.stock||0);st[w]=1}
     /* Regla: el móvil 5 cm más ancho que el fijo. Si no hay en bodega, se busca con menos diferencia hasta que sean iguales.
        Si tampoco, se mira si hay con 6 cm de diferencia (eso lo tienes que aprobar). Si no hay nada, se sugiere la ideal para pedir. */
-    const ws=Object.keys(st).map(Number),ideal=(+(dv.difMax??5))*10,maxAp=ideal+10,disp=(f,m)=>f===m?st[f]>=2:(st[f]>=1&&st[m]>=1);
+    const ws=Object.keys(st).map(Number),ideal=(+(dv.difMax??5))*10,maxAp=ideal+10,
+      disp=(f,m)=>{const okF=(SF[f]||0)>0||(SA[f]||0)>0;if(!okF)return false;const usaA=!((SF[f]||0)>0);return (SM[m]||0)>0||((SA[m]||0)-(usaA&&f===m?1:0))>0};
     const cands=[];for(const f of ws)for(const m of ws){const d=m-f;if(d<0||d>maxAp||f+m<A+tr)continue;cands.push({f,m,d,disp:disp(f,m)})}
     const orden=(a,b)=>(a.d===ideal?0:1)-(b.d===ideal?0:1)||b.d-a.d||(a.f+a.m)-(b.f+b.m);
-    const out=(c,extra)=>({fijo:c.f,movil:c.m,traslape:c.f+c.m-A,modo:"estandar",disponible:c.disp,stockF:st[c.f],stockM:st[c.m],dif:c.d,...extra});
+    const out=(c,extra)=>({fijo:c.f,movil:c.m,traslape:c.f+c.m-A,modo:"estandar",disponible:c.disp,stockF:(SF[c.f]||0)+(SA[c.f]||0),stockM:(SM[c.m]||0)+(SA[c.m]||0),dif:c.d,...extra});
     const enStock=cands.filter(c=>c.disp&&c.d<=ideal).sort(orden);if(enStock.length)return out(enStock[0]);
     const c6=cands.filter(c=>c.disp&&c.d>ideal).sort((a,b)=>(a.f+a.m)-(b.f+b.m))[0];
     if(c6&&it.div6&&+it.div6.f===c6.f&&+it.div6.m===c6.m)return out(c6,{aprobado6:true});alt6=c6||null;
@@ -1917,9 +1918,14 @@ function panelBorradores(){const L=[...S.borradores].filter(enArea).sort((a,b)=>
 function nuevoDraft(){return {area:S.area,id:null,clienteId:"",nombre:"",direccion:"",estado:"cotizacion",fecha:hoy(),notas:"",items:[]}}
 /* Vidrios estándar de divisiones que usa una obra: {"60x190":2,...} */
 function vidriosInvObra(o){const m={};for(const it of o.items||[]){if(it.fuera||it.tipo!=="division"||it.precioManual>0)continue;const r=vidriosDivision(it);
-  if(r.modo!=="estandar"||r.sinCatalogo)continue;for(const w of [r.fijo,r.movil]){const k=cm(w)+"x"+cm(it.alto);m[k]=(m[k]||0)+(it.cant||1)}}return m}
-async function moverInventario(mapa,signo){const c=clone(S.cfg);const L=c.division.vidrios||[];
-  for(const [k,n] of Object.entries(mapa)){const [a,h]=k.split("x").map(x=>num(x));const v=L.find(v=>Math.abs(+v.ancho-a)<0.01&&Math.abs(+v.alto-h)<0.01);if(v)v.stock=Math.max(0,(+v.stock||0)+signo*n)}
+  if(r.modo!=="estandar"||r.sinCatalogo)continue;for(const [t,w] of [["fijo",r.fijo],["móvil",r.movil]]){const k=t+"|"+cm(w)+"x"+cm(it.alto);m[k]=(m[k]||0)+(it.cant||1)}}return m}
+/* Suma o resta en una lista de medidas: fijo → stockF, móvil → stockM, sin tipo → stock. Al restar se usa primero el del tipo y luego el "sin definir". */
+function invMover(L,a,h,tipo,n){let v=L.find(v=>Math.abs(+v.ancho*10-a)<1&&Math.abs(+v.alto*10-h)<1);
+  if(!v){if(n<=0)return;v={ancho:a/10,alto:h/10,stock:0,stockF:0,stockM:0};L.push(v);L.sort((x,y)=>+x.alto-+y.alto||+x.ancho-+y.ancho)}
+  const f=tipo==="fijo"?"stockF":tipo==="móvil"?"stockM":"stock";if(n>=0){v[f]=(+v[f]||0)+n;return}
+  let r=-n;const u=Math.min(r,+v[f]||0);v[f]=(+v[f]||0)-u;r-=u;if(r>0&&f!=="stock"){const u2=Math.min(r,+v.stock||0);v.stock=(+v.stock||0)-u2}}
+async function moverInventario(mapa,signo){const c=clone(S.cfg);const L=c.division.vidrios=c.division.vidrios||[];
+  for(const [k,n] of Object.entries(mapa)){const [t,md]=k.includes("|")?k.split("|"):["",k];const [a,h]=md.split("x").map(x=>Math.round(num(x)*10));invMover(L,a,h,t,signo*n)}
   await guardarCfg(c);if(S.cfgEdit)S.cfgEdit=null}
 /* Registrar pago en un solo paso: al aprobar, al registrar un pago o al marcar instalada/entregada */
 function pagoSheet(id,modo,estado){const o=obra(id);if(!o)return;
@@ -2384,21 +2390,23 @@ async function prodGuardarSel(id,nom,obs){
   try{await guardar("producciones",id2,data)}catch(e){return}
   prodActivar(id2);closeSheet();toast(g?"Producción actualizada":"Producción guardada");if(!(S.view==="prod"&&S.param===id2))go("prod",id2)}
 /* --- Pedido de materiales: como lo pide el proveedor (referencia, color y cantidad), sin decir para qué se usa --- */
-function bodega(){const B=S.cfg.bodega||(S.cfg.bodega={});if(!S._bodMig&&S.cfg.division){S._bodMig=1;let ch=0;for(const k of Object.keys(B))if(esDivKey(k)){const m=divKeyMed(k);if(m)catSuma(m[0],m[1],+B[k]||0);delete B[k];ch=1}if(ch)setTimeout(()=>guardarCfg(S.cfg),500)}return B}
+function bodega(){const B=S.cfg.bodega||(S.cfg.bodega={});if(!S._bodMig&&S.cfg.division){S._bodMig=1;let ch=0;for(const k of Object.keys(B))if(esDivKey(k)){const m=divKeyMed(k);if(m)catSuma(m[0],m[1],+B[k]||0,divKeyTipo(k));delete B[k];ch=1}if(ch)setTimeout(()=>guardarCfg(S.cfg),500)}return B}
 /* Los templados de divisiones viven en el inventario de divisiones (Ajustes → Divisiones): medida + stock */
 const esDivKey=k=>String(k).startsWith("vid:"+vidrioDivTxt()+":");
 const divKeyMed=k=>{const m=/^([\d,.]+) x ([\d,.]+)/.exec(String(k).slice(("vid:"+vidrioDivTxt()+":").length));return m?[Math.round(num(m[1])*10),Math.round(num(m[2])*10)]:null};
 const catVid=(a,h)=>(S.cfg.division.vidrios||[]).find(v=>Math.abs(+v.ancho*10-a)<1&&Math.abs(+v.alto*10-h)<1);
-function catSuma(a,h,n){const L=S.cfg.division.vidrios=S.cfg.division.vidrios||[];let v=catVid(a,h);if(!v){if(n<=0)return;v={ancho:a/10,alto:h/10,stock:0};L.push(v);L.sort((x,y)=>+x.alto-+y.alto||+x.ancho-+y.ancho)}v.stock=Math.max(0,(+v.stock||0)+n);if(S.cfgEdit)S.cfgEdit.division=clone(S.cfg.division)}
-function tengoDe(k){if(esDivKey(k)){const m=divKeyMed(k);return m?+(catVid(m[0],m[1])?.stock||0):0}return +bodega()[k]||0}
-function bodegaSet(k,v){if(esDivKey(k)){const m=divKeyMed(k);if(m){const t=tengoDe(k);catSuma(m[0],m[1],v-t);clearTimeout(S.bodT);S.bodT=setTimeout(()=>guardarCfg(S.cfg),700)}return}const B=bodega();if(v>0)B[k]=v;else delete B[k];if(S.cfgEdit)S.cfgEdit.bodega=clone(B);clearTimeout(S.bodT);S.bodT=setTimeout(()=>guardarCfg(S.cfg),700)}
+const divKeyTipo=k=>/m[oó]vil\s*$/i.test(k)?"móvil":/fijo\s*$/i.test(k)?"fijo":"";
+function catSuma(a,h,n,tipo){invMover(S.cfg.division.vidrios=S.cfg.division.vidrios||[],a,h,tipo||"",n);if(S.cfgEdit)S.cfgEdit.division=clone(S.cfg.division)}
+const stTipo=(v,t)=>v?+(t==="fijo"?v.stockF:t==="móvil"?v.stockM:v.stock)||0:0;
+function tengoDe(k){if(esDivKey(k)){const m=divKeyMed(k),v=m&&catVid(m[0],m[1]),t=divKeyTipo(k);return v?stTipo(v,t)+(t?+v.stock||0:0):0}return +bodega()[k]||0}
+function bodegaSet(k,v){if(esDivKey(k)){const m=divKeyMed(k),t=divKeyTipo(k);if(m){const c=catVid(m[0],m[1]),amb=t?+(c?.stock||0):0,own=stTipo(c,t);catSuma(m[0],m[1],Math.max(0,v-amb)-own,t);clearTimeout(S.bodT);S.bodT=setTimeout(()=>guardarCfg(S.cfg),700)}return}const B=bodega();if(v>0)B[k]=v;else delete B[k];if(S.cfgEdit)S.cfgEdit.bodega=clone(B);clearTimeout(S.bodT);S.bodT=setTimeout(()=>guardarCfg(S.cfg),700)}
 const nfm=n=>String(Math.round(n*100)/100).replace(".",",");
 /* "T77 (marco)" → "T77"; en las series se agrega el número: "Cabezal 744" */
 function refPedido(p){let n=String(p.nombre||"").replace(/\s*\([^)]*\)\s*/g," ").trim();const m=/serie\s*(\S+)/i.exec(p.sistema||"");if(m&&!n.includes(m[1]))n+=" "+m[1];return n}
 const nomProv=t=>String(t).split(" ").map(w=>/[0-9]/.test(w)&&/[A-Za-z]/.test(w)?w.toUpperCase():w.toLowerCase()).join(" ");
 function matLineas(sel,items,fil){const r0=despieceSel(sel,items),res=fil?filtrarRes(r0,matFil(r0)):r0,
     resv=(()=>{const R={},pools={};(items||[]).forEach(it=>{if(it.fuera||it.tipo!=="division"||it.precioManual>0)return;const o=it._o?obra(it._o):objSel(sel);if(!o?.invDesc)return;const r=vidriosDivision(it);if(r.modo!=="estandar"||r.sinCatalogo)return;
-      const pl=pools[o.id||"d"]=pools[o.id||"d"]||{...o.invDesc},q=it.cant||1;[[r.fijo,"fijo · templado"],[r.movil,"móvil · templado"]].forEach(([w,nt])=>{const kk=cm(w)+"x"+cm(it.alto),u=Math.min(q,+pl[kk]||0);if(u>0){pl[kk]-=u;const k=mdVid(w,it.alto,nt);R[k]=(R[k]||0)+u}})});return R})(),old=S._pdfSel,oldC=S.cortesSel;S._pdfSel=sel;S.cortesSel=sel;const L=[];
+      const pl=pools[o.id||"d"]=pools[o.id||"d"]||{...o.invDesc},q=it.cant||1;[[r.fijo,"fijo · templado","fijo"],[r.movil,"móvil · templado","móvil"]].forEach(([w,nt,tp])=>{const k0=cm(w)+"x"+cm(it.alto),kk=pl[tp+"|"+k0]!=null?tp+"|"+k0:k0,u=Math.min(q,+pl[kk]||0);if(u>0){pl[kk]-=u;const k=mdVid(w,it.alto,nt);R[k]=(R[k]||0)+u}})});return R})(),old=S._pdfSel,oldC=S.cortesSel;S._pdfSel=sel;S.cortesSel=sel;const L=[];
   try{const lamN=(key,rr,W,H,k)=>{const {rects}=lamQuitar(key,rr),O=opcionesLam(rects,W,H,k||0,key);if(!O.length)return 0;return (O.find(o=>o.id===lamOpcSel(key))||O[0]).n};
     /* perfiles: se juntan por referencia y color, sin importar si son de ventana, puerta o cocina */
     const G={};for(const p of res.per){const r=refPedido(p),c=p.color||"",k=r.toLowerCase()+"|"+c.toLowerCase();(G[k]=G[k]||{r,c,cortes:[]}).cortes.push(...p.cortes)}
@@ -2422,7 +2430,8 @@ function matLineas(sel,items,fil){const r0=despieceSel(sel,items),res=fil?filtra
 function itemsSel(sel){if(sel==="__prod")return prodObra().items;const cc=sel===S.cortesCatId?S.cortesCat:null;return (vistaCat(objSel(sel),cc)?.items)||[]}
 function pedirMap(sel){if(sel==="__prod"){const P=prodGet();return P.pedir=P.pedir||{}}const L=prodLocal();L.pedirO=L.pedirO||{};return L.pedirO[sel]=L.pedirO[sel]||{}}
 function pedidoLineas(sel="__prod"){const L=matLineas(sel,itemsSel(sel),true),B=bodega(),M=pedirMap(sel);
-  const usado={};L.forEach(x=>{if(esDivKey(x.key)){const m=divKeyMed(x.key),k=m?m.join("x"):"";const st=m?+(catVid(m[0],m[1])?.stock||0):0;x.tengo=Math.max(0,Math.min(x.need,st-(usado[k]||0)));usado[k]=(usado[k]||0)+x.tengo;x.tengoCat=st}else x.tengo=+B[x.key]||0;const falta=Math.max(0,x.need-x.tengo);x.sug=x.u==="m"?Math.round(falta*100)/100:Math.ceil(falta-1e-9);x.ed=M[x.key]!=null;x.pedir=x.ed?+M[x.key]:x.sug});
+  const usado={};L.forEach(x=>{if(esDivKey(x.key)){const m=divKeyMed(x.key),k=m?m.join("x"):"",c=m&&catVid(m[0],m[1]),t=divKeyTipo(x.key),own=stTipo(c,t),amb=t?+(c?.stock||0):0;
+      const av=own+Math.max(0,amb-(usado[k]||0));x.tengo=Math.max(0,Math.min(x.need,av));usado[k]=(usado[k]||0)+Math.max(0,x.tengo-own);x.tengoCat=own+amb}else x.tengo=+B[x.key]||0;const falta=Math.max(0,x.need-x.tengo);x.sug=x.u==="m"?Math.round(falta*100)/100:Math.ceil(falta-1e-9);x.ed=M[x.key]!=null;x.pedir=x.ed?+M[x.key]:x.sug});
   return L}
 function textoMat(titulo,L,q){const T=[titulo];let g0=null;L.filter(x=>q(x)>0).forEach(x=>{if(x.g!==g0){T.push("");g0=x.g}T.push(x.txt(q(x)))});return T.join("\n").trim()}
 const selTitulo=sel=>{if(sel==="__prod")return prodNombre()+" ("+prodIds().map(id=>numCot(obra(id))).join(", ")+")";const o=objSel(sel)||{};return o.numero?numCot(o):"cotización en curso"};
@@ -2431,7 +2440,7 @@ function textoPedido(sel){return textoPedidoMat(pedidoLineas(sel),sel)}
 function textoCompra(){return textoPedido("__prod")}
 /* --- Bodega: llegada del pedido, descuento al terminar y templados guardados --- */
 function recibidos(){return S.cfg.recibidos||(S.cfg.recibidos={})}
-function bodegaSuma(Q,signo){const B=bodega();for(const [k,n] of Object.entries(Q)){if(esDivKey(k)){const m=divKeyMed(k);if(m)catSuma(m[0],m[1],signo*n);continue}const v=Math.round(((+B[k]||0)+signo*n)*100)/100;if(v>0)B[k]=v;else delete B[k]}if(S.cfgEdit)S.cfgEdit.bodega=clone(B)}
+function bodegaSuma(Q,signo){const B=bodega();for(const [k,n] of Object.entries(Q)){if(esDivKey(k)){const m=divKeyMed(k);if(m)catSuma(m[0],m[1],signo*n,divKeyTipo(k));continue}const v=Math.round(((+B[k]||0)+signo*n)*100)/100;if(v>0)B[k]=v;else delete B[k]}if(S.cfgEdit)S.cfgEdit.bodega=clone(B)}
 function recibidoHtml(sel){const r=recibidos()[tkS(sel)];
   if(r)return `<div class="note ok row sp" style="gap:8px"><span>✓ Pedido recibido el ${fechaCorta(r.t.slice(0,10))}: se sumó a la bodega.</span><button class="btn sm" data-act="pd-recibido-undo" data-v="${esc(sel)}">Deshacer</button></div>`;
   return `<button class="btn block" data-act="pd-recibido" data-v="${esc(sel)}">Llegó el pedido: sumarlo a la bodega</button>`}
@@ -2450,6 +2459,12 @@ function bodNombre(k){const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
   if(k.startsWith("vid:")){const r=k.slice(4),i=r.indexOf(":");return i>0?["Templados a la medida",r.slice(0,i)+" · "+r.slice(i+1),"und"]:["Vidrio y láminas",r,"láminas"]}
   if(k==="pvc")return ["Vidrio y láminas","PVC marmolizado","láminas"];if(k.startsWith("mel:"))return ["Vidrio y láminas","Melamina "+k.split("|").slice(1).join(" "),"láminas"];
   return ["Otros",k,""]}
+/* Lista pegada → vidrios de divisiones (fijo/móvil) y accesorios */
+function bodParse(txt,h){const V=[],A=[],X=[];String(txt||"").split(/\n+/).map(l=>l.trim()).filter(Boolean).forEach(l=>{
+  const m=/^(\d+(?:[.,]\d+)?)\s+(fijos?|m[oó]vil(?:es)?|puertas?)\s+(\d+(?:[.,]\d+)?)\s*(?:cm)?\s*$/i.exec(l);
+  if(m){const n=num(m[1]),t=/^f/i.test(m[2])?"fijo":"móvil",a=Math.round(num(m[3])*10);if(n>0&&a>0)V.push({n,t,a,h});else if(!(n>0))X.push(l+" (cantidad 0, no se agrega)");return}
+  const k=/^(\d+(?:[.,]\d+)?)\s+(.+)$/.exec(l);if(k&&num(k[1])>0){let nom=k[2].trim();if(/kit/i.test(nom))nom="Kit accesorios división";else nom=nom.charAt(0).toUpperCase()+nom.slice(1).toLowerCase();A.push({n:num(k[1]),nom});return}
+  X.push(l)});return {V,A,X}}
 function vBodega(){const B=bodega(),G={},CV=S.cfg.division.vidrios||[];Object.entries(B).filter(([k,n])=>+n>0).forEach(([k,n])=>{const [g,nom,u]=bodNombre(k);(G[g]=G[g]||[]).push({k,n,nom,u})});
   const orden=["Templados a la medida","Perfiles de aluminio","Vidrio y láminas","Accesorios","Otros"];
   const vids=[...new Set([vidrioDivTxt(),...S.cfg.vidrios.filter(aMedida).map(v=>v.nombre)])];
@@ -2458,15 +2473,20 @@ function vBodega(){const B=bodega(),G={},CV=S.cfg.division.vidrios||[];Object.en
   <div class="head"><div class="grow"><div class="eyebrow">Taller</div><h1>Bodega</h1></div></div>
   <span class="muted">Lo que tienes guardado. Es lo mismo que la casilla "Tengo" del pedido. Se suma cuando marcas "Llegó el pedido" y se descuenta cuando terminas una producción. Pon 0 para quitar algo.</span>
   <div class="sec-t">Templados de divisiones · ${esc(vidrioDivTxt())}</div>
-  <div class="panel ipanel">${CV.length?CV.map((v,i)=>`<div class="pd-r"><div class="pd-n" style="align-items:center"><b>${esc(String(v.ancho).replace(".",","))} × ${esc(String(v.alto).replace(".",","))} cm</b><span class="row" style="gap:6px;flex:none"><input class="pd-in" style="width:72px" inputmode="numeric" data-catst="${i}" value="${+v.stock||0}" aria-label="Cantidad de ${v.ancho} x ${v.alto}"><span class="small muted" style="width:46px">und</span></span></div></div>`).join(""):`<div class="muted small" style="padding:14px 16px">Aún no hay medidas. Agrégalas abajo.</div>`}</div>
+  <div class="panel ipanel">${CV.length?`<div class="pd-r" style="padding-top:6px;padding-bottom:4px"><div class="pd-n"><span class="small muted">Medida</span><span class="row small muted" style="gap:6px;flex:none"><span style="width:60px;text-align:center">Fijos</span><span style="width:60px;text-align:center">Móviles</span>${CV.some(v=>+v.stock>0)?`<span style="width:60px;text-align:center">Sin definir</span>`:""}</span></div></div>`+CV.map((v,i)=>`<div class="pd-r"><div class="pd-n" style="align-items:center"><b>${esc(String(v.ancho).replace(".",","))} × ${esc(String(v.alto).replace(".",","))}</b><span class="row" style="gap:6px;flex:none">${["stockF","stockM",...(CV.some(v=>+v.stock>0)?["stock"]:[])].map(f=>`<input class="pd-in" style="width:60px" inputmode="numeric" data-catst="${i}|${f}" value="${+v[f]||0}" aria-label="${f==="stockF"?"Fijos":f==="stockM"?"Móviles":"Sin definir"} de ${v.ancho} x ${v.alto}">`).join("")}</span></div></div>`).join(""):`<div class="muted small" style="padding:14px 16px">Aún no hay medidas. Agrégalas abajo.</div>`}</div>
   <span class="small muted">Es el mismo inventario de Ajustes → Divisiones. Al cotizar una división se escogen de aquí el fijo y el móvil (lo ideal: el móvil ${S.cfg.division.difMax??5} cm más ancho que el fijo; si no hay, con menos diferencia hasta iguales). Si no hay, igual te sugiere las medidas para pedirlas.</span>
   <div class="sec-t">Agregar templado</div>
   <div class="panel"><div class="fgrid"><div class="field"><label for="bt-v">Vidrio</label><select id="bt-v">${vids.map(v=>`<option>${esc(v)}</option>`).join("")}</select></div>
-   <div class="field"><label for="bt-t">Tipo</label><select id="bt-t"><option value="fijo">Fijo</option><option value="móvil">Móvil</option><option value="">Ninguno</option></select></div>
+   <div class="field"><label for="bt-t">Tipo</label><select id="bt-t"><option value="fijo">Fijo</option><option value="móvil">Móvil</option><option value="">Sin definir</option></select></div>
    <div class="field"><label for="bt-a">Ancho (cm)</label><input id="bt-a" inputmode="decimal" placeholder="60"></div><div class="field"><label for="bt-h">Alto (cm)</label><input id="bt-h" inputmode="decimal" placeholder="190"></div>
    <div class="field"><label for="bt-c">Cantidad</label><input id="bt-c" inputmode="numeric" value="1"></div></div>
    <button class="btn pri block" data-act="bod-add-temp">Agregar a la bodega</button>
-   <span class="small muted">Si es del vidrio de divisiones, entra al inventario de divisiones (sirve como fijo o móvil). Cuando una obra lleve esa misma medida, el pedido y los cortes te avisan que la tienes.</span></div>
+   <span class="small muted">Si es del vidrio de divisiones, entra al inventario de divisiones. Cuando una obra lleve esa misma medida, el pedido y los cortes te avisan que la tienes.</span></div>
+  <div class="sec-t">Agregar desde una lista o factura</div>
+  <div class="panel"><span class="small muted">Escribe o pega una línea por cosa: <b>cantidad, fijo/móvil (o puerta) y ancho</b>. Ej: "4 fijo 52", "6 móvil 50", "6 puerta 56". Lo que no sea vidrio (kits, tubos, burbujas…) entra como accesorio.</span>
+   <div class="field"><label for="bi-txt">Lista</label><textarea id="bi-txt" rows="6" placeholder="4 fijo 52&#10;6 móvil 50&#10;11 kits glasvitt">${esc(S.bodImp||"")}</textarea></div>
+   <div class="field"><label for="bi-h">Alto de esos vidrios (cm)</label><input id="bi-h" inputmode="decimal" value="${esc(S.bodImpH||String((CV[0]&&CV[0].alto)||190))}"></div>
+   <button class="btn pri block" data-act="bod-imp">Revisar antes de agregar</button></div>
   ${orden.filter(g=>G[g]).map(g=>`<div class="sec-t">${g}</div><div class="panel ipanel">${G[g].sort((a,b)=>a.nom.localeCompare(b.nom,"es",{numeric:true})).map(fila).join("")}</div>`).join("")||`<div class="note info">La bodega está vacía.</div>`}`}
 function pedidoHtml(sel="__prod"){const L=pedidoLineas(sel),G={},sv=esc(sel);if(!L.length)return `<div class="note info">No hay materiales para pedir.</div>`;L.forEach(x=>(G[x.g]=G[x.g]||[]).push(x));
   const nb=L.filter(x=>x.u==="barras").reduce((a,x)=>a+x.pedir,0),nl=L.filter(x=>x.u==="láminas").reduce((a,x)=>a+x.pedir,0),na=L.filter(x=>x.g==="Accesorios"&&x.pedir>0).length,nm=L.filter(x=>x.g!=="Accesorios"&&x.u==="m"&&x.pedir>0),nv=L.filter(x=>x.g==="Vidrio y láminas"&&x.u==="und").reduce((a,x)=>a+x.pedir,0);
@@ -2689,9 +2709,9 @@ function vAjustes(){
    ${fld("dv-m2","Templado estándar $/m²","division.templadoM2",c.division.templadoM2)}
    ${fld("dv-esp","Mandado a hacer $/m²","division.especialM2",c.division.especialM2)}</div>
    <div class="row sp"><h3>Inventario de vidrios templados</h3><button class="btn sm" data-act="add-vtemp">+ Medida</button></div>
-   ${c.division.vidrios.length?`<div class="tbl-wrap"><table><thead><tr><th class="n">Ancho (cm)</th><th class="n">Alto (cm)</th><th class="n">En stock</th><th></th></tr></thead><tbody>
+   ${c.division.vidrios.length?`<div class="tbl-wrap"><table><thead><tr><th class="n">Ancho (cm)</th><th class="n">Alto (cm)</th><th class="n">Fijos</th><th class="n">Móviles</th>${c.division.vidrios.some(v=>+v.stock>0)?`<th class="n">Sin definir</th>`:""}<th></th></tr></thead><tbody>
    ${c.division.vidrios.map((v,i)=>`<tr><td class="n">${inp("division.vidrios."+i+".ancho",v.ancho,"Ancho",70,true)}</td><td class="n">${inp("division.vidrios."+i+".alto",v.alto,"Alto",70,true)}</td>
-    <td class="n">${inp("division.vidrios."+i+".stock",v.stock,"Stock",60)}</td><td class="n"><button class="btn sm danger" data-act="del-vtemp" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>`
+    <td class="n">${inp("division.vidrios."+i+".stockF",v.stockF||0,"Fijos",56)}</td><td class="n">${inp("division.vidrios."+i+".stockM",v.stockM||0,"Móviles",56)}</td>${c.division.vidrios.some(v=>+v.stock>0)?`<td class="n">${inp("division.vidrios."+i+".stock",v.stock||0,"Sin definir",56)}</td>`:""}<td class="n"><button class="btn sm danger" data-act="del-vtemp" data-i="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>`
     :`<span class="small muted">Agrega las medidas estándar que manejas (ancho × alto) y cuántas tienes.</span>`}
    <span class="small muted">Al aprobar una cotización se descuentan del stock los vidrios estándar que usa; si cancelas la aprobación, se devuelven.</span>`)}
 
@@ -3123,8 +3143,15 @@ document.addEventListener("click",async ev=>{
       openSheet(()=>`<div class="sheet-h"><h2>¿Llegó el pedido?</h2></div><p style="margin:0">Se suma a la bodega lo que está en <b>Pedir</b>:</p><div class="small" style="max-height:240px;overflow:auto">${L.map(x=>`<div>${esc(x.txt(x.pedir))}</div>`).join("")}</div><div class="row"><button class="btn pri grow" data-act="pd-recibido-ok">Sí, sumar</button><button class="btn grow" data-act="cerrar">Cancelar</button></div>`);break}
     case"pd-recibido-ok":pdRecibir(S.recSel);break;
     case"pd-recibido-undo":pdRecibirUndo(b.dataset.v);break;
+    case"bod-imp":{S.bodImp=$("#bi-txt").value;S.bodImpH=$("#bi-h").value;const h=Math.round(num(S.bodImpH)*10);if(!(h>0)){toast("Escribe el alto");break}const P=bodParse(S.bodImp,h);if(!P.V.length&&!P.A.length){toast("No entendí ninguna línea");break}S.bodP=P;
+      openSheet(()=>`<div class="sheet-h"><h2>Revisa antes de agregar</h2></div>
+       ${P.V.length?`<b>${esc(vidrioDivTxt())} · alto ${cm(h)} cm</b><div class="small">${P.V.map(x=>`<div>${x.n} ${x.t} ${cm(x.a)} × ${cm(x.h)}</div>`).join("")}</div>`:""}
+       ${P.A.length?`<b>Accesorios</b><div class="small">${P.A.map(x=>`<div>${nfm(x.n)} ${esc(x.nom)}</div>`).join("")}</div>`:""}
+       ${P.X.length?`<div class="note">No se agregan: ${esc(P.X.join(" · "))}</div>`:""}
+       <div class="row"><button class="btn pri grow" data-act="bod-imp-ok">Agregar a la bodega</button><button class="btn grow" data-act="cerrar">Corregir</button></div>`);break}
+    case"bod-imp-ok":{const P=S.bodP;if(!P)break;P.V.forEach(x=>catSuma(x.a,x.h,x.n,x.t));const Q={};P.A.forEach(x=>Q["acc:"+x.nom]=(Q["acc:"+x.nom]||0)+x.n);bodegaSuma(Q,1);guardarCfg(S.cfg);S.bodImp="";S.bodP=null;closeSheet();render();toast("Agregado a la bodega");break}
     case"bod-add-temp":{const vn=$("#bt-v").value,tg=$("#bt-t").value,a=Math.round(num($("#bt-a").value)*10),h=Math.round(num($("#bt-h").value)*10),c=Math.max(1,Math.round(num($("#bt-c").value)||1));
-      if(!(a>0&&h>0)){toast("Escribe ancho y alto");break}if(vn===vidrioDivTxt()){catSuma(a,h,c);guardarCfg(S.cfg);render();toast("Agregado al inventario de divisiones");break}const k="vid:"+vn+":"+cm(a)+" x "+cm(h)+(tg?" "+tg:"");bodegaSuma({[k]:c},1);guardarCfg(S.cfg);render();toast("Agregado a la bodega");break}
+      if(!(a>0&&h>0)){toast("Escribe ancho y alto");break}if(vn===vidrioDivTxt()){catSuma(a,h,c,tg);guardarCfg(S.cfg);render();toast("Agregado al inventario de divisiones");break}const k="vid:"+vn+":"+cm(a)+" x "+cm(h)+(tg?" "+tg:"");bodegaSuma({[k]:c},1);guardarCfg(S.cfg);render();toast("Agregado a la bodega");break}
     case"prod-pedido":S.cortesObra="__prod";S.cortesCatId=null;S.cortesCat=null;S.cTab="pedido";go("cortes");break;
     case"prod-accq":{const P=prodGet(),k=b.dataset.k;if(P.accQ[k])delete P.accQ[k];else P.accQ[k]=1;prodSave();render();break}
     case"prod-extra-add":{const n=($("#pe-nom")?.value||"").trim();if(!n){toast("Escribe el nombre del perfil");break}const P=prodGet();(P.extra=P.extra||[]).push({nombre:n,color:($("#pe-col")?.value||"").trim(),n:Math.max(1,Math.round(num($("#pe-n")?.value))||1)});prodSave();render();break}
@@ -3276,7 +3303,7 @@ document.addEventListener("click",async ev=>{
     case"del-chapav":S.cfgEdit.chapasVen.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
     case"del-chapa":if((S.cfgEdit.chapas||[]).length>1){S.cfgEdit.chapas.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
     case"del-color":if(S.cfgEdit.colores.length>1){S.cfgEdit.colores.splice(+b.dataset.i,1);autoGuardarCfg();render()}break;
-    case"add-vtemp":{const L=S.cfgEdit.division.vidrios,u=L[L.length-1];L.push({ancho:u?+u.ancho+5:60,alto:u?+u.alto:190,stock:0});autoGuardarCfg();render();break}
+    case"add-vtemp":{const L=S.cfgEdit.division.vidrios,u=L[L.length-1];L.push({ancho:u?+u.ancho+5:60,alto:u?+u.alto:190,stock:0,stockF:0,stockM:0});autoGuardarCfg();render();break}
     case"del-vtemp":S.cfgEdit.division.vidrios.splice(+b.dataset.i,1);autoGuardarCfg();render();break;
     case"subir-locales":b.disabled=true;await subirLocales();break;
     case"descartar-locales":confirmar("Se oculta este aviso. Los datos de este equipo no se suben.","Ocultar aviso",async()=>{try{localStorage.setItem("alumel-subido","1")}catch(e){}});break;
@@ -3342,7 +3369,7 @@ document.addEventListener("input",ev=>{
   if(t.dataset.buscar!==undefined){S.buscar=t.value;const pos=t.selectionStart;render();const nb=$("#buscar");nb.focus();try{nb.setSelectionRange(pos,pos)}catch(e){}}
 });
 document.addEventListener("change",ev=>{const t=ev.target;
-  if(t.dataset&&t.dataset.catst!==undefined){const v=(S.cfg.division.vidrios||[])[+t.dataset.catst];if(v){v.stock=Math.max(0,Math.round(num(t.value)||0));if(S.cfgEdit)S.cfgEdit.division=clone(S.cfg.division);guardarCfg(S.cfg);render()}return}
+  if(t.dataset&&t.dataset.catst!==undefined){const [ci,cf]=t.dataset.catst.split("|"),v=(S.cfg.division.vidrios||[])[+ci];if(v){v[cf||"stock"]=Math.max(0,Math.round(num(t.value)||0));if(S.cfgEdit)S.cfgEdit.division=clone(S.cfg.division);guardarCfg(S.cfg);render()}return}
   if(t.dataset&&t.dataset.bod!==undefined){bodegaSet(t.dataset.bod,Math.max(0,num(t.value)||0));render();return}
   if(t.dataset&&t.dataset.let!==undefined){const [oid,i,u]=t.dataset.let.split("|");letraSet(oid,+i,+u,t.value);return}
   if(t.dataset&&t.dataset.pdt!==undefined){bodegaSet(t.dataset.pdt,Math.max(0,num(t.value)||0));render();return}
