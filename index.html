@@ -457,7 +457,7 @@ nav.tabs{position:relative;left:auto;right:auto;bottom:auto;flex:none;transform:
 <div id="sheet-root"></div>
 
 <script>
-const APP_VER="1.93.1";
+const APP_VER="1.93.2";
 /* ============ Datos base ============ */
 const TIPOS = {
   s744:       {nombre:"Ventana serie 744",   corto:"Serie 744", serie:true},
@@ -872,14 +872,21 @@ function despiecePuerta(it,P,acc,T){
    anchos lo más parejos posible y el más ancho es el móvil */
 function vidriosDivision(it){const dv=S.cfg.division||{},A=it.ancho||0,H=it.alto||0,tr=(+dv.traslape||1)*10,paso=(+dv.paso||5)*10;
   const cat=(dv.vidrios||[]).filter(v=>+v.ancho>0&&Math.abs(+v.alto*10-H)<1),hayCat=(dv.vidrios||[]).length>0;
-  if(it.divModo!=="especial"&&cat.length){const st={};for(const v of cat){const w=Math.round(+v.ancho*10);st[w]=(st[w]||0)+(+v.stock||0)}
-    const ws=Object.keys(st).map(Number);let best=null;
-    const dif=(+(dv.difMax??5))*10;for(const f of ws)for(const m of ws){if(m<f||m-f>dif||f+m<A+tr)continue;const disp=f===m?st[f]>=2:(st[f]>=1&&st[m]>=1),k=[disp?0:1,f+m,m-f];
-      if(!best||k[0]<best.k[0]||(k[0]===best.k[0]&&(k[1]<best.k[1]||(k[1]===best.k[1]&&k[2]<best.k[2]))))best={f,m,disp,k}}
-    if(best)return {fijo:best.f,movil:best.m,traslape:best.f+best.m-A,modo:"estandar",disponible:best.disp,stockF:st[best.f],stockM:st[best.m]}}
-  const T=Math.ceil((A+tr)/paso-1e-9)*paso,fijo=Math.floor(T/2/paso+1e-9)*paso;
+  let alt6=null;if(it.divModo!=="especial"&&cat.length){const st={};for(const v of cat){const w=Math.round(+v.ancho*10);st[w]=(st[w]||0)+(+v.stock||0)}
+    /* Regla: el móvil 5 cm más ancho que el fijo. Si no hay en bodega, se busca con menos diferencia hasta que sean iguales.
+       Si tampoco, se mira si hay con 6 cm de diferencia (eso lo tienes que aprobar). Si no hay nada, se sugiere la ideal para pedir. */
+    const ws=Object.keys(st).map(Number),ideal=(+(dv.difMax??5))*10,maxAp=ideal+10,disp=(f,m)=>f===m?st[f]>=2:(st[f]>=1&&st[m]>=1);
+    const cands=[];for(const f of ws)for(const m of ws){const d=m-f;if(d<0||d>maxAp||f+m<A+tr)continue;cands.push({f,m,d,disp:disp(f,m)})}
+    const orden=(a,b)=>(a.d===ideal?0:1)-(b.d===ideal?0:1)||b.d-a.d||(a.f+a.m)-(b.f+b.m);
+    const out=(c,extra)=>({fijo:c.f,movil:c.m,traslape:c.f+c.m-A,modo:"estandar",disponible:c.disp,stockF:st[c.f],stockM:st[c.m],dif:c.d,...extra});
+    const enStock=cands.filter(c=>c.disp&&c.d<=ideal).sort(orden);if(enStock.length)return out(enStock[0]);
+    const c6=cands.filter(c=>c.disp&&c.d>ideal).sort((a,b)=>(a.f+a.m)-(b.f+b.m))[0];
+    if(c6&&it.div6&&+it.div6.f===c6.f&&+it.div6.m===c6.m)return out(c6,{aprobado6:true});alt6=c6||null;
+    const pedir=cands.filter(c=>c.d<=ideal).sort(orden)[0];
+    if(pedir)return out(pedir,{alt6:c6||null})}
+  const id5=(+(dv.difMax??5))*10,f0=Math.max(paso,Math.ceil((A+tr-id5)/2/paso-1e-9)*paso),fijo=f0,movil=f0+id5,T=fijo+movil;
   const esp=it.divModo==="especial"||cat.length>0||hayCat;
-  return {fijo,movil:T-fijo,traslape:T-A,modo:esp?"especial":"estandar",sinCatalogo:!hayCat,auto:it.divModo!=="especial"&&esp}}
+  return {fijo,movil,traslape:T-A,modo:esp?"especial":"estandar",sinCatalogo:!hayCat,auto:it.divModo!=="especial"&&esp,dif:id5,alt6}}
 const precioDivM2=r=>r.modo==="especial"?(+S.cfg.division.especialM2||0):(+S.cfg.division.templadoM2||0);
 /* ===== Cocina · gabinete superior (todo en nave de ducha, cortes a 45°) =====
    Puertas de máximo 32 cm, en pares y la sola al final. Descuentos: 2 cm en cada extremo, 3,8 entre pares, 2,5 entre un par y la sola. */
@@ -2087,7 +2094,9 @@ function ptaInfo(it,c){
   return h}
 function divInfo(it){const r=vidriosDivision(it),st=n=>n==null?"":` <span style="color:${n>0?"var(--ok)":"var(--bad)"}">(${n>0?n+" en stock":"sin stock"})</span>`;
   let h=`<div class="small">${vidrioDivTxt()} ${r.modo==="especial"?"a la medida":"estándar"}: fijo ${cm(r.fijo)} × ${cm(it.alto)}${st(r.stockF)} · móvil ${cm(r.movil)} × ${cm(it.alto)}${st(r.stockM)} · traslape ${cm(r.traslape)} cm · ${money(precioDivM2(r))}/m²</div>`;
-  if(r.modo==="estandar"&&r.disponible===false)h+=`<div class="note">No hay stock suficiente de esas medidas. Puedes cotizarla igual y pedir los vidrios, o cambiar a "Mandar a hacer".</div>`;
+  if(r.aprobado6)h+=`<div class="note">Aprobaste usar estos de bodega: el móvil queda ${cm(r.dif)} cm más ancho que el fijo. <button class="btn sm" data-act="div6" data-v="0">Quitar aprobación</button></div>`;
+  if(r.modo==="estandar"&&r.disponible===false)h+=`<div class="note">No hay en bodega con la regla (móvil hasta ${S.cfg.division.difMax??5} cm más ancho que el fijo). Estas son las medidas ideales para pedir.${r.alt6?`<br><b>En bodega hay fijo ${cm(r.alt6.f)} y móvil ${cm(r.alt6.m)}</b> (${cm(r.alt6.d)} cm de diferencia). <button class="btn sm pri" data-act="div6" data-v="1" data-f="${r.alt6.f}" data-m="${r.alt6.m}">Aprobar y usarlos</button>`:""}</div>`;
+  if(r.auto&&r.alt6)h+=`<div class="note"><b>En bodega hay fijo ${cm(r.alt6.f)} y móvil ${cm(r.alt6.m)}</b> (${cm(r.alt6.d)} cm de diferencia). <button class="btn sm pri" data-act="div6" data-v="1" data-f="${r.alt6.f}" data-m="${r.alt6.m}">Aprobar y usarlos</button></div>`;
   if(r.auto)h+=`<div class="note">Ninguna medida estándar de ${cm(it.alto)} cm de alto sirve para este ancho, así que se cotiza para mandar a hacer.</div>`;
   if(r.sinCatalogo)h+=`<div class="small muted">Aún no hay medidas en el inventario; se usan vidrios de ${S.cfg.division.paso} en ${S.cfg.division.paso} cm. Agrégalas en Ajustes.</div>`;
   return h}
@@ -2450,7 +2459,7 @@ function vBodega(){const B=bodega(),G={},CV=S.cfg.division.vidrios||[];Object.en
   <span class="muted">Lo que tienes guardado. Es lo mismo que la casilla "Tengo" del pedido. Se suma cuando marcas "Llegó el pedido" y se descuenta cuando terminas una producción. Pon 0 para quitar algo.</span>
   <div class="sec-t">Templados de divisiones · ${esc(vidrioDivTxt())}</div>
   <div class="panel ipanel">${CV.length?CV.map((v,i)=>`<div class="pd-r"><div class="pd-n" style="align-items:center"><b>${esc(String(v.ancho).replace(".",","))} × ${esc(String(v.alto).replace(".",","))} cm</b><span class="row" style="gap:6px;flex:none"><input class="pd-in" style="width:72px" inputmode="numeric" data-catst="${i}" value="${+v.stock||0}" aria-label="Cantidad de ${v.ancho} x ${v.alto}"><span class="small muted" style="width:46px">und</span></span></div></div>`).join(""):`<div class="muted small" style="padding:14px 16px">Aún no hay medidas. Agrégalas abajo.</div>`}</div>
-  <span class="small muted">Es el mismo inventario de Ajustes → Divisiones. Al cotizar una división se escogen de aquí el fijo y el móvil (el fijo entre 0 y ${S.cfg.division.difMax??5} cm más angosto que el móvil). Si no hay, igual te sugiere las medidas para pedirlas.</span>
+  <span class="small muted">Es el mismo inventario de Ajustes → Divisiones. Al cotizar una división se escogen de aquí el fijo y el móvil (lo ideal: el móvil ${S.cfg.division.difMax??5} cm más ancho que el fijo; si no hay, con menos diferencia hasta iguales). Si no hay, igual te sugiere las medidas para pedirlas.</span>
   <div class="sec-t">Agregar templado</div>
   <div class="panel"><div class="fgrid"><div class="field"><label for="bt-v">Vidrio</label><select id="bt-v">${vids.map(v=>`<option>${esc(v)}</option>`).join("")}</select></div>
    <div class="field"><label for="bt-t">Tipo</label><select id="bt-t"><option value="fijo">Fijo</option><option value="móvil">Móvil</option><option value="">Ninguno</option></select></div>
@@ -2722,7 +2731,7 @@ function vAjustes(){
    <div class="field full"><label for="esc-txt">Medidas de escuadras A15 para puertas especiales (cm)</label><input id="esc-txt" class="cin" data-cfg="escuadrasTxt" value="${esc(c.escuadrasTxt||"")}" placeholder="Ej: 2, 3, 5"><span class="hint">Separadas por coma. Salen como botones rápidos al elegir A15 en una puerta especial.</span></div>${fld("cc-dp","Lámina PVC: menos por medida (cm)","cocina.descPvc",c.cocina.descPvc,"",true)}</div>
    <h3>Descuentos de despiece (mm)</h3><span class="small muted">Valores iniciales de referencia. Ajústalos a la línea de perfil que trabajas.</span>
    ${Object.keys(c.desc).filter(k=>TIPOS[k]&&!TIPOS[k].oculto&&!TIPOS[k].div).map(k=>`<h3 class="small">${TIPOS[k].corto}</h3><div class="fgrid">${dl(TIPOS[k].corto,k)}</div>`).join("")}
-   <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-dif","Fijo más angosto que el móvil, máximo (cm)","division.difMax",c.division.difMax??5,"El fijo queda igual o hasta esta medida más angosto que el móvil.",true)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
+   <h3>Divisiones de baño</h3><div class="fgrid">${fld("dv-paso","Vidrios de cada (cm)","division.paso",c.division.paso)}${fld("dv-dif","Móvil más ancho que el fijo (cm)","division.difMax",c.division.difMax??5,"La medida ideal. Si no hay en bodega, se busca con menos diferencia hasta que sean iguales; con 1 cm más hay que aprobarlo.",true)}${fld("dv-tr","Traslape mínimo (cm)","division.traslape",c.division.traslape,"",true)}</div>`)}
 
   ${sec("aj-instalacion","Mano de obra y ganancia","Mano de obra por sistema, margen, recargos y redondeo",`
    <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="n">Mano de obra $/unidad</th></tr></thead><tbody>
@@ -3109,6 +3118,7 @@ document.addEventListener("click",async ev=>{
     case"pd-enviar":{const sl=b.dataset.v||"__prod";compartirTexto(textoPedidoMat(pedidoLineas(sl),sl));break}
     case"c-tab":S.cTab=b.dataset.v;render();break;
     case"mat-fil":S.matFil=b.dataset.v;render();break;
+    case"div6":{const it=S.itemTmp;if(!it)break;if(b.dataset.v==="1")it.div6={f:+b.dataset.f,m:+b.dataset.m};else delete it.div6;refreshSheet();break}
     case"pd-recibido":{const sl=b.dataset.v,L=pedidoLineas(sl).filter(x=>x.pedir>0);if(!L.length){toast("No hay nada en Pedir");break}S.recSel=sl;
       openSheet(()=>`<div class="sheet-h"><h2>¿Llegó el pedido?</h2></div><p style="margin:0">Se suma a la bodega lo que está en <b>Pedir</b>:</p><div class="small" style="max-height:240px;overflow:auto">${L.map(x=>`<div>${esc(x.txt(x.pedir))}</div>`).join("")}</div><div class="row"><button class="btn pri grow" data-act="pd-recibido-ok">Sí, sumar</button><button class="btn grow" data-act="cerrar">Cancelar</button></div>`);break}
     case"pd-recibido-ok":pdRecibir(S.recSel);break;
